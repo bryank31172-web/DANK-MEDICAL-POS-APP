@@ -4315,6 +4315,46 @@ function GreenPOS() {
       }) : p.concat([pid]);
     });
   };
+  const [managerPicks, setManagerPicks] = useState(function() {
+    try {
+      var v = JSON.parse(localStorage.getItem("dank_manager_picks"));
+      if (Array.isArray(v)) return v;
+    } catch (e) {
+    }
+    return [];
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_manager_picks", JSON.stringify(managerPicks));
+    } catch (e) {
+    }
+  }, [managerPicks]);
+  const [showAddManagerPick, setShowAddManagerPick] = useState(false);
+  const [managerPickForm, setManagerPickForm] = useState({ pid: "", note: "" });
+  const addManagerPick = function() {
+    if (!managerPickForm.pid) {
+      notify("\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E01\u0E48\u0E2D\u0E19", "error");
+      return;
+    }
+    var entry = { id: Date.now(), productId: managerPickForm.pid, note: managerPickForm.note || "", addedBy: currentStaff && currentStaff.name || "-", addedAt: (/* @__PURE__ */ new Date()).toISOString() };
+    setManagerPicks(function(p) {
+      return [entry].concat(p);
+    });
+    setManagerPickForm({ pid: "", note: "" });
+    setShowAddManagerPick(false);
+    notify("\u2705 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33\u0E02\u0E2D\u0E07\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E41\u0E25\u0E49\u0E27");
+    addAudit("MANAGER_PICK", "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32: " + (products.find(function(p) {
+      return String(p.id) === String(entry.productId);
+    }) || {}).name, currentStaff && currentStaff.name);
+  };
+  const removeManagerPick = function(id) {
+    setManagerPicks(function(p) {
+      return p.filter(function(x) {
+        return x.id !== id;
+      });
+    });
+    notify("\u0E25\u0E1A\u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33\u0E41\u0E25\u0E49\u0E27");
+  };
   const [expandedPO, setExpandedPO] = useState(null);
   const setPOEta = function(id, val) {
     setPurchaseOrders(function(p) {
@@ -4950,6 +4990,79 @@ function GreenPOS() {
         return cleanName(i).short;
       }).join(", ") : "(\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E27\u0E48\u0E32\u0E07)";
       runAI("\u{1F916} AI \u0E0A\u0E48\u0E27\u0E22\u0E02\u0E32\u0E22", SYS + " \u0E40\u0E1B\u0E47\u0E19 budtender", "\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E15\u0E2D\u0E19\u0E19\u0E35\u0E49: " + c + "\n\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32: " + (selCustomer ? selCustomer.name : "walk-in") + "\n\n\u0E41\u0E19\u0E30\u0E19\u0E33: \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E04\u0E27\u0E23\u0E40\u0E2A\u0E19\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21 (upsell/cross-sell) 3 \u0E2D\u0E22\u0E48\u0E32\u0E07 + \u0E1B\u0E23\u0E30\u0E42\u0E22\u0E04\u0E0A\u0E27\u0E19\u0E1E\u0E39\u0E14\u0E2A\u0E31\u0E49\u0E19\u0E46", 500);
+    } else if (kind === "suggest") {
+      var _sPromo = (products || []).filter(function(p) {
+        return promoProductIds.indexOf(p.id) >= 0 && (+p.stock || 0) > 0;
+      }).map(function(p) {
+        return cleanName(p).short;
+      }).join(", ") || "(\u0E44\u0E21\u0E48\u0E21\u0E35)";
+      var _sExpToday = /* @__PURE__ */ new Date();
+      var _sExp = (products || []).filter(function(p) {
+        return p.expiry && (+p.stock || 0) > 0;
+      }).map(function(p) {
+        var d = Math.floor((new Date(p.expiry) - _sExpToday) / 864e5);
+        return Object.assign({}, p, { daysLeft: d });
+      }).filter(function(p) {
+        return p.daysLeft <= 45 && p.daysLeft >= 0;
+      }).sort(function(a, b) {
+        return a.daysLeft - b.daysLeft;
+      }).slice(0, 8).map(function(p) {
+        return cleanName(p).short + " (\u0E40\u0E2B\u0E25\u0E37\u0E2D " + p.daysLeft + " \u0E27\u0E31\u0E19)";
+      }).join(", ") || "(\u0E44\u0E21\u0E48\u0E21\u0E35)";
+      var _sSoldSet = /* @__PURE__ */ new Set();
+      var _sCutoff = Date.now() - 30 * 864e5;
+      (Array.isArray(txHistory) ? txHistory : []).forEach(function(t2) {
+        if (new Date(t2.transactionTime || 0).getTime() >= _sCutoff) (t2.items || []).forEach(function(i) {
+          if (i.productId) _sSoldSet.add(i.productId);
+        });
+      });
+      var _sDead = (products || []).filter(function(p) {
+        return (+p.stock || 0) > 0 && !_sSoldSet.has(p.id);
+      }).slice(0, 8).map(function(p) {
+        return cleanName(p).short;
+      }).join(", ") || "(\u0E44\u0E21\u0E48\u0E21\u0E35)";
+      var _sCart = cart.length ? cart.map(function(i) {
+        return cleanName(i).short;
+      }).join(", ") : "(\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E27\u0E48\u0E32\u0E07)";
+      var _sCust = selCustomer ? selCustomer.name + " (\u0E41\u0E15\u0E49\u0E21 " + (selCustomer.points || 0) + ", \u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22\u0E23\u0E27\u0E21 \u0E3F" + Math.round(selCustomer.totalSpent || 0).toLocaleString() + ")" : "walk-in (\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32)";
+      runAI("\u{1F916} AI \u0E42\u0E04\u0E49\u0E0A\u0E01\u0E32\u0E23\u0E02\u0E32\u0E22", SYS + " \u0E40\u0E1B\u0E47\u0E19 budtender \u0E42\u0E04\u0E49\u0E0A\u0E17\u0E35\u0E48\u0E40\u0E01\u0E48\u0E07\u0E40\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E1E\u0E39\u0E14\u0E04\u0E38\u0E22\u0E02\u0E32\u0E22\u0E02\u0E2D\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19", "\u0E42\u0E1B\u0E23\u0E17\u0E35\u0E48\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E31\u0E19: " + _sPromo + "\n\u0E43\u0E01\u0E25\u0E49\u0E2B\u0E21\u0E14\u0E2D\u0E32\u0E22\u0E38: " + _sExp + "\n\u0E02\u0E2D\u0E07\u0E04\u0E49\u0E32\u0E07\u0E2A\u0E15\u0E4A\u0E2D\u0E01: " + _sDead + "\n\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19: " + _sCart + "\n\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32: " + _sCust + "\n\n\u0E0A\u0E48\u0E27\u0E22\u0E04\u0E34\u0E14: 1) \u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E33\u0E14\u0E31\u0E1A 3 \u0E2D\u0E22\u0E48\u0E32\u0E07\u0E17\u0E35\u0E48\u0E04\u0E27\u0E23\u0E41\u0E19\u0E30\u0E19\u0E33\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E04\u0E19\u0E19\u0E35\u0E49\u0E01\u0E48\u0E2D\u0E19 \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E2A\u0E31\u0E49\u0E19\u0E46 2) \u0E1B\u0E23\u0E30\u0E42\u0E22\u0E04\u0E0A\u0E27\u0E19\u0E04\u0E38\u0E22/\u0E40\u0E1B\u0E34\u0E14\u0E02\u0E32\u0E22 (script) \u0E20\u0E32\u0E29\u0E32\u0E44\u0E17\u0E22\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E31\u0E19\u0E40\u0E2D\u0E07 3 \u0E41\u0E1A\u0E1A\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E08\u0E23\u0E34\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19 3) \u0E16\u0E49\u0E32\u0E21\u0E35\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E2D\u0E22\u0E39\u0E48 \u0E43\u0E2B\u0E49 1 \u0E44\u0E2D\u0E40\u0E14\u0E35\u0E22 personalize \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E04\u0E19\u0E19\u0E35\u0E49", 700);
+    } else if (kind === "managerpick") {
+      var _mpToday = /* @__PURE__ */ new Date();
+      var _mpLow = (products || []).filter(function(p) {
+        return (+p.stock || 0) <= (p.alert || 10) && (+p.stock || 0) > 0;
+      }).map(function(p) {
+        return cleanName(p).short;
+      }).slice(0, 6).join(", ") || "(\u0E44\u0E21\u0E48\u0E21\u0E35)";
+      var _mpExp = (products || []).filter(function(p) {
+        return p.expiry && (+p.stock || 0) > 0;
+      }).map(function(p) {
+        var d = Math.floor((new Date(p.expiry) - _mpToday) / 864e5);
+        return Object.assign({}, p, { daysLeft: d });
+      }).filter(function(p) {
+        return p.daysLeft <= 45 && p.daysLeft >= 0;
+      }).sort(function(a, b) {
+        return a.daysLeft - b.daysLeft;
+      }).slice(0, 6).map(function(p) {
+        return cleanName(p).short + " (\u0E40\u0E2B\u0E25\u0E37\u0E2D " + p.daysLeft + " \u0E27\u0E31\u0E19)";
+      }).join(", ") || "(\u0E44\u0E21\u0E48\u0E21\u0E35)";
+      var _mpSold = /* @__PURE__ */ new Set();
+      var _mpCut = Date.now() - 30 * 864e5;
+      (Array.isArray(txHistory) ? txHistory : []).forEach(function(t2) {
+        if (new Date(t2.transactionTime || 0).getTime() >= _mpCut) (t2.items || []).forEach(function(i) {
+          if (i.productId) _mpSold.add(i.productId);
+        });
+      });
+      var _mpDead = (products || []).filter(function(p) {
+        return (+p.stock || 0) > 0 && !_mpSold.has(p.id);
+      }).slice(0, 8).map(function(p) {
+        return cleanName(p).short;
+      }).join(", ") || "(\u0E44\u0E21\u0E48\u0E21\u0E35)";
+      var _mpOver = (products || []).filter(function(p) {
+        return (+p.stock || 0) > (+p.alert || 10) * 3;
+      }).slice(0, 6).map(function(p) {
+        return cleanName(p).short;
+      }).join(", ") || "(\u0E44\u0E21\u0E48\u0E21\u0E35)";
+      runAI("\u{1F916} AI \u0E41\u0E19\u0E30\u0E19\u0E33\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E43\u0E2B\u0E49\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E40\u0E25\u0E37\u0E2D\u0E01", SYS + " \u0E0A\u0E48\u0E27\u0E22\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E23\u0E49\u0E32\u0E19\u0E15\u0E31\u0E14\u0E2A\u0E34\u0E19\u0E43\u0E08\u0E27\u0E48\u0E32\u0E04\u0E27\u0E23\u0E14\u0E31\u0E19\u0E02\u0E32\u0E22\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E15\u0E31\u0E27\u0E44\u0E2B\u0E19\u0E40\u0E1B\u0E47\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C\u0E19\u0E35\u0E49", "\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E43\u0E01\u0E25\u0E49\u0E2B\u0E21\u0E14: " + _mpLow + "\n\u0E43\u0E01\u0E25\u0E49\u0E2B\u0E21\u0E14\u0E2D\u0E32\u0E22\u0E38: " + _mpExp + "\n\u0E02\u0E2D\u0E07\u0E04\u0E49\u0E32\u0E07\u0E2A\u0E15\u0E4A\u0E2D\u0E01 30 \u0E27\u0E31\u0E19 (\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E19\u0E0B\u0E37\u0E49\u0E2D): " + _mpDead + "\n\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E40\u0E01\u0E34\u0E19\u0E1B\u0E01\u0E15\u0E34: " + _mpOver + '\n\n\u0E0A\u0E48\u0E27\u0E22\u0E41\u0E19\u0E30\u0E19\u0E33 3-5 \u0E0A\u0E37\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E04\u0E27\u0E23\u0E15\u0E31\u0E49\u0E07\u0E40\u0E1B\u0E47\u0E19 "\u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33\u0E1E\u0E34\u0E40\u0E28\u0E29" \u0E43\u0E2B\u0E49\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E14\u0E31\u0E19\u0E02\u0E32\u0E22\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C\u0E19\u0E35\u0E49 \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E2A\u0E31\u0E49\u0E19\u0E46 \u0E41\u0E15\u0E48\u0E25\u0E30\u0E15\u0E31\u0E27 (\u0E23\u0E30\u0E1A\u0E38\u0E0A\u0E37\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E43\u0E2B\u0E49\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E43\u0E2B\u0E49\u0E21\u0E32\u0E40\u0E1B\u0E4A\u0E30\u0E46)', 600);
     }
   };
   const runAI = function(title, system, user, maxTok) {
@@ -5743,9 +5856,14 @@ function GreenPOS() {
     });
     var sold = /* @__PURE__ */ new Set();
     var cutoff = Date.now() - 30 * 864e5;
+    var salesQty = {}, salesRev = {};
     (Array.isArray(txHistory) ? txHistory : []).forEach(function(t2) {
       if (new Date(t2.transactionTime || 0).getTime() >= cutoff) (t2.items || []).forEach(function(i) {
-        if (i.productId) sold.add(i.productId);
+        if (i.productId) {
+          sold.add(i.productId);
+          salesQty[i.productId] = (salesQty[i.productId] || 0) + (+i.quantity || 0);
+          salesRev[i.productId] = (salesRev[i.productId] || 0) + (+i.total || 0);
+        }
       });
     });
     var deadStockList = products.filter(function(p) {
@@ -5757,12 +5875,108 @@ function GreenPOS() {
       });
     });
     var clearList = deadStockList.concat(overstock).slice(0, 20);
+    var bestSellers = products.filter(function(p) {
+      return (+p.stock || 0) > 0 && salesRev[p.id] > 0;
+    }).sort(function(a, b) {
+      return (salesRev[b.id] || 0) - (salesRev[a.id] || 0);
+    }).slice(0, 6);
+    var cartIds = cart.map(function(i) {
+      return i.id;
+    });
+    var fbtScores = {};
+    if (cartIds.length) {
+      (Array.isArray(txHistory) ? txHistory : []).forEach(function(t2) {
+        var pids = (t2.items || []).map(function(i) {
+          return i.productId;
+        }).filter(Boolean);
+        var hasCartItem = pids.some(function(id) {
+          return cartIds.indexOf(id) >= 0;
+        });
+        if (!hasCartItem) return;
+        pids.forEach(function(id) {
+          if (cartIds.indexOf(id) < 0) fbtScores[id] = (fbtScores[id] || 0) + 1;
+        });
+      });
+    }
+    var fbtItems = Object.keys(fbtScores).map(function(id) {
+      return products.find(function(p) {
+        return String(p.id) === String(id);
+      });
+    }).filter(function(p) {
+      return p && (+p.stock || 0) > 0;
+    }).sort(function(a, b) {
+      return (fbtScores[b.id] || 0) - (fbtScores[a.id] || 0);
+    }).slice(0, 5);
+    var custBought = null;
+    if (selCustomer) {
+      var cIds = /* @__PURE__ */ new Set();
+      var cCat = {};
+      (Array.isArray(txHistory) ? txHistory : []).forEach(function(t2) {
+        if (t2.customerId !== selCustomer.id && t2.customer !== selCustomer.name) return;
+        (t2.items || []).forEach(function(i) {
+          if (i.productId) {
+            cIds.add(i.productId);
+            var pp = products.find(function(x) {
+              return String(x.id) === String(i.productId);
+            });
+            if (pp && pp.cat) cCat[pp.cat] = (cCat[pp.cat] || 0) + 1;
+          }
+        });
+      });
+      var topCat = Object.entries(cCat).sort(function(a, b) {
+        return b[1] - a[1];
+      })[0];
+      var custSuggest = topCat ? products.filter(function(p) {
+        return p.cat === topCat[0] && (+p.stock || 0) > 0 && !cIds.has(p.id);
+      }).slice(0, 5) : [];
+      custBought = { topCat: topCat ? topCat[0] : null, suggest: custSuggest, everBought: cIds.size };
+    }
     var addSuggest = function(p) {
       addToCart(p);
       setActiveTab("pos");
       notify("\u0E40\u0E1E\u0E34\u0E48\u0E21 " + cleanName(p).short + " \u0E25\u0E07\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E41\u0E25\u0E49\u0E27 \u{1F6D2}");
     };
-    return /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900, marginBottom: 4 } }, "\u{1F4A1} \u0E41\u0E19\u0E30\u0E19\u0E33\u0E02\u0E32\u0E22 \xB7 Suggest to Customers"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginBottom: 14, lineHeight: 1.6 } }, "\u0E43\u0E0A\u0E49\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E15\u0E2D\u0E19\u0E04\u0E38\u0E22\u0E01\u0E31\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 \u2014 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E42\u0E1B\u0E23\u0E17\u0E35\u0E48\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E31\u0E19 \u0E2B\u0E23\u0E37\u0E2D\u0E02\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E04\u0E27\u0E23\u0E23\u0E35\u0E1A\u0E02\u0E32\u0E22\u0E01\u0E48\u0E2D\u0E19\u0E2B\u0E21\u0E14\u0E2D\u0E32\u0E22\u0E38/\u0E04\u0E49\u0E32\u0E07\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E19\u0E32\u0E19", /* @__PURE__ */ React.createElement("br", null), "Use this while talking to customers \u2014 push featured promos, or items that should sell first before they expire or keep sitting."), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(245,158,11,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: C.gold, marginBottom: 9 } }, "\u2B50 \u0E42\u0E1B\u0E23\u0E42\u0E21\u0E0A\u0E31\u0E48\u0E19\u0E17\u0E35\u0E48\u0E14\u0E31\u0E19\u0E2D\u0E22\u0E39\u0E48 \xB7 Featured Promotions"), promoItems.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "10px 0" } }, '\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E15\u0E31\u0E49\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E42\u0E1B\u0E23 \u2014 \u0E43\u0E2B\u0E49\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E44\u0E1B\u0E17\u0E35\u0E48 Inventory \u2192 \u0E01\u0E14 "\u2606 Promo" \u0E17\u0E35\u0E48\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E19\u0E31\u0E49\u0E19', /* @__PURE__ */ React.createElement("br", null), 'No promo items yet \u2014 a manager can star an item in Inventory \u2192 "\u2606 Promo"'), promoItems.map(function(p) {
+    return /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900 } }, "\u{1F4A1} \u0E41\u0E19\u0E30\u0E19\u0E33\u0E02\u0E32\u0E22 \xB7 Suggest to Customers"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      askTabAI("suggest");
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10.5, padding: "5px 12px" }) }, "\u{1F916} AI \u0E42\u0E04\u0E49\u0E0A\u0E01\u0E32\u0E23\u0E02\u0E32\u0E22 \xB7 AI Sales Coach")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginBottom: 14, lineHeight: 1.6 } }, "\u0E43\u0E0A\u0E49\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E15\u0E2D\u0E19\u0E04\u0E38\u0E22\u0E01\u0E31\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 \u2014 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E42\u0E1B\u0E23\u0E17\u0E35\u0E48\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E31\u0E19 \u0E2B\u0E23\u0E37\u0E2D\u0E02\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E04\u0E27\u0E23\u0E23\u0E35\u0E1A\u0E02\u0E32\u0E22\u0E01\u0E48\u0E2D\u0E19\u0E2B\u0E21\u0E14\u0E2D\u0E32\u0E22\u0E38/\u0E04\u0E49\u0E32\u0E07\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E19\u0E32\u0E19", /* @__PURE__ */ React.createElement("br", null), "Use this while talking to customers \u2014 push featured promos, or items that should sell first before they expire or keep sitting."), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid " + C.gold }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: C.gold } }, "\u{1F4CC} \u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33\u0E08\u0E32\u0E01\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23 \xB7 Manager's Picks"), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShowAddManagerPick(function(v) {
+        return !v;
+      });
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 9.5, padding: "4px 10px" }) }, showAddManagerPick ? "\u2715 \u0E1B\u0E34\u0E14" : "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33")), showAddManagerPick && canEdit && /* @__PURE__ */ React.createElement("div", { style: { background: C.card2, border: "1px solid " + C.border, borderRadius: 9, padding: 10, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      askTabAI("managerpick");
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10, padding: "5px 11px", marginBottom: 9, width: "100%" }) }, "\u{1F916} AI \u0E0A\u0E48\u0E27\u0E22\u0E41\u0E19\u0E30\u0E19\u0E33\u0E27\u0E48\u0E32\u0E04\u0E27\u0E23\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E31\u0E27\u0E44\u0E2B\u0E19 \xB7 AI: what should I feature?"), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14) / Product (select from inventory)"), /* @__PURE__ */ React.createElement("select", { value: managerPickForm.pid, onChange: function(e) {
+      setManagerPickForm(function(p) {
+        return Object.assign({}, p, { pid: e.target.value });
+      });
+    }, style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 8 }) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 \u2014"), products.map(function(p) {
+      return /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.id }, cleanName(p).short, " (\u0E3F", p.price, " \xB7 \u0E2A\u0E15\u0E4A\u0E2D\u0E01 ", p.stock, ")");
+    })), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25/\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E16\u0E36\u0E07\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19 (\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A) / Note to staff (optional)"), /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 9 }), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E22\u0E32\u0E01\u0E14\u0E31\u0E19\u0E15\u0E31\u0E27\u0E19\u0E35\u0E49\u0E01\u0E48\u0E2D\u0E19\u0E02\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48\u0E21\u0E32", value: managerPickForm.note, onChange: function(e) {
+      setManagerPickForm(function(p) {
+        return Object.assign({}, p, { note: e.target.value });
+      });
+    } }), /* @__PURE__ */ React.createElement("button", { onClick: addManagerPick, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { width: "100%" }) }, "\u{1F4BE} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33")), managerPicks.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "10px 0" } }, '\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33\u0E08\u0E32\u0E01\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23 \u2014 \u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E01\u0E14 "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E1A\u0E2D\u0E01\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E27\u0E48\u0E32\u0E2D\u0E22\u0E32\u0E01\u0E43\u0E2B\u0E49\u0E14\u0E31\u0E19\u0E02\u0E32\u0E22\u0E15\u0E31\u0E27\u0E44\u0E2B\u0E19\u0E40\u0E1B\u0E47\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29', /* @__PURE__ */ React.createElement("br", null), "No manager picks yet \u2014 a manager can add one above to tell staff what to push."), managerPicks.map(function(mp) {
+      var p = products.find(function(x) {
+        return String(x.id) === String(mp.productId);
+      });
+      if (!p) return null;
+      return /* @__PURE__ */ React.createElement("div", { key: mp.id, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", background: C.card2, borderRadius: 9, marginBottom: 7, border: "1px solid " + C.border } }, pimg(p.img, 24), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700 } }, cleanName(p).short), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.gold } }, "\u0E3F", (+p.price || 0).toLocaleString(), mp.note ? ' \xB7 "' + mp.note + '"' : ""), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted, marginTop: 1 } }, "\u0E42\u0E14\u0E22 ", mp.addedBy, " \xB7 ", new Date(mp.addedAt).toLocaleDateString())), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+        addSuggest(p);
+      }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 11px" }) }, "+ \u0E43\u0E2A\u0E48\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32"), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+        removeManagerPick(mp.id);
+      }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#f43f5e")), { fontSize: 10, padding: "5px 9px", border: "1px solid rgba(244,63,94,0.25)" }) }, "\u2715"));
+    })), custBought && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(192,132,252,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#c084fc", marginBottom: 9 } }, "\u{1F464} \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A ", selCustomer.name, " \xB7 Personalized for this customer"), custBought.topCat ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginBottom: 8 } }, "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E04\u0E19\u0E19\u0E35\u0E49\u0E0B\u0E37\u0E49\u0E2D\u0E2B\u0E21\u0E27\u0E14 ", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, custBought.topCat), " \u0E1A\u0E48\u0E2D\u0E22\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14 (", custBought.everBought, " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E40\u0E04\u0E22\u0E0B\u0E37\u0E49\u0E2D) \u2014 \u0E25\u0E2D\u0E07\u0E41\u0E19\u0E30\u0E19\u0E33\u0E15\u0E31\u0E27\u0E43\u0E2B\u0E21\u0E48\u0E43\u0E19\u0E2B\u0E21\u0E27\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E40\u0E04\u0E22\u0E0B\u0E37\u0E49\u0E2D:"), custBought.suggest.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "6px 0" } }, "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E0B\u0E37\u0E49\u0E2D\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E15\u0E31\u0E27\u0E43\u0E19\u0E2B\u0E21\u0E27\u0E14\u0E19\u0E35\u0E49\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E25\u0E2D\u0E07\u0E41\u0E19\u0E30\u0E19\u0E33\u0E2B\u0E21\u0E27\u0E14\u0E43\u0E2B\u0E21\u0E48"), custBought.suggest.map(function(p) {
+      return /* @__PURE__ */ React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", background: C.card2, borderRadius: 9, marginBottom: 7, border: "1px solid " + C.border } }, pimg(p.img, 24), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700 } }, cleanName(p).short), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "#c084fc" } }, "\u0E3F", (+p.price || 0).toLocaleString(), ' \xB7 \u0E41\u0E19\u0E30\u0E19\u0E33: "\u0E04\u0E38\u0E13', selCustomer.name, "\u0E40\u0E04\u0E22\u0E25\u0E2D\u0E07", custBought.topCat, '\u0E2B\u0E25\u0E32\u0E22\u0E15\u0E31\u0E27\u0E41\u0E25\u0E49\u0E27 \u0E25\u0E2D\u0E07\u0E15\u0E31\u0E27\u0E19\u0E35\u0E49\u0E14\u0E39\u0E44\u0E2B\u0E21\u0E04\u0E30/\u0E04\u0E23\u0E31\u0E1A?"')), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+        addSuggest(p);
+      }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 11px" }) }, "+ \u0E43\u0E2A\u0E48\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32"));
+    })) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "8px 0" } }, "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E04\u0E19\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E01\u0E32\u0E23\u0E0B\u0E37\u0E49\u0E2D\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A")), fbtItems.length > 0 && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(74,222,128,0.3)" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: C.green, marginBottom: 9 } }, "\u{1F91D} \u0E21\u0E31\u0E01\u0E0B\u0E37\u0E49\u0E2D\u0E04\u0E39\u0E48\u0E01\u0E31\u0E19 \xB7 Frequently Bought Together"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginBottom: 8 } }, "\u0E04\u0E33\u0E19\u0E27\u0E13\u0E08\u0E32\u0E01\u0E1A\u0E34\u0E25\u0E08\u0E23\u0E34\u0E07\u0E17\u0E35\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E43\u0E19\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E15\u0E2D\u0E19\u0E19\u0E35\u0E49\u0E2D\u0E22\u0E39\u0E48\u0E14\u0E49\u0E27\u0E22"), fbtItems.map(function(p) {
+      return /* @__PURE__ */ React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", background: C.card2, borderRadius: 9, marginBottom: 7, border: "1px solid " + C.border } }, pimg(p.img, 24), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700 } }, cleanName(p).short), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.green } }, "\u0E3F", (+p.price || 0).toLocaleString(), ' \xB7 \u0E41\u0E19\u0E30\u0E19\u0E33: "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E2A\u0E48\u0E27\u0E19\u0E43\u0E2B\u0E0D\u0E48\u0E0B\u0E37\u0E49\u0E2D\u0E15\u0E31\u0E27\u0E19\u0E35\u0E49\u0E04\u0E39\u0E48\u0E01\u0E31\u0E1A\u0E02\u0E2D\u0E07\u0E43\u0E19\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E04\u0E38\u0E13\u0E14\u0E49\u0E27\u0E22\u0E19\u0E30\u0E04\u0E30/\u0E04\u0E23\u0E31\u0E1A"')), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+        addSuggest(p);
+      }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 11px" }) }, "+ \u0E43\u0E2A\u0E48\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32"));
+    })), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(249,115,22,0.3)" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#f97316", marginBottom: 9 } }, "\u{1F525} \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E02\u0E32\u0E22\u0E14\u0E35 \u2014 \u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1B\u0E25\u0E2D\u0E14\u0E20\u0E31\u0E22 \xB7 Best Sellers"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginBottom: 8 } }, "\u0E44\u0E21\u0E48\u0E23\u0E39\u0E49\u0E08\u0E30\u0E41\u0E19\u0E30\u0E19\u0E33\u0E2D\u0E30\u0E44\u0E23? \u0E40\u0E23\u0E34\u0E48\u0E21\u0E08\u0E32\u0E01\u0E15\u0E31\u0E27\u0E17\u0E35\u0E48\u0E02\u0E32\u0E22\u0E14\u0E35\u0E2A\u0E38\u0E14 30 \u0E27\u0E31\u0E19\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14"), bestSellers.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "10px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22 30 \u0E27\u0E31\u0E19\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14"), bestSellers.map(function(p) {
+      return /* @__PURE__ */ React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", background: C.card2, borderRadius: 9, marginBottom: 7, border: "1px solid " + C.border } }, pimg(p.img, 24), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700 } }, cleanName(p).short), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "#fb923c" } }, "\u0E3F", (+p.price || 0).toLocaleString(), " \xB7 \u0E02\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27 ", salesQty[p.id] || 0, ' \u0E0A\u0E34\u0E49\u0E19 (30 \u0E27\u0E31\u0E19) \xB7 \u0E41\u0E19\u0E30\u0E19\u0E33: "\u0E15\u0E31\u0E27\u0E19\u0E35\u0E49\u0E02\u0E32\u0E22\u0E14\u0E35\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14\u0E15\u0E2D\u0E19\u0E19\u0E35\u0E49\u0E04\u0E48\u0E30/\u0E04\u0E23\u0E31\u0E1A"')), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+        addSuggest(p);
+      }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 11px" }) }, "+ \u0E43\u0E2A\u0E48\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32"));
+    })), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(245,158,11,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: C.gold, marginBottom: 9 } }, "\u2B50 \u0E42\u0E1B\u0E23\u0E42\u0E21\u0E0A\u0E31\u0E48\u0E19\u0E17\u0E35\u0E48\u0E14\u0E31\u0E19\u0E2D\u0E22\u0E39\u0E48 \xB7 Featured Promotions"), promoItems.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "10px 0" } }, '\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E15\u0E31\u0E49\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E42\u0E1B\u0E23 \u2014 \u0E43\u0E2B\u0E49\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E44\u0E1B\u0E17\u0E35\u0E48 Inventory \u2192 \u0E01\u0E14 "\u2606 Promo" \u0E17\u0E35\u0E48\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E19\u0E31\u0E49\u0E19', /* @__PURE__ */ React.createElement("br", null), 'No promo items yet \u2014 a manager can star an item in Inventory \u2192 "\u2606 Promo"'), promoItems.map(function(p) {
       return /* @__PURE__ */ React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", background: C.card2, borderRadius: 9, marginBottom: 7, border: "1px solid " + C.border } }, pimg(p.img, 24), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700 } }, cleanName(p).short), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.gold } }, "\u0E3F", (+p.price || 0).toLocaleString(), ' \xB7 \u0E41\u0E19\u0E30\u0E19\u0E33: "\u0E15\u0E2D\u0E19\u0E19\u0E35\u0E49\u0E21\u0E35\u0E42\u0E1B\u0E23\u0E15\u0E31\u0E27\u0E19\u0E35\u0E49\u0E2D\u0E22\u0E39\u0E48\u0E04\u0E48\u0E30/\u0E04\u0E23\u0E31\u0E1A \u0E25\u0E2D\u0E07\u0E14\u0E39\u0E44\u0E2B\u0E21?"')), /* @__PURE__ */ React.createElement("button", { onClick: function() {
         addSuggest(p);
       }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 11px" }) }, "+ \u0E43\u0E2A\u0E48\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32"));
