@@ -238,6 +238,9 @@ function GreenPOS() {
   const [stores, setStores] = useState([]);
   const [activeBranch, setActiveBranch] = useState("all");
   const [dashPeriod, setDashPeriod] = useState("all");
+  const [dashCustomFrom, setDashCustomFrom] = useState("");
+  const [dashCustomTo, setDashCustomTo] = useState("");
+  const [showDashCustomPicker, setShowDashCustomPicker] = useState(false);
   const [appointments, setAppointments] = useState(function() {
     try {
       return JSON.parse(localStorage.getItem("dank_appointments") || "[]");
@@ -966,11 +969,18 @@ function GreenPOS() {
     if (dashPeriod === "month") return d.getUTCFullYear() === y && d.getUTCMonth() === mo;
     if (dashPeriod === "quarter") return d.getUTCFullYear() === y && Math.floor(d.getUTCMonth() / 3) === Math.floor(mo / 3);
     if (dashPeriod === "year") return d.getUTCFullYear() === y;
+    if (dashPeriod === "custom") {
+      if (!dashCustomFrom && !dashCustomTo) return true;
+      if (dashCustomFrom && ds < dashCustomFrom) return false;
+      if (dashCustomTo && ds > dashCustomTo) return false;
+      return true;
+    }
     return true;
   };
   const _dashSales = dashPeriod === "all" ? salesData : salesData.filter(function(d) {
     return _inDashPeriod(d.date);
   });
+  const _dashPeriodLabel = dashPeriod === "custom" ? "\u{1F4C5} " + (dashCustomFrom || "\u2026") + " \u2013 " + (dashCustomTo || "\u2026") : null;
   const totalRev = _dashSales.reduce((s, d) => s + d.sales, 0);
   const totalBills = _dashSales.reduce((s, d) => s + d.bills, 0);
   const avgBasket = totalBills ? totalRev / totalBills : 0;
@@ -2208,7 +2218,7 @@ function GreenPOS() {
     return { vat: Math.round(v), base: Math.round(base) };
   })();
   const _dashKpi = [
-    { l: "Total Revenue", v: "\u0E3F" + (totalRev / 1e6).toFixed(2) + "M", s: { day: "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", month: "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49", quarter: "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A\u0E19\u0E35\u0E49", year: "\u0E1B\u0E35\u0E19\u0E35\u0E49", all: _legacyRev > 0 ? "90d + FoodStory 1-11/7" : "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }[dashPeriod], c: C.green, i: "\u{1F4B0}" },
+    { l: "Total Revenue", v: "\u0E3F" + (totalRev / 1e6).toFixed(2) + "M", s: _dashPeriodLabel || { day: "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", month: "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49", quarter: "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A\u0E19\u0E35\u0E49", year: "\u0E1B\u0E35\u0E19\u0E35\u0E49", all: _legacyRev > 0 ? "90d + FoodStory 1-11/7" : "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }[dashPeriod], c: C.green, i: "\u{1F4B0}" },
     { l: "Total Bills", v: totalBills.toLocaleString(), s: "transactions", c: C.blue, i: "\u{1F9FE}" },
     { l: "Net Profit", v: "\u0E3F" + (_netProfit / 1e3).toFixed(1) + "K", s: _legacyRev > 0 ? "incl. FoodStory est. cost" : "sales \u2212 product cost", c: _netProfit >= 0 ? C.green : C.red, i: "\u{1F4C8}" },
     { l: "VAT \u0E19\u0E33\u0E2A\u0E48\u0E07 (\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49)", v: "\u0E3F" + (_vatMonth.vat / 1e3).toFixed(1) + "K", s: "7/107 \u0E02\u0E2D\u0E07\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22 \u0E3F" + (_vatMonth.base / 1e3).toFixed(0) + "K (\u0E23\u0E32\u0E04\u0E32\u0E23\u0E27\u0E21 VAT \u0E41\u0E25\u0E49\u0E27)", c: "#f97316", i: "\u{1F9FE}" },
@@ -4227,6 +4237,7 @@ function GreenPOS() {
   }, [bwSchedule]);
   const [bwKey, setBwKey] = useState("Pattanakarn|SALE");
   const [bwView, setBwView] = useState("byStaff");
+  const [shiftGridSub, setShiftGridSub] = useState({});
   const BW_ROW_COLORS = ["rgba(74,222,128,0.05)", "rgba(255,255,255,0.02)"];
   const bwPivotByStaff = function(sc) {
     var names = [];
@@ -4660,7 +4671,7 @@ function GreenPOS() {
     var td = (salesData || []).find(function(d) {
       return d.date === today;
     });
-    var perLbl = { day: "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", month: "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49", quarter: "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A", year: "\u0E1B\u0E35\u0E19\u0E35\u0E49", all: "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }[dashPeriod];
+    var perLbl = _dashPeriodLabel || { day: "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", month: "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49", quarter: "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A", year: "\u0E1B\u0E35\u0E19\u0E35\u0E49", all: "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }[dashPeriod];
     if (has("\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22", "\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49", "sales", "revenue", "\u0E02\u0E32\u0E22\u0E44\u0E14\u0E49", "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", "today"))
       return "\u{1F4CA} \u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22 (" + (stores.find(function(s) {
         return s.id === activeBranch;
@@ -4764,7 +4775,7 @@ function GreenPOS() {
     L.push("");
     L.push("\u{1F4B0} \u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22");
     L.push("\u2022 \u0E27\u0E31\u0E19\u0E19\u0E35\u0E49: \u0E3F" + Math.round(td ? td.sales : 0).toLocaleString() + " (" + (td ? td.bills : 0) + " \u0E1A\u0E34\u0E25)");
-    L.push("\u2022 \u0E23\u0E27\u0E21(" + { day: "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", month: "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49", quarter: "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A", year: "\u0E1B\u0E35\u0E19\u0E35\u0E49", all: "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }[dashPeriod] + "): \u0E3F" + Math.round(totalRev).toLocaleString() + " \xB7 " + totalBills + " \u0E1A\u0E34\u0E25 \xB7 \u0E40\u0E09\u0E25\u0E35\u0E48\u0E22 \u0E3F" + avgBasket.toFixed(0) + "/\u0E1A\u0E34\u0E25 \xB7 \u0E01\u0E33\u0E44\u0E23\u0E2A\u0E38\u0E17\u0E18\u0E34 \u0E3F" + Math.round(_netProfit).toLocaleString());
+    L.push("\u2022 \u0E23\u0E27\u0E21(" + (_dashPeriodLabel || { day: "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", month: "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49", quarter: "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A", year: "\u0E1B\u0E35\u0E19\u0E35\u0E49", all: "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }[dashPeriod]) + "): \u0E3F" + Math.round(totalRev).toLocaleString() + " \xB7 " + totalBills + " \u0E1A\u0E34\u0E25 \xB7 \u0E40\u0E09\u0E25\u0E35\u0E48\u0E22 \u0E3F" + avgBasket.toFixed(0) + "/\u0E1A\u0E34\u0E25 \xB7 \u0E01\u0E33\u0E44\u0E23\u0E2A\u0E38\u0E17\u0E18\u0E34 \u0E3F" + Math.round(_netProfit).toLocaleString());
     L.push("");
     L.push("\u{1F4E6} \u0E2A\u0E15\u0E4A\u0E2D\u0E01");
     L.push("\u2022 \u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E2A\u0E15\u0E4A\u0E2D\u0E01(\u0E17\u0E38\u0E19): \u0E3F" + Math.round(invVal).toLocaleString() + " \xB7 \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 " + products.length + " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23");
@@ -5327,48 +5338,42 @@ function GreenPOS() {
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 12px" }) }, "\u25B6 \u0E40\u0E02\u0E49\u0E32\u0E01\u0E30 In") : /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted } }, op ? "on" : "off"));
   }), staff.filter(function(s2) {
     return s2.approved !== false;
-  }).length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "14px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginTop: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 3 } }, "\u{1F4CB} \u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E01\u0E30 \xB7 Shift Structure \u2014 All Businesses"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10, lineHeight: 1.6 } }, "\u0E01\u0E30\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14: ", SHIFT_SCHEDULE.map(function(ss) {
-    return ss.name + " (" + ss.start + "\u2013" + ss.end + ")";
-  }).join(" \xB7 "), " \u2014 \u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E01\u0E31\u0E1A Clock In/Out \u0E08\u0E23\u0E34\u0E07\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 (\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E2A\u0E14)"), ["Pattanakarn", "Sathorn", "Bars"].map(function(br) {
+  }).length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "14px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginTop: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 3 } }, "\u{1F4C5} \u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30 2 \u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C \xB7 2-Week Schedule \u2014 All Businesses"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10, lineHeight: 1.6 } }, "21 \u0E01.\u0E04.\u20134 \u0E2A.\u0E04. \xB7 \u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E41\u0E01\u0E49\u0E44\u0E02\u0E15\u0E32\u0E23\u0E32\u0E07 \u0E44\u0E1B\u0E17\u0E35\u0E48 \u{1F465} Staff \u2192 \u{1F4C5} Shift Management \u2192 2-Week"), ["Pattanakarn", "Sathorn", "Bars"].map(function(br) {
     var list = staff.filter(function(s2) {
       return s2.approved !== false && (s2.branch || "") === br;
     });
-    return /* @__PURE__ */ React.createElement("div", { key: br, style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: C.gold, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", null, br === "Pattanakarn" ? "\u{1F33F}" : br === "Sathorn" ? "\u{1F48E}" : "\u{1F37A}"), br, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 500 } }, "(", list.length, " \u0E04\u0E19)")), SHIFT_REQUIREMENTS[br] && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 } }, SHIFT_REQUIREMENTS[br].map(function(req, ri) {
+    var subKeys = Object.keys(BW_SEED).filter(function(k) {
+      return k.indexOf(br + "|") === 0;
+    });
+    var activeKey = subKeys.indexOf(shiftGridSub[br]) >= 0 ? shiftGridSub[br] : subKeys[0];
+    var sc = activeKey ? bwSchedule[activeKey] : null;
+    return /* @__PURE__ */ React.createElement("div", { key: br, style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: C.gold, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", null, br === "Pattanakarn" ? "\u{1F33F}" : br === "Sathorn" ? "\u{1F48E}" : "\u{1F37A}"), br, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 500 } }, "(", list.length, " \u0E04\u0E19)")), SHIFT_REQUIREMENTS[br] && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 } }, SHIFT_REQUIREMENTS[br].map(function(req, ri) {
       var got = list.filter(function(s2) {
         return s2.role === req.role && s2.shiftId === req.shiftId;
       }).length;
       var ok = got >= req.need;
       return /* @__PURE__ */ React.createElement("span", { key: ri, style: __spreadProps(__spreadValues({}, gs.badge(ok ? "rgba(74,222,128,0.12)" : "rgba(244,63,94,0.12)", ok ? C.green : "#f43f5e")), { fontSize: 8.5, border: "1px solid " + (ok ? "rgba(74,222,128,0.3)" : "rgba(244,63,94,0.3)") }) }, ok ? "\u2713" : "\u26A0", " ", req.role, " \xB7 ", req.label, ": ", got, "/", req.need);
-    })), list.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, padding: "8px 10px", background: C.card2, borderRadius: 8 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E2A\u0E32\u0E02\u0E32\u0E19\u0E35\u0E49 \xB7 No staff assigned to this branch yet") : /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 10 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { textAlign: "left", color: C.muted, fontSize: 8.5 } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "4px 6px" } }, "\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19"), /* @__PURE__ */ React.createElement("th", { style: { padding: "4px 6px" } }, "\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07"), /* @__PURE__ */ React.createElement("th", { style: { padding: "4px 6px" } }, "\u0E01\u0E30\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14"), /* @__PURE__ */ React.createElement("th", { style: { padding: "4px 6px" } }, "\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14"), /* @__PURE__ */ React.createElement("th", { style: { padding: "4px 6px" } }, "\u0E2A\u0E16\u0E32\u0E19\u0E30 Clock"))), /* @__PURE__ */ React.createElement("tbody", null, list.map(function(s2) {
-      var op = openShiftOf(s2.id);
-      var sh = staffShift(s2);
-      return /* @__PURE__ */ React.createElement("tr", { key: s2.id, style: { borderTop: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 6px", fontWeight: 700 } }, s2.name), /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 6px", color: C.muted } }, s2.role), /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 6px", maxWidth: 260 } }, s2.customSchedule ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, lineHeight: 1.5 } }, "\u{1F550} ", s2.customSchedule) : canEdit ? (function() {
-        var ek = "shift_" + s2.id;
-        var pending = Object.prototype.hasOwnProperty.call(pendingEdits, ek) ? pendingEdits[ek] : s2.shiftId || "";
-        var dirty = pending !== (s2.shiftId || "");
-        return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center" } }, /* @__PURE__ */ React.createElement("select", { value: pending, onChange: function(e) {
-          var v = e.target.value;
-          setPendingEdits(function(p) {
-            return Object.assign({}, p, { [ek]: v });
+    })), !sc ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, padding: "8px 10px", background: C.card2, borderRadius: 8 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30 2 \u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E2A\u0E32\u0E02\u0E32\u0E19\u0E35\u0E49 \xB7 No 2-week schedule for this branch yet") : (function() {
+      var piv = bwPivotByStaff(sc);
+      return /* @__PURE__ */ React.createElement("div", null, subKeys.length > 1 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, marginBottom: 8 } }, subKeys.map(function(k) {
+        var on = activeKey === k;
+        return /* @__PURE__ */ React.createElement("button", { key: k, onClick: function() {
+          setShiftGridSub(function(p) {
+            return Object.assign({}, p, { [br]: k });
           });
-        }, style: __spreadProps(__spreadValues({}, gs.input), { padding: "2px 5px", fontSize: 9.5, width: "auto" }) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 \u0E44\u0E21\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14 \u2014"), SHIFT_SCHEDULE.map(function(ss) {
-          return /* @__PURE__ */ React.createElement("option", { key: ss.id, value: ss.id }, ss.name, " (", ss.start, "\u2013", ss.end, ")");
-        })), dirty && /* @__PURE__ */ React.createElement("button", { onClick: function() {
-          var v = pending ? +pending : null;
-          setStaff(function(prev) {
-            return prev.map(function(x) {
-              return x.id === s2.id ? Object.assign({}, x, { shiftId: v }) : x;
-            });
-          });
-          setPendingEdits(function(p) {
-            var n = Object.assign({}, p);
-            delete n[ek];
-            return n;
-          });
-          notify("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E30\u0E41\u0E25\u0E49\u0E27 \u2713 " + s2.name);
-        }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 8.5, padding: "3px 8px" }) }, "\u{1F4BE} Save"));
-      })() : sh ? sh.name + " (" + sh.start + "\u2013" + sh.end + ")" : /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u2014 \u0E44\u0E21\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14 \u2014")), /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 6px", color: C.muted } }, s2.dayOff || "-"), /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 6px" } }, op ? /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(74,222,128,0.15)", C.green)), { fontSize: 8.5 }) }, "\u25CF ON \xB7 ", new Date(op.inAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }), " (", op.slot || "-", ")") : /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.card2, C.muted)), { fontSize: 8.5 }) }, "\u25CB OFF")));
-    })))));
+        }, style: __spreadProps(__spreadValues({}, gs.btn(on ? C.gold : C.card2, on ? "#000" : "#9ca3af")), { fontSize: 10, padding: "4px 11px", border: "1px solid " + (on ? C.gold : C.border) }) }, BW_SEED[k].label);
+      })), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto", borderRadius: 10, border: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 10, minWidth: "100%" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 10px", textAlign: "left", color: "#fff", fontSize: 9.5, position: "sticky", left: 0, background: C.accent, zIndex: 1, whiteSpace: "nowrap" } }, "STAFF"), sc.dates.map(function(d, i) {
+        return /* @__PURE__ */ React.createElement("th", { key: i, style: { padding: "8px 6px", color: "#fff", background: C.accent, fontSize: 9, whiteSpace: "nowrap", textAlign: "center" } }, sc.dows[i], /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, opacity: 0.85 } }, d));
+      }))), /* @__PURE__ */ React.createElement("tbody", null, piv.names.map(function(nm, ri) {
+        var st2 = staff.find(function(x) {
+          return x.name === nm;
+        });
+        var op = st2 && openShiftOf(st2.id);
+        return /* @__PURE__ */ React.createElement("tr", { key: nm, style: { background: BW_ROW_COLORS[ri % 2] } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "7px 10px", position: "sticky", left: 0, background: ri % 2 ? C.card : C.card2, fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap", borderBottom: "1px solid " + C.border } }, nm, op && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(74,222,128,0.15)", C.green)), { fontSize: 7, marginLeft: 5 }) }, "ON")), piv.cells[ri].map(function(cell, ci) {
+          return /* @__PURE__ */ React.createElement("td", { key: ci, style: { padding: "7px 6px", textAlign: "center", fontSize: 9, borderBottom: "1px solid " + C.border, color: cell ? C.text : C.muted, fontWeight: cell ? 700 : 400 } }, cell ? /* @__PURE__ */ React.createElement("div", null, cell.time, cell.role && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 7.5, color: C.blue } }, cell.role)) : "Off");
+        }));
+      }), piv.names.length === 0 && /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { colSpan: sc.dates.length + 1, style: { padding: 16, textAlign: "center", color: C.muted, fontSize: 10 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E19\u0E15\u0E32\u0E23\u0E32\u0E07\u0E19\u0E35\u0E49"))))));
+    })());
   }), (function() {
     var floaters = staff.filter(function(s2) {
       return s2.approved !== false && !s2.branch && s2.role !== "shareholder" && s2.payType !== "profit_share";
@@ -5773,12 +5778,27 @@ function GreenPOS() {
     })));
   })(), activeTab === "dashboard" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900 } }, "\u{1F4CA} Dashboard"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
     askTabAI("dashboard");
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10, padding: "4px 10px" }) }, "\u{1F916} AI \u0E27\u0E34\u0E40\u0E04\u0E23\u0E32\u0E30\u0E2B\u0E4C"), /* @__PURE__ */ React.createElement("button", { onClick: downloadSalesCSV, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, C.green)), { fontSize: 10, padding: "4px 10px", border: "1px solid " + C.border }) }, "\u2B07 Sales CSV"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, ((_a = stores.find((s) => s.id === activeBranch)) == null ? void 0 : _a.name) || "All", " \xB7 Live StoreHub"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 5, marginBottom: 5, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 800, whiteSpace: "nowrap" } }, "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32"), [["day", "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49"], ["month", "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49"], ["quarter", "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A"], ["year", "\u0E1B\u0E35\u0E19\u0E35\u0E49"], ["all", "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"]].map(function(pr) {
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10, padding: "4px 10px" }) }, "\u{1F916} AI \u0E27\u0E34\u0E40\u0E04\u0E23\u0E32\u0E30\u0E2B\u0E4C"), /* @__PURE__ */ React.createElement("button", { onClick: downloadSalesCSV, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, C.green)), { fontSize: 10, padding: "4px 10px", border: "1px solid " + C.border }) }, "\u2B07 Sales CSV"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, ((_a = stores.find((s) => s.id === activeBranch)) == null ? void 0 : _a.name) || "All", " \xB7 Live StoreHub"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 5, marginBottom: showDashCustomPicker ? 0 : 5, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 800, whiteSpace: "nowrap" } }, "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32"), [["day", "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49"], ["month", "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49"], ["quarter", "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A"], ["year", "\u0E1B\u0E35\u0E19\u0E35\u0E49"], ["all", "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"]].map(function(pr) {
     var on = dashPeriod === pr[0];
     return /* @__PURE__ */ React.createElement("button", { key: pr[0], onClick: function() {
       setDashPeriod(pr[0]);
+      setShowDashCustomPicker(false);
     }, style: { background: on ? C.blue : C.card2, border: "1px solid " + (on ? C.blue : C.border), borderRadius: 16, padding: "5px 12px", color: on ? "#000" : C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 } }, pr[1]);
-  })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 10, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 800, whiteSpace: "nowrap" } }, "\u0E2A\u0E32\u0E02\u0E32"), [{ id: "all", name: "All", icon: "\u{1F3EC}" }].concat((stores || []).map(function(st) {
+  }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    setShowDashCustomPicker(function(v) {
+      return !v;
+    });
+  }, style: { background: dashPeriod === "custom" ? C.blue : C.card2, border: "1px solid " + (dashPeriod === "custom" ? C.blue : C.border), borderRadius: 16, padding: "5px 12px", color: dashPeriod === "custom" ? "#000" : C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 } }, "\u{1F4C5} ", dashPeriod === "custom" ? dashCustomFrom || dashCustomTo ? dashCustomFrom + " \u2013 " + dashCustomTo : "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48" : "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 / Custom")), showDashCustomPicker && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10, background: C.card2, border: "1px solid " + C.border, borderRadius: 10, padding: "8px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 700 } }, "\u0E08\u0E32\u0E01 / From"), /* @__PURE__ */ React.createElement("input", { type: "date", value: dashCustomFrom, max: dashCustomTo || void 0, onChange: function(e) {
+    setDashCustomFrom(e.target.value);
+    setDashPeriod("custom");
+  }, style: __spreadProps(__spreadValues({}, gs.input), { padding: "5px 8px", fontSize: 11, width: "auto" }) })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 700 } }, "\u0E16\u0E36\u0E07 / To"), /* @__PURE__ */ React.createElement("input", { type: "date", value: dashCustomTo, min: dashCustomFrom || void 0, onChange: function(e) {
+    setDashCustomTo(e.target.value);
+    setDashPeriod("custom");
+  }, style: __spreadProps(__spreadValues({}, gs.input), { padding: "5px 8px", fontSize: 11, width: "auto" }) })), (dashCustomFrom || dashCustomTo) && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    setDashCustomFrom("");
+    setDashCustomTo("");
+    setDashPeriod("all");
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { fontSize: 9.5, padding: "5px 9px", border: "1px solid " + C.border }) }, "\u2715 \u0E25\u0E49\u0E32\u0E07 / Clear")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 10, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 800, whiteSpace: "nowrap" } }, "\u0E2A\u0E32\u0E02\u0E32"), [{ id: "all", name: "All", icon: "\u{1F3EC}" }].concat((stores || []).map(function(st) {
     var n = String(st.name || "").toLowerCase();
     return { id: st.id, name: String(st.name || "").replace(/^dank\s*/i, "") || st.name, icon: n.indexOf("pattanakarn") >= 0 ? "\u{1F33F}" : n.indexOf("sathorn") >= 0 ? "\u{1F48E}" : n.indexOf("bar") >= 0 ? "\u{1F37A}" : "\u{1F3EC}" };
   })).map(function(b) {
@@ -5796,7 +5816,7 @@ function GreenPOS() {
     return /* @__PURE__ */ React.createElement("div", { key: bc.branch, style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "10px 12px" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15 } }, icon), /* @__PURE__ */ React.createElement("b", { style: { fontSize: 12 } }, bc.branch)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.text } }, "\u0E3F", bc.today.toLocaleString(), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 400 } }, " \u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 (", bc.todayBills, " \u0E1A\u0E34\u0E25)")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E27\u0E32\u0E19 \u0E3F", bc.yesterday.toLocaleString(), " (", bc.yBills, " \u0E1A\u0E34\u0E25)"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: col } }, bc.status === "up" ? "\u25B2" : bc.status === "down" ? "\u25BC" : "\u25A0", " ", wordTh), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, wordEn));
   }))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: _dashGrid, gap: mob ? 7 : 10, marginBottom: 14 } }, _dashKpi.map((k, i) => /* @__PURE__ */ React.createElement("div", { key: i, onClick: function() {
     setDashDetail(k.l);
-  }, style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: `3px solid ${k.c}`, position: "relative", overflow: "hidden", cursor: "pointer" }) }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", bottom: 6, right: 8, fontSize: 8, color: C.muted } }, "\u0E41\u0E15\u0E30\u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14 \u203A"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, position: "absolute", top: 8, right: 10, opacity: 0.25 } }, k.i), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 } }, k.l), /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 18, fontWeight: 900, color: k.c } }, k.v), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted, marginTop: 2 } }, k.s)))), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 10 } }, "\u{1F4C8} Daily Sales \xB7 ", { day: "Today", month: "This Month", quarter: "This Quarter", year: "This Year", all: "All Time" }[dashPeriod]), _dashSales.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.muted, textAlign: "center", padding: "18px 0" } }, "No sales in this period"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 2, height: 130, overflowX: "auto", paddingBottom: 14, position: "relative" } }, _dashSales.slice(-45).map((d, i) => {
+  }, style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: `3px solid ${k.c}`, position: "relative", overflow: "hidden", cursor: "pointer" }) }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", bottom: 6, right: 8, fontSize: 8, color: C.muted } }, "\u0E41\u0E15\u0E30\u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14 \u203A"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, position: "absolute", top: 8, right: 10, opacity: 0.25 } }, k.i), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 } }, k.l), /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 18, fontWeight: 900, color: k.c } }, k.v), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted, marginTop: 2 } }, k.s)))), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 10 } }, "\u{1F4C8} Daily Sales \xB7 ", _dashPeriodLabel || { day: "Today", month: "This Month", quarter: "This Quarter", year: "This Year", all: "All Time" }[dashPeriod]), _dashSales.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.muted, textAlign: "center", padding: "18px 0" } }, "No sales in this period"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 2, height: 130, overflowX: "auto", paddingBottom: 14, position: "relative" } }, _dashSales.slice(-45).map((d, i) => {
     const _mx = Math.max.apply(null, _dashSales.slice(-45).map(function(x) {
       return x.sales;
     }).concat([1]));
