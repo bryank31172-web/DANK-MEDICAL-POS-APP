@@ -4062,6 +4062,29 @@ function GreenPOS() {
     }
   }, [bwSchedule]);
   const [bwKey, setBwKey] = useState("Pattanakarn|SALE");
+  const [bwView, setBwView] = useState("byStaff");
+  const BW_ROW_COLORS = ["rgba(74,222,128,0.05)", "rgba(255,255,255,0.02)"];
+  const bwPivotByStaff = function(sc) {
+    var names = [];
+    sc.rows.forEach(function(row) {
+      row.names.forEach(function(nm) {
+        if (nm && nm !== "OFF" && names.indexOf(nm) < 0) names.push(nm);
+      });
+    });
+    names.sort(function(a, b) {
+      return a.localeCompare(b);
+    });
+    var cells = names.map(function(nm) {
+      return sc.dates.map(function(d, ci) {
+        var found = null;
+        sc.rows.forEach(function(row) {
+          if (row.names[ci] === nm) found = { time: row.time, role: row.role };
+        });
+        return found;
+      });
+    });
+    return { names, cells };
+  };
   const bwSetCell = function(key, ri, ci, val) {
     setBwSchedule(function(p) {
       var n = JSON.parse(JSON.stringify(p));
@@ -7044,7 +7067,21 @@ function GreenPOS() {
       return /* @__PURE__ */ React.createElement("button", { key: k, onClick: function() {
         setBwKey(k);
       }, style: __spreadProps(__spreadValues({}, gs.btn(on ? C.gold : C.card2, on ? "#000" : "#9ca3af")), { fontSize: 10.5, flex: 1, border: "1px solid " + (on ? C.gold : C.border) }) }, BW_SEED[k].label);
-    })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginBottom: 8 } }, "21 \u0E01.\u0E04.\u20134 \u0E2A.\u0E04. \xB7 \u0E41\u0E01\u0E49\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \xB7 Tap any cell to edit \u2014 auto-saves"), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 10, minWidth: "100%" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { padding: "4px 6px", textAlign: "left", color: C.muted, fontSize: 8.5, position: "sticky", left: 0, background: C.card, zIndex: 1 } }, "TIME"), sc.dates.map(function(d, i) {
+    })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, marginBottom: 10 } }, [["byStaff", "\u{1F464} By Staff (\u0E2D\u0E48\u0E32\u0E19\u0E07\u0E48\u0E32\u0E22)"], ["byTime", "\u270F\uFE0F By Time (\u0E41\u0E01\u0E49\u0E44\u0E02)"]].map(function(v) {
+      var on = bwView === v[0];
+      return /* @__PURE__ */ React.createElement("button", { key: v[0], onClick: function() {
+        setBwView(v[0]);
+      }, style: __spreadProps(__spreadValues({}, gs.btn(on ? C.blue : C.card2, on ? "#000" : "#9ca3af")), { fontSize: 10, flex: 1, border: "1px solid " + (on ? C.blue : C.border) }) }, v[1]);
+    })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginBottom: 8 } }, "21 \u0E01.\u0E04.\u20134 \u0E2A.\u0E04. ", bwView === "byTime" ? "\xB7 \u0E41\u0E01\u0E49\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \xB7 Tap any cell to edit \u2014 auto-saves" : '\xB7 \u0E21\u0E38\u0E21\u0E21\u0E2D\u0E07\u0E2D\u0E48\u0E32\u0E19\u0E07\u0E48\u0E32\u0E22 \u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E2B\u0E49\u0E2A\u0E25\u0E31\u0E1A\u0E44\u0E1B\u0E41\u0E17\u0E47\u0E1A "By Time"'), bwView === "byStaff" ? (function() {
+      var piv = bwPivotByStaff(sc);
+      return /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto", borderRadius: 10, border: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 10, minWidth: "100%" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 10px", textAlign: "left", color: "#fff", fontSize: 9.5, position: "sticky", left: 0, background: C.accent, zIndex: 1, whiteSpace: "nowrap" } }, "STAFF"), sc.dates.map(function(d, i) {
+        return /* @__PURE__ */ React.createElement("th", { key: i, style: { padding: "8px 6px", color: "#fff", background: C.accent, fontSize: 9, whiteSpace: "nowrap", textAlign: "center" } }, sc.dows[i], /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, opacity: 0.85 } }, d));
+      }))), /* @__PURE__ */ React.createElement("tbody", null, piv.names.map(function(nm, ri) {
+        return /* @__PURE__ */ React.createElement("tr", { key: nm, style: { background: BW_ROW_COLORS[ri % 2] } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "7px 10px", position: "sticky", left: 0, background: ri % 2 ? C.card : C.card2, fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap", borderBottom: "1px solid " + C.border } }, nm), piv.cells[ri].map(function(cell, ci) {
+          return /* @__PURE__ */ React.createElement("td", { key: ci, style: { padding: "7px 6px", textAlign: "center", fontSize: 9, borderBottom: "1px solid " + C.border, color: cell ? C.text : C.muted, fontWeight: cell ? 700 : 400 } }, cell ? /* @__PURE__ */ React.createElement("div", null, cell.time, cell.role && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 7.5, color: C.blue } }, cell.role)) : "Off");
+        }));
+      }), piv.names.length === 0 && /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { colSpan: sc.dates.length + 1, style: { padding: 16, textAlign: "center", color: C.muted, fontSize: 10 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E19\u0E15\u0E32\u0E23\u0E32\u0E07\u0E19\u0E35\u0E49")))));
+    })() : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 10, minWidth: "100%" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { padding: "4px 6px", textAlign: "left", color: C.muted, fontSize: 8.5, position: "sticky", left: 0, background: C.card, zIndex: 1 } }, "TIME"), sc.dates.map(function(d, i) {
       return /* @__PURE__ */ React.createElement("th", { key: i, style: { padding: "4px 6px", color: C.muted, fontSize: 8.5, whiteSpace: "nowrap" } }, sc.dows[i], /* @__PURE__ */ React.createElement("br", null), d);
     }), /* @__PURE__ */ React.createElement("th", { style: { width: 24 } }))), /* @__PURE__ */ React.createElement("tbody", null, sc.rows.map(function(row, ri) {
       return /* @__PURE__ */ React.createElement("tr", { key: ri, style: { borderTop: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "4px 6px", position: "sticky", left: 0, background: C.card, whiteSpace: "nowrap" } }, canEdit ? /* @__PURE__ */ React.createElement("input", { value: row.time, onChange: function(e) {
@@ -7058,7 +7095,7 @@ function GreenPOS() {
       }, style: { background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 11 } }, "\u2715")));
     })))), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: function() {
       bwAddRow(activeKey);
-    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10.5, marginTop: 8, border: "1px solid " + C.border }) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E41\u0E16\u0E27\u0E40\u0E27\u0E25\u0E32 / Add time row"));
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10.5, marginTop: 8, border: "1px solid " + C.border }) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E41\u0E16\u0E27\u0E40\u0E27\u0E25\u0E32 / Add time row")));
   })(), rosterMode === "auto" && (function() {
     var bd = rosterBranch === "Bars" ? rosterBarDay : null;
     var slots = rosterSlots(rosterBranch, bd);
