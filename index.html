@@ -322,7 +322,7 @@ function GreenPOS() {
       if (v) return v;
     } catch (e) {
     }
-    return { siteUrl: "https://dankbkk.com", apiKey: "", shareMenu: true, shareStock: true, sharePrices: true, acceptOrders: false };
+    return { siteUrl: "https://dankbkk.com", apiKey: "", staffKey: "", shareMenu: true, shareStock: true, sharePrices: true, acceptOrders: false };
   });
   useEffect(function() {
     try {
@@ -645,6 +645,93 @@ function GreenPOS() {
     }).finally(function() {
       setLineInboxLoading(false);
     });
+  };
+  const [webOrdersLoading, setWebOrdersLoading] = useState(false);
+  const [webOrdersErr, setWebOrdersErr] = useState("");
+  const [webOrdersInfo, setWebOrdersInfo] = useState("");
+  const loadWebOrders = function(silent) {
+    var base = (apiCfg && apiCfg.siteUrl || "").trim().replace(/\/+$/, "");
+    var key = (apiCfg && apiCfg.staffKey || "").trim();
+    if (!base || !key) {
+      if (!silent) setWebOrdersErr("\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 Website URL + Staff Key \u0E01\u0E48\u0E2D\u0E19 (More \u2192 \u{1F50C} API / Website) / Set Website URL + Staff Key first");
+      return;
+    }
+    setWebOrdersLoading(true);
+    setWebOrdersErr("");
+    var freshCount = 0;
+    fetch(base + "/api/orders?key=" + encodeURIComponent(key)).then(function(r) {
+      if (r.status === 401) throw new Error("Staff Key \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07 / wrong Staff Key");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function(j) {
+      var list = j && j.orders || [];
+      setOrders(function(p) {
+        var have = {};
+        p.forEach(function(o) {
+          if (o.webOrderId) have[o.webOrderId] = true;
+        });
+        var fresh = [];
+        list.forEach(function(w) {
+          if (!w || !w.orderId || have[w.orderId]) return;
+          var fee = Math.max(0, Math.round(+(w.deliveryFee != null ? w.deliveryFee : w.delivery && w.delivery.fee) || 0));
+          var gross = Math.round(+(w.total != null ? w.total : w.subtotal) || 0);
+          var isPickup = w.fulfilment === "pickup";
+          var addr = isPickup ? "\u0E23\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E23\u0E49\u0E32\u0E19 / Pickup \u2014 " + (w.pickup && w.pickup.branch || "") + (w.pickup && w.pickup.time ? " @ " + w.pickup.time : "") : (w.delivery && w.delivery.zone ? w.delivery.zone + " \xB7 " : "") + (w.delivery && w.delivery.address || "");
+          var noteBits = [];
+          if (w.payment) noteBits.push("\u{1F4B3} " + w.payment + (w.payStatus === "paid" ? " (\u0E08\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27/paid)" : ""));
+          if (w.notes) noteBits.push(w.notes);
+          fresh.push({
+            id: "WEB-" + w.orderId,
+            webOrderId: w.orderId,
+            source: "website",
+            customerName: w.customer && w.customer.name || "\u0E40\u0E27\u0E47\u0E1A / Web customer",
+            phone: w.customer && w.customer.phone || "",
+            address: addr,
+            time: w.at ? new Date(w.at).toLocaleString() : (/* @__PURE__ */ new Date()).toLocaleString(),
+            branchId: null,
+            originId: null,
+            memberId: null,
+            note: noteBits.join(" \xB7 "),
+            items: (w.items || []).map(function(i) {
+              return { name: (i.name || "") + (i.option ? " (" + i.option + ")" : ""), qty: +i.qty || 1 };
+            }),
+            dist: 0,
+            fee,
+            routeMin: 0,
+            total: Math.max(0, gross - fee),
+            status: w.status === "done" ? "delivered" : "pending",
+            isMedical: false,
+            lineUserId: null
+          });
+        });
+        if (fresh.length) {
+          freshCount = fresh.length;
+          return fresh.concat(p);
+        }
+        return p;
+      });
+      setTimeout(function() {
+        if (freshCount > 0) notify("\u{1F310} \u0E21\u0E35\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E43\u0E2B\u0E21\u0E48\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A " + freshCount + " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 / " + freshCount + " new website order(s)");
+      }, 50);
+      setWebOrdersInfo("\u0E40\u0E0A\u0E47\u0E04\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14 " + (/* @__PURE__ */ new Date()).toLocaleTimeString() + " \xB7 \u0E40\u0E27\u0E47\u0E1A\u0E21\u0E35 " + list.length + " \u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C / synced, " + list.length + " on site");
+    }).catch(function(e) {
+      setWebOrdersErr(String(e && e.message || e));
+    }).finally(function() {
+      setWebOrdersLoading(false);
+    });
+  };
+  const pushWebOrderStatus = function(order, status) {
+    try {
+      if (!order || !order.webOrderId) return;
+      var base = (apiCfg && apiCfg.siteUrl || "").trim().replace(/\/+$/, "");
+      var key = (apiCfg && apiCfg.staffKey || "").trim();
+      if (!base || !key) return;
+      fetch(base + "/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId: order.webOrderId, status, key }) }).catch(function(e) {
+        console.warn("web order status push failed:", e && e.message);
+      });
+    } catch (e) {
+      console.warn("web order status push error:", e && e.message);
+    }
   };
   const sendLineNotify = function(text, tag) {
     try {
@@ -1666,7 +1753,10 @@ function GreenPOS() {
   const [arAddForm, setArAddForm] = useState({ customerId: "", amount: "", note: "" });
   const [activeTab, setActiveTab] = useState("pos");
   useEffect(function() {
-    if (activeTab === "orders") loadLineInbox();
+    if (activeTab === "orders") {
+      loadLineInbox();
+      loadWebOrders(true);
+    }
   }, [activeTab]);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [notif, setNotif] = useState(null);
@@ -6521,7 +6611,9 @@ function GreenPOS() {
       }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10, padding: "5px 12px" }) }, "Test"));
     }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, margin: "14px 0 8px" } }, "\u{1F310} Website / E-commerce connection \xB7 \u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D\u0E40\u0E27\u0E47\u0E1A\u0E44\u0E0B\u0E15\u0E4C"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Website URL / \u0E25\u0E34\u0E07\u0E01\u0E4C\u0E40\u0E27\u0E47\u0E1A\u0E44\u0E0B\u0E15\u0E4C"), /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 9 }), placeholder: "https://dankbkk.com", value: apiCfg.siteUrl, onChange: function(e) {
       setC("siteUrl", e.target.value);
-    } }), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "API Key (website uses this to call BRYAN POS) / \u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E40\u0E27\u0E47\u0E1A\u0E43\u0E0A\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { flex: 1, fontFamily: "monospace", fontSize: 11 }), placeholder: "\u0E01\u0E14 Generate \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E35\u0E22\u0E4C", value: apiCfg.apiKey, onChange: function(e) {
+    } }), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Staff Key (\u0E14\u0E36\u0E07\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A\u0E40\u0E02\u0E49\u0E32 POS \u2014 \u0E04\u0E48\u0E32\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A STAFF_KEY \u0E02\u0E2D\u0E07\u0E40\u0E27\u0E47\u0E1A) / same STAFF_KEY the website's staff.html uses"), /* @__PURE__ */ React.createElement("input", { type: "password", style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 9, fontFamily: "monospace", fontSize: 11 }), placeholder: "STAFF_KEY \u0E02\u0E2D\u0E07 dankbkk.com", value: apiCfg.staffKey || "", onChange: function(e) {
+      setC("staffKey", e.target.value);
+    } }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, "\u0E43\u0E2A\u0E48\u0E41\u0E25\u0E49\u0E27\u0E41\u0E17\u0E47\u0E1A Orders \u0E08\u0E30\u0E14\u0E36\u0E07\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \xB7 With this set, the Orders tab pulls website orders automatically and pushes \u2705 Delivered back."), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "API Key (website uses this to call BRYAN POS) / \u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E40\u0E27\u0E47\u0E1A\u0E43\u0E0A\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { flex: 1, fontFamily: "monospace", fontSize: 11 }), placeholder: "\u0E01\u0E14 Generate \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E35\u0E22\u0E4C", value: apiCfg.apiKey, onChange: function(e) {
       setC("apiKey", e.target.value);
     } }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       var k = "dank_";
@@ -7343,7 +7435,9 @@ function GreenPOS() {
   }))), activeTab === "orders" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900 } }, "\u{1F310} Delivery Orders"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setNewOrder({ customerName: selCustomer ? selCustomer.name : "", phone: selCustomer ? selCustomer.phone : "", address: "", dist: "", fee: "40", note: "", originId: "sathorn", memberId: selCustomer ? String(selCustomer.id) : "", routeMin: 0, lineUserId: "" });
     setShowNewOrder(true);
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11, marginLeft: "auto" }) }, "+ New Delivery")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(6,199,85,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, "\u{1F4F1} \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E08\u0E32\u0E01 LINE OA \xB7 Messages from LINE Official Account"), /* @__PURE__ */ React.createElement("button", { onClick: loadLineInbox, disabled: lineInboxLoading, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border, marginLeft: "auto" }) }, lineInboxLoading ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14..." : "\u{1F504} Refresh")), !(lineNotifyUrl || "").trim() && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D \u2014 \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 LINE Server URL \u0E17\u0E35\u0E48 More \u2192 \u2696 Scale & Print \u2192 \u{1F4F1} LINE Notifications \u0E01\u0E48\u0E2D\u0E19 / Not connected \u2014 set the LINE server URL under More \u2192 Scale & Print \u2192 LINE Notifications first."), lineInboxErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.red } }, "\u26A0 ", lineInboxErr), (lineNotifyUrl || "").trim() && !lineInboxErr && lineInbox.length === 0 && !lineInboxLoading && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E43\u0E2B\u0E21\u0E48\u0E43\u0E19 48 \u0E0A\u0E21.\u0E17\u0E35\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E21\u0E32 / No new messages in the last 48h"), (function() {
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11, marginLeft: "auto" }) }, "+ New Delivery")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(56,189,248,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, "\u{1F310} \u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A dankbkk.com \xB7 Website orders"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    loadWebOrders(false);
+  }, disabled: webOrdersLoading, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border, marginLeft: "auto" }) }, webOrdersLoading ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E0B\u0E34\u0E07\u0E04\u0E4C..." : "\u{1F504} Sync now")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 4 } }, "\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E17\u0E35\u0E48\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E2A\u0E31\u0E48\u0E07\u0E1A\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E08\u0E30\u0E16\u0E39\u0E01\u0E14\u0E36\u0E07\u0E40\u0E02\u0E49\u0E32\u0E25\u0E34\u0E2A\u0E15\u0E4C\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \xB7 \u0E01\u0E14 \u2705 Delivered \u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E1B\u0E34\u0E14\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E1D\u0E31\u0E48\u0E07\u0E40\u0E27\u0E47\u0E1A\u0E43\u0E2B\u0E49\u0E14\u0E49\u0E27\u0E22 / Website checkouts are pulled into the list below automatically; marking Delivered also closes them on the website."), webOrdersInfo && !webOrdersErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.green, marginTop: 4 } }, "\u2713 ", webOrdersInfo), webOrdersErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.red, marginTop: 4 } }, "\u26A0 ", webOrdersErr)), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(6,199,85,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, "\u{1F4F1} \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E08\u0E32\u0E01 LINE OA \xB7 Messages from LINE Official Account"), /* @__PURE__ */ React.createElement("button", { onClick: loadLineInbox, disabled: lineInboxLoading, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border, marginLeft: "auto" }) }, lineInboxLoading ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14..." : "\u{1F504} Refresh")), !(lineNotifyUrl || "").trim() && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D \u2014 \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 LINE Server URL \u0E17\u0E35\u0E48 More \u2192 \u2696 Scale & Print \u2192 \u{1F4F1} LINE Notifications \u0E01\u0E48\u0E2D\u0E19 / Not connected \u2014 set the LINE server URL under More \u2192 Scale & Print \u2192 LINE Notifications first."), lineInboxErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.red } }, "\u26A0 ", lineInboxErr), (lineNotifyUrl || "").trim() && !lineInboxErr && lineInbox.length === 0 && !lineInboxLoading && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E43\u0E2B\u0E21\u0E48\u0E43\u0E19 48 \u0E0A\u0E21.\u0E17\u0E35\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E21\u0E32 / No new messages in the last 48h"), (function() {
     var byUser = {};
     lineInbox.forEach(function(m) {
       var uid = m.userId || m.user_id || m.sourceId || m.source_id;
@@ -7428,6 +7522,7 @@ function GreenPOS() {
           return o.id === order.id ? Object.assign({}, o, { status: "delivered" }) : o;
         });
       });
+      pushWebOrderStatus(order, "done");
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11 }) }, "\u2705 Delivered"), order.status === "delivering" && order.etaAt && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(125,211,252,0.08)", border: "1px solid rgba(125,211,252,0.3)", borderRadius: 9, padding: "7px 9px", marginTop: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: C.blue } }, "\u{1F550} ETA ", fmtHM(new Date(new Date(order.etaAt).getTime() - 15 * 6e4).toISOString()), "\u2013", fmtHM(new Date(new Date(order.etaAt).getTime() + 15 * 6e4).toISOString()), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.muted, fontWeight: 400, fontSize: 9 } }, "(center ~", fmtHM(order.etaAt), " \xB7 ", Math.max(0, Math.round((new Date(order.etaAt) - /* @__PURE__ */ new Date()) / 6e4)), " min left)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setOrders(function(p) {
         return p.map(function(o) {
