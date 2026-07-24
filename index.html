@@ -322,7 +322,7 @@ function GreenPOS() {
       if (v) return v;
     } catch (e) {
     }
-    return { siteUrl: "https://dankbkk.com", apiKey: "", shareMenu: true, shareStock: true, sharePrices: true, acceptOrders: false };
+    return { siteUrl: "https://dankbkk.com", apiKey: "", staffKey: "", shareMenu: true, shareStock: true, sharePrices: true, acceptOrders: false };
   });
   useEffect(function() {
     try {
@@ -645,6 +645,93 @@ function GreenPOS() {
     }).finally(function() {
       setLineInboxLoading(false);
     });
+  };
+  const [webOrdersLoading, setWebOrdersLoading] = useState(false);
+  const [webOrdersErr, setWebOrdersErr] = useState("");
+  const [webOrdersInfo, setWebOrdersInfo] = useState("");
+  const loadWebOrders = function(silent) {
+    var base = (apiCfg && apiCfg.siteUrl || "").trim().replace(/\/+$/, "");
+    var key = (apiCfg && apiCfg.staffKey || "").trim();
+    if (!base || !key) {
+      if (!silent) setWebOrdersErr("\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 Website URL + Staff Key \u0E01\u0E48\u0E2D\u0E19 (More \u2192 \u{1F50C} API / Website) / Set Website URL + Staff Key first");
+      return;
+    }
+    setWebOrdersLoading(true);
+    setWebOrdersErr("");
+    var freshCount = 0;
+    fetch(base + "/api/orders?key=" + encodeURIComponent(key)).then(function(r) {
+      if (r.status === 401) throw new Error("Staff Key \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07 / wrong Staff Key");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function(j) {
+      var list = j && j.orders || [];
+      setOrders(function(p) {
+        var have = {};
+        p.forEach(function(o) {
+          if (o.webOrderId) have[o.webOrderId] = true;
+        });
+        var fresh = [];
+        list.forEach(function(w) {
+          if (!w || !w.orderId || have[w.orderId]) return;
+          var fee = Math.max(0, Math.round(+(w.deliveryFee != null ? w.deliveryFee : w.delivery && w.delivery.fee) || 0));
+          var gross = Math.round(+(w.total != null ? w.total : w.subtotal) || 0);
+          var isPickup = w.fulfilment === "pickup";
+          var addr = isPickup ? "\u0E23\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E23\u0E49\u0E32\u0E19 / Pickup \u2014 " + (w.pickup && w.pickup.branch || "") + (w.pickup && w.pickup.time ? " @ " + w.pickup.time : "") : (w.delivery && w.delivery.zone ? w.delivery.zone + " \xB7 " : "") + (w.delivery && w.delivery.address || "");
+          var noteBits = [];
+          if (w.payment) noteBits.push("\u{1F4B3} " + w.payment + (w.payStatus === "paid" ? " (\u0E08\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27/paid)" : ""));
+          if (w.notes) noteBits.push(w.notes);
+          fresh.push({
+            id: "WEB-" + w.orderId,
+            webOrderId: w.orderId,
+            source: "website",
+            customerName: w.customer && w.customer.name || "\u0E40\u0E27\u0E47\u0E1A / Web customer",
+            phone: w.customer && w.customer.phone || "",
+            address: addr,
+            time: w.at ? new Date(w.at).toLocaleString() : (/* @__PURE__ */ new Date()).toLocaleString(),
+            branchId: null,
+            originId: null,
+            memberId: null,
+            note: noteBits.join(" \xB7 "),
+            items: (w.items || []).map(function(i) {
+              return { name: (i.name || "") + (i.option ? " (" + i.option + ")" : ""), qty: +i.qty || 1 };
+            }),
+            dist: 0,
+            fee,
+            routeMin: 0,
+            total: Math.max(0, gross - fee),
+            status: w.status === "done" ? "delivered" : "pending",
+            isMedical: false,
+            lineUserId: null
+          });
+        });
+        if (fresh.length) {
+          freshCount = fresh.length;
+          return fresh.concat(p);
+        }
+        return p;
+      });
+      setTimeout(function() {
+        if (freshCount > 0) notify("\u{1F310} \u0E21\u0E35\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E43\u0E2B\u0E21\u0E48\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A " + freshCount + " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 / " + freshCount + " new website order(s)");
+      }, 50);
+      setWebOrdersInfo("\u0E40\u0E0A\u0E47\u0E04\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14 " + (/* @__PURE__ */ new Date()).toLocaleTimeString() + " \xB7 \u0E40\u0E27\u0E47\u0E1A\u0E21\u0E35 " + list.length + " \u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C / synced, " + list.length + " on site");
+    }).catch(function(e) {
+      setWebOrdersErr(String(e && e.message || e));
+    }).finally(function() {
+      setWebOrdersLoading(false);
+    });
+  };
+  const pushWebOrderStatus = function(order, status) {
+    try {
+      if (!order || !order.webOrderId) return;
+      var base = (apiCfg && apiCfg.siteUrl || "").trim().replace(/\/+$/, "");
+      var key = (apiCfg && apiCfg.staffKey || "").trim();
+      if (!base || !key) return;
+      fetch(base + "/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId: order.webOrderId, status, key }) }).catch(function(e) {
+        console.warn("web order status push failed:", e && e.message);
+      });
+    } catch (e) {
+      console.warn("web order status push error:", e && e.message);
+    }
   };
   const sendLineNotify = function(text, tag) {
     try {
@@ -1511,12 +1598,6 @@ function GreenPOS() {
     });
   }, []);
   const [products, setProducts] = useState([]);
-  useEffect(function() {
-    try {
-      window.__dankProducts = products;
-    } catch (e) {
-    }
-  }, [products]);
   const lowStock = products.filter((p) => p.stock <= p.alert);
   const [suppliers, setSuppliers] = useState(function() {
     try {
@@ -1672,7 +1753,10 @@ function GreenPOS() {
   const [arAddForm, setArAddForm] = useState({ customerId: "", amount: "", note: "" });
   const [activeTab, setActiveTab] = useState("pos");
   useEffect(function() {
-    if (activeTab === "orders") loadLineInbox();
+    if (activeTab === "orders") {
+      loadLineInbox();
+      loadWebOrders(true);
+    }
   }, [activeTab]);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [notif, setNotif] = useState(null);
@@ -1729,6 +1813,8 @@ function GreenPOS() {
   const [pendingVoid, setPendingVoid] = useState(null);
   const [memberPricing, setMemberPricing] = useState(false);
   const [invTab, setInvTab] = useState("stock");
+  const [supUnlockPin, setSupUnlockPin] = useState("");
+  const [supUnlocked, setSupUnlocked] = useState(false);
   const [showReceive, setShowReceive] = useState(false);
   const [receiveForm, setReceiveForm] = useState({ pid: "", qty: "", batch: "", expiry: "" });
   const [deliveryDest, setDeliveryDest] = useState("");
@@ -6527,7 +6613,9 @@ function GreenPOS() {
       }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10, padding: "5px 12px" }) }, "Test"));
     }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, margin: "14px 0 8px" } }, "\u{1F310} Website / E-commerce connection \xB7 \u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D\u0E40\u0E27\u0E47\u0E1A\u0E44\u0E0B\u0E15\u0E4C"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Website URL / \u0E25\u0E34\u0E07\u0E01\u0E4C\u0E40\u0E27\u0E47\u0E1A\u0E44\u0E0B\u0E15\u0E4C"), /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 9 }), placeholder: "https://dankbkk.com", value: apiCfg.siteUrl, onChange: function(e) {
       setC("siteUrl", e.target.value);
-    } }), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "API Key (website uses this to call BRYAN POS) / \u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E40\u0E27\u0E47\u0E1A\u0E43\u0E0A\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { flex: 1, fontFamily: "monospace", fontSize: 11 }), placeholder: "\u0E01\u0E14 Generate \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E35\u0E22\u0E4C", value: apiCfg.apiKey, onChange: function(e) {
+    } }), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Staff Key (\u0E14\u0E36\u0E07\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A\u0E40\u0E02\u0E49\u0E32 POS \u2014 \u0E04\u0E48\u0E32\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A STAFF_KEY \u0E02\u0E2D\u0E07\u0E40\u0E27\u0E47\u0E1A) / same STAFF_KEY the website's staff.html uses"), /* @__PURE__ */ React.createElement("input", { type: "password", style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 9, fontFamily: "monospace", fontSize: 11 }), placeholder: "STAFF_KEY \u0E02\u0E2D\u0E07 dankbkk.com", value: apiCfg.staffKey || "", onChange: function(e) {
+      setC("staffKey", e.target.value);
+    } }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, "\u0E43\u0E2A\u0E48\u0E41\u0E25\u0E49\u0E27\u0E41\u0E17\u0E47\u0E1A Orders \u0E08\u0E30\u0E14\u0E36\u0E07\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \xB7 With this set, the Orders tab pulls website orders automatically and pushes \u2705 Delivered back."), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "API Key (website uses this to call BRYAN POS) / \u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E40\u0E27\u0E47\u0E1A\u0E43\u0E0A\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { flex: 1, fontFamily: "monospace", fontSize: 11 }), placeholder: "\u0E01\u0E14 Generate \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E35\u0E22\u0E4C", value: apiCfg.apiKey, onChange: function(e) {
       setC("apiKey", e.target.value);
     } }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       var k = "dank_";
@@ -7088,7 +7176,18 @@ function GreenPOS() {
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border, marginRight: 5 }) }, "Edit"), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: function() {
       togglePromo(p.id);
     }, style: __spreadProps(__spreadValues({}, gs.btn(promoProductIds.indexOf(p.id) >= 0 ? C.gold : C.card2, promoProductIds.indexOf(p.id) >= 0 ? "#000" : "#9ca3af")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border }) }, promoProductIds.indexOf(p.id) >= 0 ? "\u2B50 Promo" : "\u2606 Promo")));
-  }))))), invTab === "suppliers" && /* @__PURE__ */ React.createElement("div", { style: gs.card }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700 } }, "\u{1F3ED} Supplier Directory ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 400 } }, "\xB7 \u0E41\u0E15\u0E30\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E14\u0E39/\u0E41\u0E01\u0E49\u0E44\u0E02\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E15\u0E47\u0E21")), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: importSuppliersCSV, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, C.blue)), { fontSize: 10, border: "1px solid " + C.border, marginRight: 6 }) }, "\u2B06 Import CSV"), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+  }))))), invTab === "suppliers" && !(isMaster || supUnlocked) && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { textAlign: "center", padding: "34px 20px" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 34, marginBottom: 8 } }, "\u{1F512}"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800, marginBottom: 4 } }, "\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E0B\u0E31\u0E1E\u0E1E\u0E25\u0E32\u0E22\u0E40\u0E2D\u0E2D\u0E23\u0E4C \u2014 \u0E40\u0E09\u0E1E\u0E32\u0E30 Master PIN \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 14 } }, "Supplier list & data are visible only with the master PIN."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, justifyContent: "center" } }, /* @__PURE__ */ React.createElement("input", { type: "password", inputMode: "numeric", maxLength: 6, placeholder: "Master PIN", value: supUnlockPin, onChange: function(e) {
+    setSupUnlockPin(e.target.value.replace(/[^0-9]/g, ""));
+  }, style: __spreadProps(__spreadValues({}, gs.input), { width: 150, textAlign: "center", letterSpacing: 3 }) }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    if (supUnlockPin === "110114") {
+      setSupUnlocked(true);
+      setSupUnlockPin("");
+      addAudit("SUPPLIER_UNLOCK", "supplier list unlocked with master PIN", currentStaff && currentStaff.name);
+    } else {
+      setSupUnlockPin("");
+      notify("PIN \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07 / Wrong PIN", "error");
+    }
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11, padding: "0 16px" }) }, "\u0E1B\u0E25\u0E14\u0E25\u0E47\u0E2D\u0E01 / Unlock"))), invTab === "suppliers" && (isMaster || supUnlocked) && /* @__PURE__ */ React.createElement("div", { style: gs.card }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700 } }, "\u{1F3ED} Supplier Directory ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 400 } }, "\xB7 \u0E41\u0E15\u0E30\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E14\u0E39/\u0E41\u0E01\u0E49\u0E44\u0E02\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E15\u0E47\u0E21")), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: importSuppliersCSV, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, C.blue)), { fontSize: 10, border: "1px solid " + C.border, marginRight: 6 }) }, "\u2B06 Import CSV"), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setSupInv({ no: "", date: "", amount: "" });
     setSupDetail({ id: Date.now(), name: "", contact: "", phone: "", email: "", cat: "", leadDays: 3, gacp: void 0, payTerm: "", creditDays: 30, payRemark: "", invoices: [], _new: true });
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10 }) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21 Supplier")), suppliers.map(function(s) {
@@ -7097,7 +7196,7 @@ function GreenPOS() {
     return /* @__PURE__ */ React.createElement("div", { key: s.id, onClick: function() {
       setSupInv({ no: "", date: "", amount: "" });
       setSupDetail(JSON.parse(JSON.stringify(s)));
-    }, style: { padding: "11px 13px", background: C.card2, borderRadius: 11, border: `1px solid ${C.border}`, marginBottom: 9, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700 } }, s.name || "(\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E31\u0E49\u0E07\u0E0A\u0E37\u0E48\u0E2D)"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, isMaster || isAccountant ? s.contact + " \xB7 " + s.phone : "\u{1F512} \u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D\u0E0B\u0E31\u0E1E\u0E1E\u0E25\u0E32\u0E22\u0E40\u0E2D\u0E2D\u0E23\u0E4C \u2014 \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E21\u0E32\u0E2A\u0E40\u0E15\u0E2D\u0E23\u0E4C/\u0E1A\u0E31\u0E0D\u0E0A\u0E35 (110114)"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.accent, marginTop: 3 } }, s.cat || "\u2014", " \xB7 ", s.leadDays || 0, "d lead \xB7 ", sp.length, " \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" } }, s.gacp === true && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(74,222,128,0.15)", "#4ade80")), { fontSize: 8.5 }) }, "\u2713 GACP"), s.gacp === false && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(244,63,94,0.15)", "#fda4af")), { fontSize: 8.5 }) }, "\u2717 GACP"), s.payTerm && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 8.5 }) }, payTermLabel(s)), li && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(56,189,248,0.12)", "#7dd3fc")), { fontSize: 8.5 }) }, "\u{1F9FE} ", li.date, " \u0E3F", (+li.amount || 0).toLocaleString()))));
+    }, style: { padding: "11px 13px", background: C.card2, borderRadius: 11, border: `1px solid ${C.border}`, marginBottom: 9, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700 } }, s.name || "(\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E31\u0E49\u0E07\u0E0A\u0E37\u0E48\u0E2D)"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, isMaster ? s.contact + " \xB7 " + s.phone : "\u{1F512} \u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D\u0E0B\u0E31\u0E1E\u0E1E\u0E25\u0E32\u0E22\u0E40\u0E2D\u0E2D\u0E23\u0E4C \u2014 \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E21\u0E32\u0E2A\u0E40\u0E15\u0E2D\u0E23\u0E4C/\u0E1A\u0E31\u0E0D\u0E0A\u0E35 (110114)"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.accent, marginTop: 3 } }, s.cat || "\u2014", " \xB7 ", s.leadDays || 0, "d lead \xB7 ", sp.length, " \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" } }, s.gacp === true && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(74,222,128,0.15)", "#4ade80")), { fontSize: 8.5 }) }, "\u2713 GACP"), s.gacp === false && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(244,63,94,0.15)", "#fda4af")), { fontSize: 8.5 }) }, "\u2717 GACP"), s.payTerm && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 8.5 }) }, payTermLabel(s)), li && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(56,189,248,0.12)", "#7dd3fc")), { fontSize: 8.5 }) }, "\u{1F9FE} ", li.date, " \u0E3F", (+li.amount || 0).toLocaleString()))));
   })), invTab === "batches" && /* @__PURE__ */ React.createElement("div", { style: gs.card }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 10 } }, "\u{1F3F7} Batch & Lot Tracking"), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: `1px solid ${C.border}` } }, ["Product", "Batch", "THC", "Stock", "Expiry", "Status"].map((h) => /* @__PURE__ */ React.createElement("th", { key: h, style: { padding: "6px 9px", textAlign: "left", color: C.muted, fontWeight: 600, fontSize: 9 } }, h)))), /* @__PURE__ */ React.createElement("tbody", null, products.filter((p) => p.batch).map((p) => {
     const dExp = Math.floor((new Date(p.expiry) - /* @__PURE__ */ new Date()) / 864e5);
     const ec = dExp < 30 ? C.gold : dExp < 0 ? C.red : C.green;
@@ -7349,7 +7448,9 @@ function GreenPOS() {
   }))), activeTab === "orders" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900 } }, "\u{1F310} Delivery Orders"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setNewOrder({ customerName: selCustomer ? selCustomer.name : "", phone: selCustomer ? selCustomer.phone : "", address: "", dist: "", fee: "40", note: "", originId: "sathorn", memberId: selCustomer ? String(selCustomer.id) : "", routeMin: 0, lineUserId: "" });
     setShowNewOrder(true);
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11, marginLeft: "auto" }) }, "+ New Delivery")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(6,199,85,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, "\u{1F4F1} \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E08\u0E32\u0E01 LINE OA \xB7 Messages from LINE Official Account"), /* @__PURE__ */ React.createElement("button", { onClick: loadLineInbox, disabled: lineInboxLoading, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border, marginLeft: "auto" }) }, lineInboxLoading ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14..." : "\u{1F504} Refresh")), !(lineNotifyUrl || "").trim() && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D \u2014 \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 LINE Server URL \u0E17\u0E35\u0E48 More \u2192 \u2696 Scale & Print \u2192 \u{1F4F1} LINE Notifications \u0E01\u0E48\u0E2D\u0E19 / Not connected \u2014 set the LINE server URL under More \u2192 Scale & Print \u2192 LINE Notifications first."), lineInboxErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.red } }, "\u26A0 ", lineInboxErr), (lineNotifyUrl || "").trim() && !lineInboxErr && lineInbox.length === 0 && !lineInboxLoading && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E43\u0E2B\u0E21\u0E48\u0E43\u0E19 48 \u0E0A\u0E21.\u0E17\u0E35\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E21\u0E32 / No new messages in the last 48h"), (function() {
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11, marginLeft: "auto" }) }, "+ New Delivery")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(56,189,248,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, "\u{1F310} \u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A dankbkk.com \xB7 Website orders"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    loadWebOrders(false);
+  }, disabled: webOrdersLoading, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border, marginLeft: "auto" }) }, webOrdersLoading ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E0B\u0E34\u0E07\u0E04\u0E4C..." : "\u{1F504} Sync now")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 4 } }, "\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E17\u0E35\u0E48\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E2A\u0E31\u0E48\u0E07\u0E1A\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E08\u0E30\u0E16\u0E39\u0E01\u0E14\u0E36\u0E07\u0E40\u0E02\u0E49\u0E32\u0E25\u0E34\u0E2A\u0E15\u0E4C\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \xB7 \u0E01\u0E14 \u2705 Delivered \u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E1B\u0E34\u0E14\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E1D\u0E31\u0E48\u0E07\u0E40\u0E27\u0E47\u0E1A\u0E43\u0E2B\u0E49\u0E14\u0E49\u0E27\u0E22 / Website checkouts are pulled into the list below automatically; marking Delivered also closes them on the website."), webOrdersInfo && !webOrdersErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.green, marginTop: 4 } }, "\u2713 ", webOrdersInfo), webOrdersErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.red, marginTop: 4 } }, "\u26A0 ", webOrdersErr)), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(6,199,85,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, "\u{1F4F1} \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E08\u0E32\u0E01 LINE OA \xB7 Messages from LINE Official Account"), /* @__PURE__ */ React.createElement("button", { onClick: loadLineInbox, disabled: lineInboxLoading, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border, marginLeft: "auto" }) }, lineInboxLoading ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14..." : "\u{1F504} Refresh")), !(lineNotifyUrl || "").trim() && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D \u2014 \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 LINE Server URL \u0E17\u0E35\u0E48 More \u2192 \u2696 Scale & Print \u2192 \u{1F4F1} LINE Notifications \u0E01\u0E48\u0E2D\u0E19 / Not connected \u2014 set the LINE server URL under More \u2192 Scale & Print \u2192 LINE Notifications first."), lineInboxErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.red } }, "\u26A0 ", lineInboxErr), (lineNotifyUrl || "").trim() && !lineInboxErr && lineInbox.length === 0 && !lineInboxLoading && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E43\u0E2B\u0E21\u0E48\u0E43\u0E19 48 \u0E0A\u0E21.\u0E17\u0E35\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E21\u0E32 / No new messages in the last 48h"), (function() {
     var byUser = {};
     lineInbox.forEach(function(m) {
       var uid = m.userId || m.user_id || m.sourceId || m.source_id;
@@ -7428,12 +7529,13 @@ function GreenPOS() {
       } else {
         doSet(order.routeMin || etaMinutesFor(order), false);
       }
-    }, style: __spreadProps(__spreadValues({}, gs.btn(C.accent, "#fff")), { fontSize: 11 }) }, "\\ud83d\\udef5 Send Out"), order.status === "delivering" && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.accent, "#fff")), { fontSize: 11 }) }, "\u{1F6F5}", " Send Out"), order.status === "delivering" && /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setOrders(function(p) {
         return p.map(function(o) {
           return o.id === order.id ? Object.assign({}, o, { status: "delivered" }) : o;
         });
       });
+      pushWebOrderStatus(order, "done");
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11 }) }, "\u2705 Delivered"), order.status === "delivering" && order.etaAt && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(125,211,252,0.08)", border: "1px solid rgba(125,211,252,0.3)", borderRadius: 9, padding: "7px 9px", marginTop: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: C.blue } }, "\u{1F550} ETA ", fmtHM(new Date(new Date(order.etaAt).getTime() - 15 * 6e4).toISOString()), "\u2013", fmtHM(new Date(new Date(order.etaAt).getTime() + 15 * 6e4).toISOString()), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.muted, fontWeight: 400, fontSize: 9 } }, "(center ~", fmtHM(order.etaAt), " \xB7 ", Math.max(0, Math.round((new Date(order.etaAt) - /* @__PURE__ */ new Date()) / 6e4)), " min left)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setOrders(function(p) {
         return p.map(function(o) {
@@ -7862,7 +7964,7 @@ function GreenPOS() {
     setShowReceive(false);
   } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 430, maxHeight: "90vh", overflowY: "auto" }), onClick: function(e) {
     e.stopPropagation();
-  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, marginBottom: 3 } }, "\u{1F4E5} \u0E23\u0E31\u0E1A\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E40\u0E02\u0E49\u0E32 \xB7 Receive Stock"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, "\u0E41\u0E1A\u0E48\u0E07\u0E08\u0E33\u0E19\u0E27\u0E19\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07 \u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19 (Active \u2014 \u0E02\u0E32\u0E22\u0E44\u0E14\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35) \u0E01\u0E31\u0E1A \u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19 (Inactive)"), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 / Product"), /* @__PURE__ */ React.createElement("select", { style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 8 }), value: receiveForm.pid, onChange: function(e) {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, marginBottom: 3 } }, "\u{1F4E5} \u0E23\u0E31\u0E1A\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E40\u0E02\u0E49\u0E32 \xB7 Receive Stock"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, "\u0E02\u0E2D\u0E07\u0E40\u0E02\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E40\u0E02\u0E49\u0E32 \u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19 (Inactive) \u0E01\u0E48\u0E2D\u0E19 \u2014 \u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E22\u0E49\u0E32\u0E22\u0E40\u0E02\u0E49\u0E32 Active (\u0E41\u0E19\u0E30\u0E19\u0E33 40%) / All incoming stock goes to Inactive first; a manager moves stock to Active (40% recommended)"), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 / Product"), /* @__PURE__ */ React.createElement("select", { style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 8 }), value: receiveForm.pid, onChange: function(e) {
     var v = e.target.value;
     setReceiveForm(function(p) {
       return Object.assign({}, p, { pid: v });
@@ -7875,7 +7977,7 @@ function GreenPOS() {
       return Object.assign({}, p, { sid: v });
     });
   } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 supplier \u2014"), suppliers.map(function(s) {
-    return /* @__PURE__ */ React.createElement("option", { key: s.id, value: s.id }, s.name, isMaster || isAccountant ? " (" + s.contact + ")" : "");
+    return /* @__PURE__ */ React.createElement("option", { key: s.id, value: s.id }, s.name, isMaster ? " (" + s.contact + ")" : "");
   })), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setSupInv({ no: "", date: "", amount: "" });
     setSupDetail({ id: Date.now(), name: "", contact: "", phone: "", email: "", cat: "", leadDays: 3, gacp: void 0, payTerm: "", creditDays: 30, payRemark: "", invoices: [], _new: true });
@@ -7891,29 +7993,27 @@ function GreenPOS() {
     var _u = _rp ? _rp.unit || "pc" : "pc";
     var _cost = _rp ? +_rp.cost || 0 : 0;
     var _price = _rp ? +_rp.price || 0 : 0;
-    var ta = +receiveForm.toActive || 0, tb = +receiveForm.toBack || 0;
     var _wgh = _u === "g" || _u === "ml";
-    return /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u2192 \u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19 Active (", _u, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5 } }, /* @__PURE__ */ React.createElement("input", { type: "number", step: _wgh ? "0.01" : "1", style: __spreadProps(__spreadValues({}, gs.input), { flex: 1 }), value: receiveForm.toActive || "", onChange: function(e) {
+    var qin = +receiveForm.qtyIn || 0;
+    var _rec = _wgh ? Math.round(qin * 0.4 * 100) / 100 : Math.floor(qin * 0.4);
+    var ta = Math.max(0, +receiveForm.toActive || 0);
+    var tb = Math.max(0, Math.round((qin - ta) * 100) / 100);
+    var _canMgr = currentStaff && (currentStaff.role === "manager" || currentStaff.role === "owner" || currentStaff.pin === "110114");
+    return /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { gridColumn: "1 / -1" } }, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32\u0E08\u0E32\u0E01 supplier \xB7 Qty received (", _u, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5 } }, /* @__PURE__ */ React.createElement("input", { type: "number", step: _wgh ? "0.01" : "1", style: __spreadProps(__spreadValues({}, gs.input), { flex: 1 }), value: receiveForm.qtyIn || "", onChange: function(e) {
       var v = e.target.value;
+      var q = +v || 0;
+      var rc = _wgh ? Math.round(q * 0.4 * 100) / 100 : Math.floor(q * 0.4);
       setReceiveForm(function(p) {
-        return Object.assign({}, p, { toActive: v });
+        return Object.assign({}, p, { qtyIn: v, toActive: q > 0 ? String(rc) : "" });
       });
     } }), _wgh && /* @__PURE__ */ React.createElement("button", { onClick: function() {
       var v = (+scaleReading || 0).toFixed(2);
+      var q = +v || 0;
+      var rc = Math.round(q * 0.4 * 100) / 100;
       setReceiveForm(function(p) {
-        return Object.assign({}, p, { toActive: v });
+        return Object.assign({}, p, { qtyIn: v, toActive: q > 0 ? String(rc) : "" });
       });
-    }, title: "\u0E0A\u0E31\u0E48\u0E07\u0E40\u0E02\u0E49\u0E32 Active", style: __spreadProps(__spreadValues({}, gs.btn(scaleConnected ? "rgba(74,222,128,0.15)" : C.card3, scaleConnected ? C.green : "#9ca3af")), { fontSize: 9, padding: "0 8px", border: "1px solid " + C.border, whiteSpace: "nowrap" }) }, "\u2696 ", (+scaleReading || 0).toFixed(1)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u2192 \u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19 Inactive (", _u, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5 } }, /* @__PURE__ */ React.createElement("input", { type: "number", step: _wgh ? "0.01" : "1", style: __spreadProps(__spreadValues({}, gs.input), { flex: 1 }), value: receiveForm.toBack || "", onChange: function(e) {
-      var v = e.target.value;
-      setReceiveForm(function(p) {
-        return Object.assign({}, p, { toBack: v });
-      });
-    } }), _wgh && /* @__PURE__ */ React.createElement("button", { onClick: function() {
-      var v = (+scaleReading || 0).toFixed(2);
-      setReceiveForm(function(p) {
-        return Object.assign({}, p, { toBack: v });
-      });
-    }, title: "\u0E0A\u0E31\u0E48\u0E07\u0E40\u0E02\u0E49\u0E32 Inactive", style: __spreadProps(__spreadValues({}, gs.btn(scaleConnected ? "rgba(74,222,128,0.15)" : C.card3, scaleConnected ? C.green : "#9ca3af")), { fontSize: 9, padding: "0 8px", border: "1px solid " + C.border, whiteSpace: "nowrap" }) }, "\u2696 ", (+scaleReading || 0).toFixed(1)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Batch (optional)"), /* @__PURE__ */ React.createElement("input", { style: gs.input, value: receiveForm.batch, onChange: function(e) {
+    }, title: "\u0E0A\u0E31\u0E48\u0E07\u0E08\u0E33\u0E19\u0E27\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32", style: __spreadProps(__spreadValues({}, gs.btn(scaleConnected ? "rgba(74,222,128,0.15)" : C.card3, scaleConnected ? C.green : "#9ca3af")), { fontSize: 9, padding: "0 8px", border: "1px solid " + C.border, whiteSpace: "nowrap" }) }, "\u2696 ", (+scaleReading || 0).toFixed(1))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.blue, marginTop: 3 } }, "\u{1F3EC} \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E40\u0E02\u0E49\u0E32\u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19 (Inactive) \u0E01\u0E48\u0E2D\u0E19\u0E42\u0E14\u0E22\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 / everything lands in Inactive first")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Batch (optional)"), /* @__PURE__ */ React.createElement("input", { style: gs.input, value: receiveForm.batch, onChange: function(e) {
       var v = e.target.value;
       setReceiveForm(function(p) {
         return Object.assign({}, p, { batch: v });
@@ -7923,16 +8023,39 @@ function GreenPOS() {
       setReceiveForm(function(p) {
         return Object.assign({}, p, { expiry: v });
       });
-    } }))), _wgh && /* @__PURE__ */ React.createElement("button", { onClick: scaleConnected ? disconnectScale : connectScale, style: __spreadProps(__spreadValues({}, gs.btn(scaleConnected ? "rgba(74,222,128,0.15)" : C.blue, scaleConnected ? C.green : "#000")), { fontSize: 9.5, padding: "5px 10px", marginBottom: 8 }) }, scaleConnected ? "\u2696 \u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\u0E1E\u0E23\u0E49\u0E2D\u0E21 " + (+scaleReading || 0).toFixed(2) + "g \u2014 \u0E01\u0E14 \u2696 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01" : "\u2696 \u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 / Connect scale"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 11px", marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32\u0E23\u0E27\u0E21 \xB7 Total in"), /* @__PURE__ */ React.createElement("b", null, Math.round((ta + tb) * 100) / 100, " ", _u)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "Active (\u0E02\u0E32\u0E22\u0E44\u0E14\u0E49) / Inactive (\u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19)"), /* @__PURE__ */ React.createElement("b", null, ta, " / ", tb, " ", _u)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19 \xB7 Cost value (\u0E3F", _cost, "/", _u, ")"), /* @__PURE__ */ React.createElement("b", { style: { color: C.gold } }, "\u0E3F", Math.round((ta + tb) * _cost).toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E02\u0E32\u0E22 \xB7 Retail value"), /* @__PURE__ */ React.createElement("b", { style: { color: C.green } }, "\u0E3F", Math.round((ta + tb) * _price).toLocaleString()))));
+    } }))), _wgh && /* @__PURE__ */ React.createElement("button", { onClick: scaleConnected ? disconnectScale : connectScale, style: __spreadProps(__spreadValues({}, gs.btn(scaleConnected ? "rgba(74,222,128,0.15)" : C.blue, scaleConnected ? C.green : "#000")), { fontSize: 9.5, padding: "5px 10px", marginBottom: 8 }) }, scaleConnected ? "\u2696 \u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\u0E1E\u0E23\u0E49\u0E2D\u0E21 " + (+scaleReading || 0).toFixed(2) + "g \u2014 \u0E01\u0E14 \u2696 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01" : "\u2696 \u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 / Connect scale"), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.25)", borderRadius: 9, padding: "9px 11px", marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, marginBottom: 4 } }, "\u{1F454} \u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23: \u0E22\u0E49\u0E32\u0E22\u0E40\u0E02\u0E49\u0E32\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19 (Active) \u0E15\u0E2D\u0E19\u0E19\u0E35\u0E49 \xB7 Manager: move to Active now"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 6 } }, "\u0E23\u0E30\u0E1A\u0E1A\u0E41\u0E19\u0E30\u0E19\u0E33 40% \u0E02\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32 = ", /* @__PURE__ */ React.createElement("b", { style: { color: C.green } }, _rec, " ", _u), " \u2014 \u0E41\u0E01\u0E49\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E44\u0E14\u0E49 \u0E2B\u0E23\u0E37\u0E2D\u0E43\u0E2A\u0E48 0 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E01\u0E47\u0E1A\u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 / recommended 40% of intake; edit freely or set 0 to keep all in Inactive"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, marginBottom: _canMgr ? 0 : 6 } }, /* @__PURE__ */ React.createElement("input", { type: "number", step: _wgh ? "0.01" : "1", style: __spreadProps(__spreadValues({}, gs.input), { flex: 1 }), value: receiveForm.toActive || "", onChange: function(e) {
+      var v = e.target.value;
+      setReceiveForm(function(p) {
+        return Object.assign({}, p, { toActive: v });
+      });
+    } }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setReceiveForm(function(p) {
+        return Object.assign({}, p, { toActive: String(_rec) });
+      });
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, C.green)), { fontSize: 9.5, padding: "0 10px", border: "1px solid " + C.border, whiteSpace: "nowrap" }) }, "\u0E43\u0E0A\u0E49 40%"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setReceiveForm(function(p) {
+        return Object.assign({}, p, { toActive: "0" });
+      });
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 9.5, padding: "0 10px", border: "1px solid " + C.border, whiteSpace: "nowrap" }) }, "\u0E40\u0E01\u0E47\u0E1A\u0E2B\u0E21\u0E14")), !_canMgr && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "#fcd34d", fontWeight: 700, marginBottom: 4 } }, "\u26A0 \u0E04\u0E38\u0E13\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23 \u2014 \u0E22\u0E49\u0E32\u0E22\u0E40\u0E02\u0E49\u0E32 Active \u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48 Manager/CEO PIN (\u0E2B\u0E23\u0E37\u0E2D\u0E43\u0E2A\u0E48 0)"), /* @__PURE__ */ React.createElement("input", { type: "password", inputMode: "numeric", maxLength: 6, placeholder: "Manager/CEO PIN", value: receiveForm.mgrPin2 || "", onChange: function(e) {
+      var v = e.target.value.replace(/[^0-9]/g, "");
+      setReceiveForm(function(p) {
+        return Object.assign({}, p, { mgrPin2: v });
+      });
+    }, style: __spreadProps(__spreadValues({}, gs.input), { width: 160, textAlign: "center", letterSpacing: 3 }) }))), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 11px", marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32\u0E23\u0E27\u0E21 \xB7 Total in"), /* @__PURE__ */ React.createElement("b", null, qin, " ", _u)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u2192 \u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19 Active / \u2192 \u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19 Inactive"), /* @__PURE__ */ React.createElement("b", null, /* @__PURE__ */ React.createElement("span", { style: { color: C.green } }, ta), " / ", /* @__PURE__ */ React.createElement("span", { style: { color: C.blue } }, tb), " ", _u)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19 \xB7 Cost value (\u0E3F", _cost, "/", _u, ")"), /* @__PURE__ */ React.createElement("b", { style: { color: C.gold } }, "\u0E3F", Math.round(qin * _cost).toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E02\u0E32\u0E22 \xB7 Retail value"), /* @__PURE__ */ React.createElement("b", { style: { color: C.green } }, "\u0E3F", Math.round(qin * _price).toLocaleString()))));
   })(), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setShowReceive(false);
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     var p = products.find(function(x) {
       return x.id === receiveForm.pid;
     });
-    var ta = +receiveForm.toActive || 0, tb = +receiveForm.toBack || 0;
-    if (!p || ta + tb <= 0) {
-      notify("\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E41\u0E25\u0E30\u0E43\u0E2A\u0E48\u0E08\u0E33\u0E19\u0E27\u0E19\u0E01\u0E48\u0E2D\u0E19", "error");
+    var qin = +receiveForm.qtyIn || 0;
+    var ta = Math.max(0, +receiveForm.toActive || 0);
+    if (!p || qin <= 0) {
+      notify("\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E41\u0E25\u0E30\u0E43\u0E2A\u0E48\u0E08\u0E33\u0E19\u0E27\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32\u0E01\u0E48\u0E2D\u0E19", "error");
+      return;
+    }
+    if (ta > qin) {
+      notify("\u0E22\u0E49\u0E32\u0E22\u0E40\u0E02\u0E49\u0E32 Active (" + ta + ") \u0E40\u0E01\u0E34\u0E19\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32 (" + qin + ")", "error");
       return;
     }
     if (!receiveForm.sid) {
@@ -7944,6 +8067,19 @@ function GreenPOS() {
         return;
       }
     }
+    var _canMgr = currentStaff && (currentStaff.role === "manager" || currentStaff.role === "owner" || currentStaff.pin === "110114");
+    var _mgActBy = null;
+    if (ta > 0 && !_canMgr) {
+      var _mg2 = staff.find(function(x) {
+        return x.pin === receiveForm.mgrPin2 && (x.role === "manager" || x.role === "owner" || x.pin === "110114");
+      });
+      if (!_mg2) {
+        notify("\u0E22\u0E49\u0E32\u0E22\u0E40\u0E02\u0E49\u0E32 Active \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23 \u2014 \u0E43\u0E2A\u0E48 Manager/CEO PIN \u0E2B\u0E23\u0E37\u0E2D\u0E15\u0E31\u0E49\u0E07\u0E40\u0E1B\u0E47\u0E19 0 (\u0E40\u0E01\u0E47\u0E1A\u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14)", "error");
+        return;
+      }
+      _mgActBy = _mg2.name;
+    }
+    var tb = Math.round((qin - ta) * 100) / 100;
     if (ta > 0) setProducts(function(prev) {
       return prev.map(function(x) {
         return x.id === p.id ? Object.assign({}, x, { stock: Math.round(((+x.stock || 0) + ta) * 100) / 100, batch: receiveForm.batch || x.batch, expiry: receiveForm.expiry || x.expiry, sid: receiveForm.sid ? receiveForm.sid : x.sid }) : x;
@@ -7960,10 +8096,10 @@ function GreenPOS() {
       delete n[p.id];
       return n;
     });
-    addAudit("RECEIVE", cleanName(p).short + " +" + ta + " active, +" + tb + " back" + (receiveForm.sid ? " from sup#" + receiveForm.sid : ""), currentStaff && currentStaff.name);
-    setReceiveForm({ pid: "", qty: "", batch: "", expiry: "", sid: "", toActive: "", toBack: "", mgrPin: "" });
+    addAudit("RECEIVE", cleanName(p).short + " in " + qin + " \u2192 active " + ta + " / back " + tb + (receiveForm.sid ? " from sup#" + receiveForm.sid : "") + (_mgActBy ? " \xB7 active approved by " + _mgActBy : ""), currentStaff && currentStaff.name);
+    setReceiveForm({ pid: "", qty: "", qtyIn: "", batch: "", expiry: "", sid: "", toActive: "", toBack: "", mgrPin: "", mgrPin2: "" });
     setShowReceive(false);
-    notify("\u{1F4E5} \u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07\u0E41\u0E25\u0E49\u0E27: " + ta + " \u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19 / " + tb + " \u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19 \u2713");
+    notify("\u{1F4E5} \u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07\u0E41\u0E25\u0E49\u0E27 " + qin + " \u2014 \u0E40\u0E02\u0E49\u0E32\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19 " + ta + " / \u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19 " + tb + " \u2713");
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { flex: 1 }) }, "\u{1F4BE} \u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32")))), reorderCheck && /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
     setReorderCheck(null);
   } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 420 }), onClick: function(e) {
@@ -8210,17 +8346,17 @@ function GreenPOS() {
     setSupDetail(function(p) {
       return Object.assign({}, p, { name: v });
     });
-  } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E1C\u0E39\u0E49\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D / Contact"), isMaster || isAccountant || supDetail._new ? /* @__PURE__ */ React.createElement("input", { style: gs.input, value: supDetail.contact || "", onChange: function(e) {
+  } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E1C\u0E39\u0E49\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D / Contact"), isMaster || supDetail._new ? /* @__PURE__ */ React.createElement("input", { style: gs.input, value: supDetail.contact || "", onChange: function(e) {
     var v = e.target.value;
     setSupDetail(function(p) {
       return Object.assign({}, p, { contact: v });
     });
-  } }) : /* @__PURE__ */ React.createElement("input", { readOnly: true, value: "\u{1F512} \u0E21\u0E32\u0E2A\u0E40\u0E15\u0E2D\u0E23\u0E4C\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19", style: __spreadProps(__spreadValues({}, gs.input), { color: C.muted }) })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E42\u0E17\u0E23 / Phone"), isMaster || isAccountant || supDetail._new ? /* @__PURE__ */ React.createElement("input", { style: gs.input, value: supDetail.phone || "", onChange: function(e) {
+  } }) : /* @__PURE__ */ React.createElement("input", { readOnly: true, value: "\u{1F512} \u0E21\u0E32\u0E2A\u0E40\u0E15\u0E2D\u0E23\u0E4C\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19", style: __spreadProps(__spreadValues({}, gs.input), { color: C.muted }) })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E42\u0E17\u0E23 / Phone"), isMaster || supDetail._new ? /* @__PURE__ */ React.createElement("input", { style: gs.input, value: supDetail.phone || "", onChange: function(e) {
     var v = e.target.value;
     setSupDetail(function(p) {
       return Object.assign({}, p, { phone: v });
     });
-  } }) : /* @__PURE__ */ React.createElement("input", { readOnly: true, value: "\u{1F512} 110114", style: __spreadProps(__spreadValues({}, gs.input), { color: C.muted }) })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Email / LINE"), isMaster || isAccountant || supDetail._new ? /* @__PURE__ */ React.createElement("input", { style: gs.input, value: supDetail.email || "", onChange: function(e) {
+  } }) : /* @__PURE__ */ React.createElement("input", { readOnly: true, value: "\u{1F512} 110114", style: __spreadProps(__spreadValues({}, gs.input), { color: C.muted }) })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Email / LINE"), isMaster || supDetail._new ? /* @__PURE__ */ React.createElement("input", { style: gs.input, value: supDetail.email || "", onChange: function(e) {
     var v = e.target.value;
     setSupDetail(function(p) {
       return Object.assign({}, p, { email: v });
@@ -10113,90 +10249,6 @@ if (el) {
 }
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(GreenPOS));
 
-</script>
-<script>
-/* ============================================================
-   DANK web-sync — pushes this POS's live menu (products, stock,
-   prices) to the DANK BKK website so the online shop always shows
-   what the shop really has.
-
-   Uses the existing Settings → "Website / E-commerce connection"
-   card (localStorage dank_apicfg): siteUrl, apiKey and the
-   shareMenu / shareStock / sharePrices toggles all apply here.
-   With no setup at all it pushes to https://dankbkk.com using a
-   built-in link key. It never pushes an empty product list, so it
-   can't blank the website by accident.
-   Manual push from console: __dankWebSync.pushNow()
-   ============================================================ */
-(function () {
-  "use strict";
-  var BAKED_KEY = "DANK-POS-LINK-8k3n9q2f";
-  var FIRST_MS = 8000, EVERY_MS = 45000;
-  var lastHash = "", inflight = false;
-
-  function cfg() {
-    try { return JSON.parse(localStorage.getItem("dank_apicfg")) || {}; }
-    catch (e) { return {}; }
-  }
-  function djb2(str) {
-    var h = 5381, i;
-    for (i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
-    return String(h);
-  }
-  function buildPayload(c) {
-    var prods = window.__dankProducts || [];
-    if (!prods.length) return null;                    // never wipe the site with an empty menu
-    var out = [];
-    for (var i = 0; i < prods.length; i++) {
-      var p = prods[i] || {};
-      if (!p.name) continue;
-      var o = {
-        id: p.id, name: p.name, category: p.cat || "Other",
-        type: p.type || "Hybrid", thc: +p.thc || 0, cbd: +p.cbd || 0,
-        unit: p.unit || "pc", sku: p.sku || "", img: p.img || ""
-      };
-      if (c.shareStock !== false) o.stock = +p.stock || 0;
-      if (c.sharePrices !== false) { o.price = +p.price || 0; o.member = +p.mPrice || 0; }
-      out.push(o);
-    }
-    return out.length ? out : null;
-  }
-  function push(force) {
-    if (inflight) return;
-    var c = cfg();
-    if (c.shareMenu === false) return;                 // owner turned menu sharing off
-    var site = String(c.siteUrl || "https://dankbkk.com").replace(/\/+$/, "");
-    if (!/^https?:/.test(site)) return;
-    var payload = buildPayload(c);
-    if (!payload) return;
-    var body = JSON.stringify({ key: c.apiKey || BAKED_KEY, products: payload });
-    var h = djb2(body);
-    if (!force && h === lastHash) return;              // nothing changed since last push
-    inflight = true;
-    fetch(site + "/api/pos-feed", { method: "POST", headers: { "Content-Type": "application/json" }, body: body })
-      .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
-      .then(function (res) {
-        inflight = false;
-        if (res.j && res.j.ok) {
-          lastHash = h;
-          try { localStorage.setItem("dank_websync_last", String(Date.now())); } catch (e) {}
-          console.log("[DANK web-sync] menu pushed to " + site + " (" + payload.length + " items)");
-        } else {
-          console.warn("[DANK web-sync] push rejected", res.s, res.j);
-        }
-      })
-      .catch(function (e) { inflight = false; console.warn("[DANK web-sync] push failed:", e && e.message); });
-  }
-  window.__dankWebSync = {
-    pushNow: function () { push(true); },
-    status: function () {
-      var last = 0; try { last = +localStorage.getItem("dank_websync_last") || 0; } catch (e) {}
-      return { lastPushAt: last, secondsAgo: last ? Math.round((Date.now() - last) / 1000) : null };
-    }
-  };
-  setTimeout(function () { push(false); }, FIRST_MS);
-  setInterval(function () { push(false); }, EVERY_MS);
-})();
 </script>
 </body>
 </html>
