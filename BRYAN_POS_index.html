@@ -254,8 +254,89 @@ const ONLINE_ORDERS_INIT = [
 const { useState, useEffect, useRef, useCallback } = React;
 function GreenPOS() {
   var _a;
-  const [lang, setLang] = useState("en");
+  const [lang, setLang] = useState(function() {
+    try {
+      var v = localStorage.getItem("dank_lang");
+      if (v && T[v]) return v;
+    } catch (e) {
+    }
+    return "th";
+  });
   const t = T[lang];
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_lang", lang);
+    } catch (e) {
+    }
+  }, [lang]);
+  useEffect(function() {
+    if (lang !== "en") return;
+    var TH = /[\u0E00-\u0E7F]/;
+    var DICT = { "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49": "Today", "\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E27\u0E32\u0E19": "Yesterday", "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49": "This month", "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A": "Quarter", "\u0E1B\u0E35\u0E19\u0E35\u0E49": "This year", "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14": "All", "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48": "Pick date", "\u0E2A\u0E32\u0E02\u0E32": "Branch", "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32": "Period", "\u0E1A\u0E34\u0E25": "bills", "\u0E41\u0E15\u0E30\u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14": "Tap for details", "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19": "Reports", "\u0E07\u0E32\u0E19": "Tasks", "\u0E01\u0E30": "Shift", "\u0E41\u0E19\u0E30\u0E19\u0E33\u0E02\u0E32\u0E22": "Upsell", "\u0E43\u0E1A\u0E2A\u0E31\u0E48\u0E07\u0E0B\u0E37\u0E49\u0E2D": "Purchase", "\u0E02\u0E32\u0E22": "Sell", "\u0E25\u0E49\u0E32\u0E07": "Clear", "\u0E1B\u0E34\u0E14": "Close", "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01": "Cancel", "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01": "Save", "\u0E41\u0E01\u0E49": "Edit", "\u0E25\u0E1A": "Delete", "\u0E40\u0E1E\u0E34\u0E48\u0E21": "Add", "\u0E04\u0E49\u0E19\u0E2B\u0E32": "Search", "\u0E19\u0E32\u0E17\u0E35": "min", "\u0E0A\u0E34\u0E49\u0E19": "items", "\u0E04\u0E23\u0E31\u0E27": "Kitchen", "\u0E2A\u0E23\u0E38\u0E1B": "Summary", "\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19": "Staff", "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32": "Customer", "\u0E23\u0E32\u0E04\u0E32": "Price", "\u0E08\u0E33\u0E19\u0E27\u0E19": "Qty", "\u0E23\u0E27\u0E21": "Total", "\u0E40\u0E07\u0E34\u0E19\u0E2A\u0E14": "Cash", "\u0E42\u0E2D\u0E19": "Transfer", "\u0E04\u0E23\u0E34\u0E1B\u0E42\u0E15": "Crypto", "\u0E40\u0E04\u0E23\u0E14\u0E34\u0E15": "Credit", "\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19": "Front", "\u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19": "Back" };
+    function stripText(v) {
+      if (!v || !TH.test(v)) return null;
+      var parts = v.split(/\s*(?:\/|·|—)\s*/);
+      if (parts.length > 1) {
+        var enParts = parts.filter(function(p2) {
+          return p2.trim() && !TH.test(p2) && /[A-Za-z0-9]/.test(p2);
+        });
+        if (enParts.length) return enParts.join(" \xB7 ");
+      }
+      var tr = DICT[v.trim()];
+      if (tr) {
+        var m = v.match(/^(\s*)([\s\S]*?)(\s*)$/);
+        return m[1] + tr + m[3];
+      }
+      var noTh = v.replace(/[\u0E00-\u0E7F]+[\u0E00-\u0E7F\s]*/g, " ").replace(/\s{2,}/g, " ");
+      if (/[A-Za-z]{2,}/.test(noTh)) return noTh.trim() ? noTh : null;
+      return null;
+    }
+    function walk(root) {
+      try {
+        var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        var n;
+        var todo = [];
+        while (n = w.nextNode()) if (TH.test(n.nodeValue)) todo.push(n);
+        todo.forEach(function(nd) {
+          var s2 = stripText(nd.nodeValue);
+          if (s2 !== null && s2 !== nd.nodeValue) nd.nodeValue = s2;
+        });
+        var inputs = root.querySelectorAll ? root.querySelectorAll("input[placeholder],textarea[placeholder]") : [];
+        for (var i = 0; i < inputs.length; i++) {
+          var ph = inputs[i].getAttribute("placeholder");
+          var s3 = stripText(ph);
+          if (s3 !== null && s3 !== ph) inputs[i].setAttribute("placeholder", s3);
+        }
+      } catch (e) {
+      }
+    }
+    walk(document.body);
+    var mo = new MutationObserver(function(muts) {
+      for (var i = 0; i < muts.length; i++) {
+        var m2 = muts[i];
+        if (m2.type === "characterData") {
+          if (TH.test(m2.target.nodeValue || "")) {
+            var s4 = stripText(m2.target.nodeValue);
+            if (s4 !== null && s4 !== m2.target.nodeValue) m2.target.nodeValue = s4;
+          }
+        } else if (m2.type === "childList") {
+          for (var j2 = 0; j2 < m2.addedNodes.length; j2++) {
+            var an = m2.addedNodes[j2];
+            if (an.nodeType === 3) {
+              if (TH.test(an.nodeValue || "")) {
+                var s5 = stripText(an.nodeValue);
+                if (s5 !== null && s5 !== an.nodeValue) an.nodeValue = s5;
+              }
+            } else if (an.nodeType === 1) walk(an);
+          }
+        }
+      }
+    });
+    mo.observe(document.body, { subtree: true, childList: true, characterData: true });
+    return function() {
+      mo.disconnect();
+    };
+  }, [lang]);
   const [wasteLog, setWasteLog] = useState([]);
   const [autoSyncTried, setAutoSyncTried] = useState(false);
   const [txHistory, setTxHistory] = useState([]);
@@ -919,6 +1000,42 @@ function GreenPOS() {
   };
   const qrImgUrl = function(data, size) {
     return "https://api.qrserver.com/v1/create-qr-code/?size=" + (size || 220) + "x" + (size || 220) + "&data=" + encodeURIComponent(String(data || ""));
+  };
+  const tableOrderUrl = function(name) {
+    var base = (apiCfg && apiCfg.siteUrl || "https://dankbkk-site.vercel.app").trim().replace(/\/+$/, "");
+    return base + "/?table=" + encodeURIComponent(name) + "&src=tableqr";
+  };
+  const downloadTableQR = function(name) {
+    var url = qrImgUrl(tableOrderUrl(name), 480);
+    fetch(url).then(function(r) {
+      return r.blob();
+    }).then(function(b) {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(b);
+      a.download = "QR-" + name.replace(/\s+/g, "") + ".png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      notify("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 QR " + name + " \u0E41\u0E25\u0E49\u0E27 \u2713 / QR downloaded");
+    }).catch(function() {
+      window.open(url, "_blank");
+    });
+  };
+  const printAllTableQR = function() {
+    try {
+      var cards = TABLES.map(function(tb) {
+        return '<div class="c"><div class="lg">\u{1F33F} DANK</div><div class="tn">' + tb.name + '</div><img src="' + qrImgUrl(tableOrderUrl(tb.name), 300) + '"/><div class="hint">\u0E2A\u0E41\u0E01\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E31\u0E48\u0E07 + \u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19<br/>Scan to order &amp; pay</div></div>';
+      }).join("");
+      var w = window.open("", "_blank");
+      if (!w) {
+        notify("\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C\u0E1A\u0E25\u0E47\u0E2D\u0E01\u0E1B\u0E4A\u0E2D\u0E1B\u0E2D\u0E31\u0E1B \u2014 \u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E01\u0E48\u0E2D\u0E19 / popup blocked", "error");
+        return;
+      }
+      w.document.write("<html><head><title>Table QR \u2014 DANK</title><style>body{font-family:Arial,sans-serif;margin:0;padding:16px;display:flex;flex-wrap:wrap;gap:14px}.c{width:44%;border:2px solid #111;border-radius:14px;padding:18px 10px;text-align:center;page-break-inside:avoid}.lg{font-weight:900;font-size:15px;letter-spacing:2px}.tn{font-weight:900;font-size:34px;margin:6px 0}img{width:230px;height:230px}.hint{font-size:13px;margin-top:8px}@media print{.c{width:45%}}</style></head><body>" + cards + "<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>");
+      w.document.close();
+    } catch (e) {
+      notify("\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: " + (e && e.message), "error");
+    }
   };
   const beginClock = function(s, mode) {
     if (mode === "in" && openShiftOf(s.id)) {
@@ -6204,7 +6321,7 @@ function GreenPOS() {
       });
     } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRegister(false), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { onClick: handleClaimPin, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { flex: 1 }) }, "\u{1F511} \u0E15\u0E31\u0E49\u0E07 PIN + \u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19"))) : /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.muted, marginBottom: 12, padding: "10px 12px", background: C.card2, borderRadius: 8, textAlign: "center" } }, '\u0E17\u0E38\u0E01\u0E04\u0E19\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E21\u0E35 PIN \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E16\u0E49\u0E32\u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48 \u0E01\u0E14 "\u{1F195} \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E2B\u0E21\u0E48 New" \u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1A\u0E31\u0E0D\u0E0A\u0E35'), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRegister(false), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { width: "100%", border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14"));
   })()))));
-  return /* @__PURE__ */ React.createElement("div", { style: gs.app }, notif && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", top: 14, right: 14, background: notif.type === "error" ? C.red : C.accent, color: "#000", padding: "10px 16px", borderRadius: 11, fontWeight: 700, zIndex: 9999, fontSize: 13, boxShadow: `0 8px 28px ${notif.type === "error" ? "rgba(244,63,94,0.4)" : "rgba(74,222,128,0.4)"}`, maxWidth: 290 } }, notif.msg), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(13,20,16,0.95)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}`, padding: mob ? "9px 12px" : "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } }, /* @__PURE__ */ React.createElement("img", { src: LOGO, style: { width: mob ? 30 : 36, height: mob ? 30 : 36, objectFit: "contain" } }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: mob ? 13 : 14, background: "linear-gradient(135deg,#e0b39c,#b87d5f)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: "0.03em" } }, "BRYAN POS"), !mob && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: "#5a6e4e", letterSpacing: "0.1em", textTransform: "uppercase" } }, "MEDICAL CANNABIS POS")), stores.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginLeft: 8, overflowX: "auto", maxWidth: mob ? 150 : 430 } }, [{ id: "all", name: "All" }].concat(stores).map(function(b) {
+  return /* @__PURE__ */ React.createElement("div", { key: lang, style: gs.app }, notif && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", top: 14, right: 14, background: notif.type === "error" ? C.red : C.accent, color: "#000", padding: "10px 16px", borderRadius: 11, fontWeight: 700, zIndex: 9999, fontSize: 13, boxShadow: `0 8px 28px ${notif.type === "error" ? "rgba(244,63,94,0.4)" : "rgba(74,222,128,0.4)"}`, maxWidth: 290 } }, notif.msg), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(13,20,16,0.95)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}`, padding: mob ? "9px 12px" : "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } }, /* @__PURE__ */ React.createElement("img", { src: LOGO, style: { width: mob ? 30 : 36, height: mob ? 30 : 36, objectFit: "contain" } }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: mob ? 13 : 14, background: "linear-gradient(135deg,#e0b39c,#b87d5f)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: "0.03em" } }, "BRYAN POS"), !mob && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: "#5a6e4e", letterSpacing: "0.1em", textTransform: "uppercase" } }, "MEDICAL CANNABIS POS")), stores.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginLeft: 8, overflowX: "auto", maxWidth: mob ? 150 : 430 } }, [{ id: "all", name: "All" }].concat(stores).map(function(b) {
     var on = activeBranch === b.id;
     var lbl = String(b.name || "").replace(/^dank\s*/i, "") || b.name;
     return /* @__PURE__ */ React.createElement("button", { key: b.id, onClick: function() {
@@ -6671,7 +6788,10 @@ function GreenPOS() {
     { icon: "\u{1F5D1}\uFE0F", label: "Waste", fn: () => setShowWasteModal(true), color: C.red }
   ].filter(function(b2) {
     return AI_ENABLED || ["Strain AI", "AI Chat", "AI Price", "AI Report"].indexOf(b2.label) < 0;
-  }).map((btn) => /* @__PURE__ */ React.createElement("button", { key: btn.label, onClick: btn.fn, style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, background: C.card2, border: `1px solid ${C.border}`, borderRadius: 9, padding: "6px 9px", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15 } }, btn.icon), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 8, color: C.muted, whiteSpace: "nowrap" } }, btn.label)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, overflowX: "auto", paddingBottom: 3, flexShrink: 0, minHeight: 30, width: "100%", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setSelTable(null), style: __spreadProps(__spreadValues({}, gs.btn(selTable === null ? C.green : C.card2, selTable === null ? "#000" : "#9ca3af")), { padding: "4px 10px", fontSize: 10, border: `1px solid ${C.border}`, whiteSpace: "nowrap", flexShrink: 0 }) }, "No Table"), tables.map((tbl) => /* @__PURE__ */ React.createElement("button", { key: tbl.id, onClick: () => setSelTable(tbl.id), style: __spreadProps(__spreadValues({}, gs.btn(selTable === tbl.id ? C.accent : C.card2, selTable === tbl.id ? "#fff" : "#9ca3af")), { padding: "4px 10px", fontSize: 10, border: `1px solid ${C.border}`, whiteSpace: "nowrap", flexShrink: 0 }) }, tbl.name)), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowTableBills(selTable === null ? "none" : selTable), style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { padding: "4px 10px", fontSize: 10, border: `1px solid ${C.border}`, whiteSpace: "nowrap", flexShrink: 0 }) }, "\u{1F9FE} \u0E14\u0E39\u0E1A\u0E34\u0E25 / View Bills")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 3, alignItems: "center", flexShrink: 0, minHeight: 30, width: "100%", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 } }, "\u0E18\u0E38\u0E23\u0E01\u0E34\u0E08"), BIZ_LIST.map(function(b) {
+  }).map((btn) => /* @__PURE__ */ React.createElement("button", { key: btn.label, onClick: btn.fn, style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, background: C.card2, border: `1px solid ${C.border}`, borderRadius: 9, padding: "6px 9px", cursor: "pointer", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15 } }, btn.icon), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 8, color: C.muted, whiteSpace: "nowrap" } }, btn.label)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, overflowX: "auto", paddingBottom: 3, flexShrink: 0, minHeight: 30, width: "100%", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setSelTable(null), style: __spreadProps(__spreadValues({}, gs.btn(selTable === null ? C.green : C.card2, selTable === null ? "#000" : "#9ca3af")), { padding: "4px 10px", fontSize: 10, border: `1px solid ${C.border}`, whiteSpace: "nowrap", flexShrink: 0 }) }, "No Table"), tables.map((tbl) => /* @__PURE__ */ React.createElement("button", { key: tbl.id, onClick: () => {
+    setSelTable(tbl.id);
+    setShowTableBills(tbl.id);
+  }, style: __spreadProps(__spreadValues({}, gs.btn(selTable === tbl.id ? C.accent : C.card2, selTable === tbl.id ? "#fff" : "#9ca3af")), { padding: "4px 10px", fontSize: 10, border: `1px solid ${C.border}`, whiteSpace: "nowrap", flexShrink: 0 }) }, tbl.name)), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowTableBills(selTable === null ? "none" : selTable), style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { padding: "4px 10px", fontSize: 10, border: `1px solid ${C.border}`, whiteSpace: "nowrap", flexShrink: 0 }) }, "\u{1F9FE} \u0E14\u0E39\u0E1A\u0E34\u0E25 / View Bills")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 3, alignItems: "center", flexShrink: 0, minHeight: 30, width: "100%", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 } }, "\u0E18\u0E38\u0E23\u0E01\u0E34\u0E08"), BIZ_LIST.map(function(b) {
     var on = posBiz === b.id;
     var cnt = b.id === "All" ? products.length : products.filter(function(p) {
       return inBiz(p, b.id);
@@ -9180,15 +9300,22 @@ function GreenPOS() {
     setShowCashCount(false);
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { width: "100%", border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14"))), showTableMap && /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
     setShowTableMap(false);
-  } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 440 }), onClick: function(e) {
+  } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto" }), onClick: function(e) {
     e.stopPropagation();
-  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, marginBottom: 10 } }, "\u{1FA91} \u0E1C\u0E31\u0E07\u0E42\u0E15\u0E4A\u0E30 / Table Map"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 } }, ["T1", "T2", "T3", "T4", "T5", "T6", "Bar 1", "Bar 2"].map(function(tb) {
-    var on = selTable === tb;
-    return /* @__PURE__ */ React.createElement("button", { key: tb, onClick: function() {
-      setSelTable(on ? null : tb);
-      notify(on ? "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E42\u0E15\u0E4A\u0E30" : "\u0E40\u0E25\u0E37\u0E2D\u0E01 " + tb);
-    }, style: __spreadProps(__spreadValues({}, gs.card), { padding: "16px 6px", textAlign: "center", background: on ? C.green : C.card2, color: on ? "#000" : C.text, border: "2px solid " + (on ? C.green : C.border), cursor: "pointer", fontWeight: 800, fontSize: 12 }) }, tb, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, marginTop: 3, color: on ? "#000" : C.muted } }, on ? "\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19" : "\u0E27\u0E48\u0E32\u0E07"));
-  })), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14 } }, "\u{1FA91} \u0E1C\u0E31\u0E07\u0E42\u0E15\u0E4A\u0E30 / Table Map"), /* @__PURE__ */ React.createElement("button", { onClick: printAllTableQR, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 12px", marginLeft: "auto" }) }, "\u{1F5A8} \u0E1E\u0E34\u0E21\u0E1E\u0E4C QR \u0E17\u0E38\u0E01\u0E42\u0E15\u0E4A\u0E30 / Print all")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, "\u0E41\u0E15\u0E30\u0E42\u0E15\u0E4A\u0E30 = \u0E40\u0E25\u0E37\u0E2D\u0E01 + \u0E14\u0E39\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E02\u0E2D\u0E07\u0E42\u0E15\u0E4A\u0E30\u0E19\u0E31\u0E49\u0E19 \xB7 QR \u0E43\u0E2B\u0E49\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E2A\u0E41\u0E01\u0E19\u0E2A\u0E31\u0E48\u0E07+\u0E08\u0E48\u0E32\u0E22\u0E40\u0E2D\u0E07\u0E1C\u0E48\u0E32\u0E19\u0E40\u0E27\u0E47\u0E1A \u0E41\u0E25\u0E49\u0E27\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E14\u0E49\u0E07\u0E40\u0E02\u0E49\u0E32\u0E41\u0E17\u0E47\u0E1A Orders / tap a table to select it and see its orders \xB7 customers scan the QR to order & pay on the website \u2014 orders land in the Orders tab tagged with the table"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(115px,1fr))", gap: 8 } }, TABLES.map(function(tbl) {
+    var on = selTable === tbl.id;
+    var nOrders = transactions.filter(function(tx) {
+      return tx.tableId === tbl.id && !tx.isVoid;
+    }).length;
+    return /* @__PURE__ */ React.createElement("div", { key: tbl.id, style: __spreadProps(__spreadValues({}, gs.card), { padding: "10px 6px 8px", textAlign: "center", background: on ? "rgba(74,222,128,0.12)" : C.card2, border: "2px solid " + (on ? C.green : C.border) }) }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setSelTable(on ? null : tbl.id);
+      if (!on) setShowTableBills(tbl.id);
+    }, style: { background: "none", border: "none", cursor: "pointer", width: "100%", padding: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, color: on ? C.green : C.text } }, tbl.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, marginTop: 2, color: nOrders > 0 ? C.gold : C.muted } }, nOrders > 0 ? nOrders + " \u0E1A\u0E34\u0E25 / bills" : "\u0E27\u0E48\u0E32\u0E07 / free"), /* @__PURE__ */ React.createElement("img", { src: qrImgUrl(tableOrderUrl(tbl.name), 120), alt: "QR " + tbl.name, style: { width: 74, height: 74, background: "#fff", borderRadius: 7, padding: 3, marginTop: 6 } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "center", marginTop: 6 } }, /* @__PURE__ */ React.createElement("button", { title: "\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 QR", onClick: function() {
+      downloadTableQR(tbl.name);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, C.blue)), { fontSize: 9, padding: "3px 9px", border: "1px solid " + C.border }) }, "\u2B07 QR"), /* @__PURE__ */ React.createElement("button", { title: "\u0E14\u0E39\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C", onClick: function() {
+      setShowTableBills(tbl.id);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 9, padding: "3px 9px", border: "1px solid " + C.border }) }, "\u{1F9FE}")));
+  })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted, marginTop: 10 } }, "\u2139 QR \u0E0A\u0E35\u0E49\u0E44\u0E1B\u0E17\u0E35\u0E48\u0E40\u0E27\u0E47\u0E1A (", apiCfg && apiCfg.siteUrl || "dankbkk-site.vercel.app", ") \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E41\u0E17\u0E47\u0E01\u0E42\u0E15\u0E4A\u0E30 \u2014 \u0E15\u0E31\u0E14\u0E2A\u0E15\u0E4A\u0E2D\u0E01/\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E40\u0E01\u0E34\u0E14\u0E1A\u0E19\u0E40\u0E27\u0E47\u0E1A \u0E41\u0E25\u0E49\u0E27\u0E0B\u0E34\u0E07\u0E04\u0E4C\u0E01\u0E25\u0E31\u0E1A\u0E21\u0E32\u0E17\u0E35\u0E48 POS / QR opens the web shop with the table tagged; payment & stock happen through the site and sync back here"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setShowTableMap(false);
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { width: "100%", marginTop: 12, border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14"))), showEOD && eoData && /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
     setShowEOD(false);
