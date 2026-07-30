@@ -3,12 +3,11 @@
    product mapping can be calibrated against your real catalogue after deploy.
    Staff-key protected; never exposed publicly. */
 import { shRaw, shConfigured, fetchStoreHubProducts } from "./_storehub.js";
-
-const STAFF_KEY = process.env.STAFF_KEY || "dankstaff";
+import { requireStaff } from "./_auth.js";
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  if (req.query?.key !== STAFF_KEY) return res.status(401).json({ error: "bad key" });
+  if (!requireStaff(req, res)) return;
   if (!shConfigured()) return res.status(200).json({ configured: false, note: "Set STOREHUB_STORE + STOREHUB_TOKEN" });
   try {
     const raw = await shRaw();

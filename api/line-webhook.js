@@ -15,10 +15,10 @@ import { getJSON, setJSON } from "./_store.js";
 import { getMenu } from "./_menu.js";
 import { logMessage, isMonitored, getMessagesSince, summarize } from "./_linelog.js";
 import { computeEta, etaText, routeConfigured } from "./_route.js";
+import { isStaffKey } from "./_auth.js";
 
 export const config = { api: { bodyParser: false } }; // we need the raw body for the signature
 
-const STAFF_KEY = process.env.STAFF_KEY || "dankstaff";
 const HANDOFF_RE = /(staff|human|agent|admin|real person|talk to|แอดมิน|พนักงาน|คนจริง|ติดต่อ(เจ้าหน้าที่|คน)|คุยกับคน)/i;
 // customer asking about delivery time → prompt them to drop a location pin
 const ETA_RE = /(กี่โมง|กี่นาที|นานไหม|นานมั้ย|เวลาส่ง|ส่งกี่|ถึงกี่|delivery|eta|how long|arrive)/i;
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
   if (raw) { try { body = JSON.parse(raw); } catch { return res.status(200).end(); } }
   else if (req.body) { body = req.body; }
   const sigOk = raw ? verifyLineSignature(raw, req.headers["x-line-signature"]) : false;
-  const keyOk = req.query?.k && req.query.k === STAFF_KEY;
+  const keyOk = isStaffKey(req.query?.k);
   if (!sigOk && !keyOk) return res.status(401).end();
 
   // Respond 200 fast, then process (LINE requires a quick ack)

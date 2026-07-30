@@ -2,15 +2,18 @@
    GBP posts the result (referenceNo + resultCode); mark the order paid on
    success. GBP fields vary a little by product, so we check the common ones. */
 import { getJSON, setJSON } from "./_store.js";
-
-const SECRET = process.env.WEBHOOK_SECRET || "";
+import { requireEnv, safeEq } from "./_auth.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
-  // If a secret is configured, require it in the callback URL (set the GBP
-  // backgroundUrl to .../api/gbp-webhook?secret=YOUR_WEBHOOK_SECRET). This stops
-  // anyone from POSTing a fake "paid" for a known order id.
-  if (SECRET && req.query?.secret !== SECRET) return res.status(401).json({ error: "bad secret" });
+  /* The secret is required in the callback URL: set the GBP backgroundUrl to
+     .../api/gbp-webhook?secret=YOUR_WEBHOOK_SECRET. This is the only thing
+     standing between a stranger and marking any order they can name as paid.
+     It used to read `if (SECRET && …)`, so leaving WEBHOOK_SECRET unset didn't
+     weaken the check — it removed it, and the endpoint that stamps orders PAID
+     was open to the world. Unset now means every callback is refused. */
+  if (!requireEnv(res, ["WEBHOOK_SECRET"])) return;
+  if (!safeEq(req.query?.secret, process.env.WEBHOOK_SECRET)) return res.status(401).json({ error: "bad secret" });
   try {
     const b = req.body || {};
     const ref = b.referenceNo || b.referenceno || b.data?.referenceNo;

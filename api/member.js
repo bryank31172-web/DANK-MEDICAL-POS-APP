@@ -1,16 +1,24 @@
 /* /api/member — CRM member sign-ups + member login for the website.
 
      POST {name, phone}                    → {ok}          join (de-dupes by phone)
-     POST {action:"login", phone}          → {ok, found, name}   returning member
+     POST {action:"login", phone}          → {ok, found, points, visits}  returning member
      GET  ?key=STAFF_KEY                   → {ok, count, members}  (owner/staff only)
 
    Members are stored in the shared store (Upstash Redis when configured).
-   Set CRM_WEBHOOK_URL to also forward each new member to your POS/CRM.     */
+   Set CRM_WEBHOOK_URL to also forward each new member to your POS/CRM.
+
+   The login lookup deliberately does NOT return the member's name. It takes no
+   credential — a phone number is not a secret — so answering with a name turned
+   it into a directory anyone could walk: feed it numbers, collect names. It now
+   confirms only that the number is known, plus the loyalty figures the
+   storefront shows; the storefront already keeps the customer's own name in
+   localStorage (dank_reg) from when they joined on that device.            */
 import { getJSON, setJSON } from "./_store.js";
+import { requireStaff } from "./_auth.js";
+import { requireRate } from "./_ratelimit.js";
+import { normPhone as digits } from "./_phone.js";
 
 const KEY = "crm:members";
-const STAFF_KEY = process.env.STAFF_KEY || "dankstaff";
-const digits = (s) => String(s || "").replace(/[^0-9]/g, "").replace(/^66/, "0");
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -19,11 +27,16 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     // member list is staff-only — same key as the staff console
-    if (req.query?.key !== STAFF_KEY) return res.status(401).json({ error: "bad key" });
+    if (!requireStaff(req, res)) return;
     const list = (await getJSON(KEY)) || [];
     return res.status(200).json({ ok: true, count: list.length, members: list.slice(0, 1000) });
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method" });
+
+  // Both branches below are open to the internet and both take a phone number,
+  // so cap how fast one address can try numbers. A real customer logs in or
+  // joins once; a script wants thousands of attempts.
+  if (!(await requireRate(req, res, "member", 20, 300))) return;
 
   const b = req.body || {};
 
@@ -37,7 +50,7 @@ export default async function handler(req, res) {
       // enrich with POS CRM points if the same person exists there
       const crm = (await getJSON("pos:customers")) || null;
       const pc = crm && crm.list.find((x) => x.d === ph);
-      return res.status(200).json({ ok: true, found: true, name: m.name, points: pc ? pc.points : 0, visits: pc ? pc.visits : 0, source: "web" });
+      return res.status(200).json({ ok: true, found: true, points: pc ? pc.points : 0, visits: pc ? pc.visits : 0, source: "web" });
     }
     // 2) customers from the BRYAN POS CRM (joined in the shop)
     const crm = (await getJSON("pos:customers")) || null;
@@ -48,9 +61,9 @@ export default async function handler(req, res) {
         list.unshift({ name: pc.name || "Member", phone: b.phone, at: Date.now(), source: "pos-login" });
         try { await setJSON(KEY, list.slice(0, 5000), 60 * 60 * 24 * 3650); } catch (e) {}
       }
-      return res.status(200).json({ ok: true, found: true, name: pc.name || "", points: pc.points || 0, visits: pc.visits || 0, source: "pos" });
+      return res.status(200).json({ ok: true, found: true, points: pc.points || 0, visits: pc.visits || 0, source: "pos" });
     }
-    return res.status(200).json({ ok: true, found: false, name: "" });
+    return res.status(200).json({ ok: true, found: false });
   }
 
   const name = String(b.name || "").trim();

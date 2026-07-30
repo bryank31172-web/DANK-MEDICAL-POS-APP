@@ -8,12 +8,16 @@
      GET  ?checkTopup=chrg_...&phone=...    → {paid, balance}
      POST {action:"topup_promptpay", phone, amount}  → {chargeId, qr, willReceive}
      POST {action:"topup_card", phone, amount, token} → {paid, balance}
+     POST {action:"settle", orderId, key}   → {ok, balance}   (staff only)
 
    Security: credit is idempotent per charge (topup record's `credited`
-   flag); the bonus and amount are computed server-side.                */
+   flag); the bonus and amount are computed server-side. Spending credit
+   is staff-only — see the settle action.                              */
 
 import { getJSON, setJSON } from "./_store.js";
-import { getBalance, credit } from "./_wallet.js";
+import { getBalance, credit, debit } from "./_wallet.js";
+import { requireStaff } from "./_auth.js";
+import { requireRate } from "./_ratelimit.js";
 
 const SK = process.env.OMISE_SECRET_KEY || "";
 const BONUS = Number(process.env.TOPUP_BONUS_PCT || 10);
@@ -50,6 +54,12 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
+      /* A balance lookup needs nothing but a phone number, which makes this a
+         free "does this number exist and how much can it spend" oracle. A real
+         fix is a customer login; until then, at least make sweeping the number
+         space expensive. The limit is well above what one shopper's browser
+         does (it refreshes on load and after each wallet action). */
+      if (!(await requireRate(req, res, "wallet-get", 30, 300))) return;
       if (req.query?.checkTopup) {
         if (!SK) return res.status(200).json({ paid: false });
         const c = await omise("/charges/" + encodeURIComponent(req.query.checkTopup));
@@ -63,6 +73,44 @@ export default async function handler(req, res) {
 
     if (req.method !== "POST") return res.status(405).json({ error: "method" });
     const b = req.body || {};
+
+    /* Settle a wallet order — the other half of the reserve in /api/order.
+       Money only ever leaves a wallet from here, behind the staff key, because
+       the request that creates an order is unauthenticated and a phone number
+       is not a credential. Staff hand over the goods, tap settle, and the debit
+       happens once.
+
+       Idempotent by the walletSettled flag on the order: pressing the button
+       twice (or a retry after a flaky response) returns the same balance and
+       does not debit again. Two settles racing each other on different
+       instances could still both pass the flag check — that needs a lock we
+       have no primitive for here, and a human pressing one button twice in the
+       same 200ms is not the case worth building it for. */
+    if (b.action === "settle") {
+      if (!requireStaff(req, res)) return;
+      const id = String(b.orderId || "");
+      if (!id) return res.status(400).json({ error: "orderId required" });
+      const o = await getJSON("order:" + id);
+      if (!o) return res.status(404).json({ error: "order not found" });
+      if (o.payment !== "Wallet" || !o.walletReserved)
+        return res.status(400).json({ error: "not a wallet order" });
+
+      const phone = o.customer?.phone;
+      if (o.walletSettled)
+        return res.status(200).json({ ok: true, balance: await getBalance(phone), alreadySettled: true });
+
+      const amt = Math.round(Number(o.walletAmount ?? o.total ?? o.subtotal));
+      const r = await debit(phone, amt, "Order " + id);
+      if (!r.ok) return res.status(402).json({ error: r.error || "insufficient wallet", balance: r.balance });
+
+      o.payStatus = "paid";
+      o.walletSettled = true;
+      o.walletSettledAt = Date.now();
+      o.walletBalanceAfter = r.balance;
+      await setJSON("order:" + id, o);
+      return res.status(200).json({ ok: true, balance: r.balance, orderId: id, amount: amt });
+    }
+
     if (!b.phone) return res.status(400).json({ error: "phone required" });
     const amount = Math.round(Number(b.amount));
     if (!amount || amount < 100) return res.status(400).json({ error: "min top-up ฿100" });

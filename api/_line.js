@@ -64,9 +64,16 @@ export async function getLineProfile(userId) {
   } catch { return null; }
 }
 
-/** Verify an incoming LINE webhook signature against the raw request body. */
+/* Verify an incoming LINE webhook signature against the raw request body.
+
+   This returned TRUE when LINE_CHANNEL_SECRET was unset — "no secret, skip the
+   check" — which meant a deployment that hadn't set the variable accepted any
+   forged webhook body as genuinely from LINE. An unverifiable message is not a
+   verified one: with no secret there is nothing to check against, so the answer
+   is no. The webhook route falls back to its ?k=STAFF_KEY gate and 401s when
+   neither passes. */
 export function verifyLineSignature(rawBody, signature) {
-  if (!SECRET) return true; // if no secret set, skip (webhook URL should carry ?k= gate instead)
+  if (!SECRET || !signature) return false;
   try {
     const h = crypto.createHmac("sha256", SECRET).update(rawBody).digest("base64");
     return h === signature;

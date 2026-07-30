@@ -21,6 +21,53 @@ if (!window.React || !window.ReactDOM) {
 }
 </script>
 <script>
+/* If BOTH CDNs are unreachable - shop wifi down, captive portal, CDN outage - the
+   bundle throws on its first React reference and the spinner above spins forever.
+   A till that hangs on a blank screen tells the staff nothing, so say what went
+   wrong and give them a button. */
+(function () {
+  var TIMEOUT = 9000, done = false;
+  function mounted() {
+    var root = document.getElementById('root');
+    return !!(window.React && window.ReactDOM && root && root.childElementCount > 0);
+  }
+  function stall() {
+    if (done || mounted()) return;
+    done = true;
+    var box = document.getElementById('loading');
+    if (!box) { box = document.createElement('div'); box.id = 'loading'; document.body.appendChild(box); }
+    box.style.opacity = '1';
+    box.style.display = 'block';
+    box.innerHTML =
+      '<div style="max-width:430px;margin:0 auto;padding:34px 24px;text-align:center;' +
+        'font-family:-apple-system,system-ui,sans-serif;color:#e8f5ec">' +
+        '<div style="font-size:40px;margin-bottom:10px">&#128225;</div>' +
+        '<div style="font-weight:800;font-size:18px;margin-bottom:8px">BRYAN POS could not finish loading</div>' +
+        '<div style="font-size:13.5px;line-height:1.6;color:#8fae9a">' +
+          'The till needs the internet the first time it opens. Check the wi-fi ' +
+          '(or the shop router) and try again.<br><span style="color:#d9b25b">' +
+          '\u0e15\u0e49\u0e2d\u0e07\u0e15\u0e48\u0e2d\u0e2d\u0e34\u0e19\u0e40\u0e17\u0e2d\u0e23\u0e4c\u0e40\u0e19\u0e47\u0e15' +
+          '\u0e15\u0e2d\u0e19\u0e40\u0e1b\u0e34\u0e14\u0e04\u0e23\u0e31\u0e49\u0e07\u0e41\u0e23\u0e01 \u2014 ' +
+          '\u0e40\u0e0a\u0e47\u0e04\u0e27\u0e32\u0e22\u0e1f\u0e32\u0e22\u0e41\u0e25\u0e49\u0e27\u0e25\u0e2d\u0e07\u0e43\u0e2b\u0e21\u0e48\u0e2d\u0e35\u0e01\u0e04\u0e23\u0e31\u0e49\u0e07</span>' +
+        '</div>' +
+        '<button id="posRetry" style="margin-top:18px;background:#3ddc84;color:#04180d;font-weight:800;' +
+          'border:none;border-radius:10px;padding:12px 22px;font-size:14px;cursor:pointer">' +
+          '\u21bb Try again \u00b7 \u0e25\u0e2d\u0e07\u0e43\u0e2b\u0e21\u0e48</button>' +
+        '<div style="margin-top:14px;font-size:12px;color:#5f7a68">Orders placed on the website are still ' +
+          'saved and will show up here once the till loads.</div>' +
+      '</div>';
+    var btn = document.getElementById('posRetry');
+    if (btn) btn.onclick = function () { location.reload(); };
+  }
+  if (document.readyState === 'complete') setTimeout(stall, TIMEOUT);
+  else window.addEventListener('load', function () { setTimeout(stall, TIMEOUT); });
+  /* A hard boot error is conclusive - don't make staff wait out the full timer. */
+  window.addEventListener('error', function (e) {
+    if (e && e.message && /React(DOM)? is not defined/.test(String(e.message))) setTimeout(stall, 1500);
+  });
+})();
+</script>
+<script>
 var __defProp = Object.defineProperty;
 var __defProps = Object.defineProperties;
 var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
@@ -79,6 +126,25 @@ const SHIFT_REQUIREMENTS = {
     { role: "budtender", shiftId: 3, need: 1, label: "\u0E14\u0E36\u0E01 Night" }
   ]
 };
+/* ── Finance modal chrome ───────────────────────────────────────────────────
+   Seven Finance buttons set a state flag that nothing ever rendered, so
+   pressing them did nothing at all. These helpers give them a real view.
+   `gs` is built inside the component (it depends on the mobile breakpoint),
+   so it is passed in rather than closed over. */
+function finModal(gs, title, onClose, maxWidth, body) {
+  return /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: onClose }, /* @__PURE__ */ React.createElement("div", { style: Object.assign({}, gs.card, { width: "100%", maxWidth: maxWidth || 560, maxHeight: "90vh", overflowY: "auto" }), onClick: function(e) {
+    e.stopPropagation();
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14 } }, title), /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: Object.assign({}, gs.btn(C.card2, "#fff"), { fontSize: 10, padding: "3px 9px", border: "1px solid " + C.border }) }, "✕")), body));
+}
+function finBaht(n) {
+  return "฿" + Math.round(Number(n) || 0).toLocaleString();
+}
+function finRow(label, value, color) {
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, fontSize: 11, padding: "5px 0", borderBottom: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, label), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 800, color: color || C.text, textAlign: "right" } }, value));
+}
+function finEmpty(msg) {
+  return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", color: C.muted, fontSize: 10.5, padding: "18px 8px", lineHeight: 1.65 } }, msg);
+}
 const ROSTER_STRUCTURE = {
   Pattanakarn: { type: "shifts", shifts: [
     { slot: "Shift 1 \xB7 Day", time: "09:00-18:00", need: [{ role: "Budtender", n: 1 }, { role: "Rider", n: 1 }] },
@@ -161,12 +227,18 @@ const catIcon = function(c) {
 const CAT_CLR = { "Flowers": "#4ade80", "Pre-Roll": "#f59e0b", "Vape": "#38bdf8", "Edible": "#ec4899", "Hash": "#c9a84c", "Beverage": "#a78bfa", "Accessories": "#f97316" };
 const TYPE_CLR = { "Sativa": "#f59e0b", "Indica": "#818cf8", "Hybrid": "#4ade80", "Accessory": "#64748b" };
 const T = {
-  en: { welcome: "Welcome back", login: "Enter your PIN", register: "Register", pos: "POS", dashboard: "Dashboard", inventory: "Inventory", crm: "CRM", rewards: "Rewards", finance: "Finance", medical: "Medical", orders: "Orders", affiliate: "Affiliates", staff: "Staff", allCat: "All", searchProduct: "Search products...", selectCustomer: "Select customer", customer: "Customer", walkin: "Walk-in", usePoints: "Use points", checkout: "Checkout", cash: "Cash", card: "Card", qr: "QR Pay", time: "Time", min: "min" },
-  th: { welcome: "\u0E22\u0E34\u0E19\u0E14\u0E35\u0E15\u0E49\u0E2D\u0E19\u0E23\u0E31\u0E1A", login: "\u0E01\u0E23\u0E2D\u0E01\u0E23\u0E2B\u0E31\u0E2A PIN", register: "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01", pos: "\u0E02\u0E32\u0E22", dashboard: "\u0E41\u0E14\u0E0A\u0E1A\u0E2D\u0E23\u0E4C\u0E14", inventory: "\u0E2A\u0E15\u0E47\u0E2D\u0E01", crm: "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", rewards: "\u0E23\u0E32\u0E07\u0E27\u0E31\u0E25", finance: "\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19", medical: "\u0E01\u0E32\u0E23\u0E41\u0E1E\u0E17\u0E22\u0E4C", orders: "\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C", affiliate: "\u0E1E\u0E31\u0E19\u0E18\u0E21\u0E34\u0E15\u0E23", staff: "\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19", allCat: "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", searchProduct: "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32...", selectCustomer: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", customer: "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", walkin: "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E17\u0E31\u0E48\u0E27\u0E44\u0E1B", usePoints: "\u0E43\u0E0A\u0E49\u0E41\u0E15\u0E49\u0E21", checkout: "\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19", cash: "\u0E40\u0E07\u0E34\u0E19\u0E2A\u0E14", card: "\u0E1A\u0E31\u0E15\u0E23", qr: "QR", time: "\u0E40\u0E27\u0E25\u0E32", min: "\u0E19\u0E32\u0E17\u0E35" },
-  zh: { welcome: "\u6B22\u8FCE\u56DE\u6765", login: "\u8F93\u5165PIN\u7801", register: "\u6CE8\u518C", pos: "\u6536\u94F6", dashboard: "\u4EEA\u8868\u677F", inventory: "\u5E93\u5B58", crm: "\u5BA2\u6237", rewards: "\u5956\u52B1", finance: "\u8D22\u52A1", medical: "\u533B\u7597", orders: "\u8BA2\u5355", affiliate: "\u8054\u76DF", staff: "\u5458\u5DE5", allCat: "\u5168\u90E8", searchProduct: "\u641C\u7D22\u4EA7\u54C1...", selectCustomer: "\u9009\u62E9\u5BA2\u6237", customer: "\u5BA2\u6237", walkin: "\u6563\u5BA2", usePoints: "\u4F7F\u7528\u79EF\u5206", checkout: "\u7ED3\u8D26", cash: "\u73B0\u91D1", card: "\u94F6\u884C\u5361", qr: "\u626B\u7801\u4ED8", time: "\u65F6\u95F4", min: "\u5206\u949F" },
-  ja: { welcome: "\u304A\u304B\u3048\u308A\u306A\u3055\u3044", login: "PIN\u3092\u5165\u529B", register: "\u767B\u9332", pos: "\u30EC\u30B8", dashboard: "\u30C0\u30C3\u30B7\u30E5\u30DC\u30FC\u30C9", inventory: "\u5728\u5EAB", crm: "\u9867\u5BA2", rewards: "\u7279\u5178", finance: "\u8CA1\u52D9", medical: "\u533B\u7642", orders: "\u6CE8\u6587", affiliate: "\u30A2\u30D5\u30A3\u30EA\u30A8\u30A4\u30C8", staff: "\u30B9\u30BF\u30C3\u30D5", allCat: "\u3059\u3079\u3066", searchProduct: "\u5546\u54C1\u3092\u691C\u7D22...", selectCustomer: "\u9867\u5BA2\u3092\u9078\u629E", customer: "\u9867\u5BA2", walkin: "\u4E00\u822C\u5BA2", usePoints: "\u30DD\u30A4\u30F3\u30C8\u4F7F\u7528", checkout: "\u4F1A\u8A08", cash: "\u73FE\u91D1", card: "\u30AB\u30FC\u30C9", qr: "QR\u6C7A\u6E08", time: "\u6642\u9593", min: "\u5206" },
-  my: { welcome: "\u1015\u103C\u1014\u103A\u101C\u100A\u103A\u1000\u103C\u102D\u102F\u1006\u102D\u102F\u1015\u102B\u1010\u101A\u103A", login: "\u101E\u1004\u1037\u103A PIN \u1011\u100A\u1037\u103A\u1015\u102B", register: "\u1005\u102C\u101B\u1004\u103A\u1038\u101E\u103D\u1004\u103A\u1038\u101B\u1014\u103A", pos: "\u1021\u101B\u1031\u102C\u1004\u103A\u1038", dashboard: "\u1012\u1000\u103A\u101B\u103E\u103A\u1018\u102F\u1010\u103A", inventory: "\u1000\u102F\u1014\u103A\u1015\u1005\u1039\u1005\u100A\u103A\u1038", crm: "\u1016\u1031\u102C\u1000\u103A\u101E\u100A\u103A", rewards: "\u1006\u102F\u101C\u102C\u1018\u103A", finance: "\u1018\u100F\u1039\u100D\u102C\u101B\u1031\u1038", medical: "\u1006\u1031\u1038\u1018\u1000\u103A\u1006\u102D\u102F\u1004\u103A\u101B\u102C", orders: "\u1021\u1031\u102C\u103A\u1012\u102B", affiliate: "\u1019\u102D\u1010\u103A\u1016\u1000\u103A", staff: "\u101D\u1014\u103A\u1011\u1019\u103A\u1038", allCat: "\u1021\u102C\u1038\u101C\u102F\u1036\u1038", searchProduct: "\u1000\u102F\u1014\u103A\u1015\u1005\u1039\u1005\u100A\u103A\u1038\u101B\u103E\u102C\u101B\u1014\u103A...", selectCustomer: "\u1016\u1031\u102C\u1000\u103A\u101E\u100A\u103A\u101B\u103D\u1031\u1038\u1015\u102B", customer: "\u1016\u1031\u102C\u1000\u103A\u101E\u100A\u103A", walkin: "\u101D\u1004\u103A\u101B\u1031\u102C\u1000\u103A\u101D\u101A\u103A\u101A\u1030\u101E\u1030", usePoints: "\u1015\u103D\u102D\u102F\u1004\u1037\u103A\u101E\u102F\u1036\u1038\u101B\u1014\u103A", checkout: "\u1004\u103D\u1031\u101B\u103E\u1004\u103A\u1038\u101B\u1014\u103A", cash: "\u1004\u103D\u1031\u101E\u102C\u1038", card: "\u1000\u1010\u103A", qr: "QR", time: "\u1021\u1001\u103B\u102D\u1014\u103A", min: "\u1019\u102D\u1014\u1005\u103A" }
+  en: { welcome: "Welcome back", login: "Enter your PIN", register: "Register", shift: "Shift", pos: "POS", suggest: "Suggest", dashboard: "Dashboard", inventory: "Inventory", kitchen: "Kitchen", crm: "CRM", rewards: "Rewards", finance: "Finance", po: "Purchase Orders", medical: "Medical", orders: "Orders", affiliate: "Affiliates", staff: "Staff", reports: "Reports", alerts: "Alerts", apiWeb: "API / Website", work: "Work", scale: "Scale & Print", marketing: "Marketing", aiSummary: "AI Summary", more: "More", allCat: "All", searchProduct: "Search products...", selectCustomer: "Select customer", customer: "Customer", walkin: "Walk-in", usePoints: "Use points", items: "items", clear: "Clear", clearCartQ: "Clear cart?", subtotal: "Subtotal", discount: "Discount", pointsDiscount: "Points Discount", total: "Total", payment: "Payment", checkout: "Checkout", viewCart: "View Cart & Checkout", cash: "Cash", card: "Card", credit: "Credit", qr: "QR Pay", transfer: "Transfer", crypto: "Crypto", wallet: "Wallet", onAccount: "On Account", cashReceived: "Cash received...", change: "Change", time: "Time", min: "min" },
+  th: { welcome: "\u0E22\u0E34\u0E19\u0E14\u0E35\u0E15\u0E49\u0E2D\u0E19\u0E23\u0E31\u0E1A", login: "\u0E01\u0E23\u0E2D\u0E01\u0E23\u0E2B\u0E31\u0E2A PIN", register: "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01", shift: "\u0E01\u0E30", pos: "\u0E02\u0E32\u0E22", suggest: "\u0E41\u0E19\u0E30\u0E19\u0E33\u0E02\u0E32\u0E22", dashboard: "\u0E41\u0E14\u0E0A\u0E1A\u0E2D\u0E23\u0E4C\u0E14", inventory: "\u0E2A\u0E15\u0E47\u0E2D\u0E01", kitchen: "\u0E04\u0E23\u0E31\u0E27", crm: "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", rewards: "\u0E23\u0E32\u0E07\u0E27\u0E31\u0E25", finance: "\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19", po: "\u0E43\u0E1A\u0E2A\u0E31\u0E48\u0E07\u0E0B\u0E37\u0E49\u0E2D", medical: "\u0E01\u0E32\u0E23\u0E41\u0E1E\u0E17\u0E22\u0E4C", orders: "\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C", affiliate: "\u0E1E\u0E31\u0E19\u0E18\u0E21\u0E34\u0E15\u0E23", staff: "\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19", reports: "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19", alerts: "\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19", apiWeb: "API / \u0E40\u0E27\u0E47\u0E1A\u0E44\u0E0B\u0E15\u0E4C", work: "\u0E07\u0E32\u0E19", scale: "\u0E15\u0E32\u0E0A\u0E31\u0E48\u0E07\u0E41\u0E25\u0E30\u0E1B\u0E23\u0E34\u0E49\u0E19", marketing: "\u0E01\u0E32\u0E23\u0E15\u0E25\u0E32\u0E14", aiSummary: "\u0E2A\u0E23\u0E38\u0E1B\u0E14\u0E49\u0E27\u0E22 AI", more: "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21", allCat: "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", searchProduct: "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32...", selectCustomer: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", customer: "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", walkin: "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E17\u0E31\u0E48\u0E27\u0E44\u0E1B", usePoints: "\u0E43\u0E0A\u0E49\u0E41\u0E15\u0E49\u0E21", items: "\u0E0A\u0E34\u0E49\u0E19", clear: "\u0E25\u0E49\u0E32\u0E07", clearCartQ: "\u0E25\u0E49\u0E32\u0E07\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32?", subtotal: "\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21", discount: "\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14", pointsDiscount: "\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14\u0E08\u0E32\u0E01\u0E41\u0E15\u0E49\u0E21", total: "\u0E23\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2A\u0E34\u0E49\u0E19", payment: "\u0E27\u0E34\u0E18\u0E35\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19", checkout: "\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19", viewCart: "\u0E14\u0E39\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E41\u0E25\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19", cash: "\u0E40\u0E07\u0E34\u0E19\u0E2A\u0E14", card: "\u0E1A\u0E31\u0E15\u0E23", credit: "\u0E40\u0E04\u0E23\u0E14\u0E34\u0E15", qr: "QR", transfer: "\u0E42\u0E2D\u0E19", crypto: "\u0E04\u0E23\u0E34\u0E1B\u0E42\u0E15", wallet: "\u0E22\u0E2D\u0E14\u0E40\u0E07\u0E34\u0E19", onAccount: "\u0E04\u0E49\u0E32\u0E07\u0E08\u0E48\u0E32\u0E22", cashReceived: "\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E21\u0E32...", change: "\u0E40\u0E07\u0E34\u0E19\u0E17\u0E2D\u0E19", time: "\u0E40\u0E27\u0E25\u0E32", min: "\u0E19\u0E32\u0E17\u0E35" },
+  zh: { welcome: "\u6B22\u8FCE\u56DE\u6765", login: "\u8F93\u5165PIN\u7801", register: "\u6CE8\u518C", shift: "\u73ED\u6B21", pos: "\u6536\u94F6", suggest: "\u63A8\u8350\u9500\u552E", dashboard: "\u4EEA\u8868\u677F", inventory: "\u5E93\u5B58", kitchen: "\u53A8\u623F", crm: "\u5BA2\u6237", rewards: "\u5956\u52B1", finance: "\u8D22\u52A1", po: "\u91C7\u8D2D\u5355", medical: "\u533B\u7597", orders: "\u8BA2\u5355", affiliate: "\u8054\u76DF", staff: "\u5458\u5DE5", reports: "\u62A5\u8868", alerts: "\u63D0\u9192", apiWeb: "API / \u7F51\u7AD9", work: "\u4EFB\u52A1", scale: "\u79F0\u91CD\u4E0E\u6253\u5370", marketing: "\u8425\u9500", aiSummary: "AI \u6458\u8981", more: "\u66F4\u591A", allCat: "\u5168\u90E8", searchProduct: "\u641C\u7D22\u4EA7\u54C1...", selectCustomer: "\u9009\u62E9\u5BA2\u6237", customer: "\u5BA2\u6237", walkin: "\u6563\u5BA2", usePoints: "\u4F7F\u7528\u79EF\u5206", items: "\u4EF6", clear: "\u6E05\u7A7A", clearCartQ: "\u6E05\u7A7A\u8D2D\u7269\u8F66\uFF1F", subtotal: "\u5C0F\u8BA1", discount: "\u6298\u6263", pointsDiscount: "\u79EF\u5206\u62B5\u6263", total: "\u5408\u8BA1", payment: "\u4ED8\u6B3E\u65B9\u5F0F", checkout: "\u7ED3\u8D26", viewCart: "\u67E5\u770B\u8D2D\u7269\u8F66\u5E76\u7ED3\u8D26", cash: "\u73B0\u91D1", card: "\u94F6\u884C\u5361", credit: "\u4FE1\u7528\u5361", qr: "\u626B\u7801\u4ED8", transfer: "\u8F6C\u8D26", crypto: "\u52A0\u5BC6\u8D27\u5E01", wallet: "\u94B1\u5305", onAccount: "\u6302\u8D26", cashReceived: "\u6536\u5230\u73B0\u91D1...", change: "\u627E\u96F6", time: "\u65F6\u95F4", min: "\u5206\u949F" },
+  ja: { welcome: "\u304A\u304B\u3048\u308A\u306A\u3055\u3044", login: "PIN\u3092\u5165\u529B", register: "\u767B\u9332", shift: "\u30B7\u30D5\u30C8", pos: "\u30EC\u30B8", suggest: "\u304A\u3059\u3059\u3081\u8CA9\u58F2", dashboard: "\u30C0\u30C3\u30B7\u30E5\u30DC\u30FC\u30C9", inventory: "\u5728\u5EAB", kitchen: "\u30AD\u30C3\u30C1\u30F3", crm: "\u9867\u5BA2", rewards: "\u7279\u5178", finance: "\u8CA1\u52D9", po: "\u767A\u6CE8\u66F8", medical: "\u533B\u7642", orders: "\u6CE8\u6587", affiliate: "\u30A2\u30D5\u30A3\u30EA\u30A8\u30A4\u30C8", staff: "\u30B9\u30BF\u30C3\u30D5", reports: "\u30EC\u30DD\u30FC\u30C8", alerts: "\u901A\u77E5", apiWeb: "API / \u30A6\u30A7\u30D6", work: "\u4F5C\u696D", scale: "\u306F\u304B\u308A\u30FB\u5370\u5237", marketing: "\u30DE\u30FC\u30B1\u30C6\u30A3\u30F3\u30B0", aiSummary: "AI \u30B5\u30DE\u30EA\u30FC", more: "\u305D\u306E\u4ED6", allCat: "\u3059\u3079\u3066", searchProduct: "\u5546\u54C1\u3092\u691C\u7D22...", selectCustomer: "\u9867\u5BA2\u3092\u9078\u629E", customer: "\u9867\u5BA2", walkin: "\u4E00\u822C\u5BA2", usePoints: "\u30DD\u30A4\u30F3\u30C8\u4F7F\u7528", items: "\u70B9", clear: "\u30AF\u30EA\u30A2", clearCartQ: "\u30AB\u30FC\u30C8\u3092\u7A7A\u306B\u3057\u307E\u3059\u304B\uFF1F", subtotal: "\u5C0F\u8A08", discount: "\u5272\u5F15", pointsDiscount: "\u30DD\u30A4\u30F3\u30C8\u5272\u5F15", total: "\u5408\u8A08", payment: "\u652F\u6255\u65B9\u6CD5", checkout: "\u4F1A\u8A08", viewCart: "\u30AB\u30FC\u30C8\u3092\u898B\u3066\u4F1A\u8A08", cash: "\u73FE\u91D1", card: "\u30AB\u30FC\u30C9", credit: "\u30AF\u30EC\u30B8\u30C3\u30C8", qr: "QR\u6C7A\u6E08", transfer: "\u632F\u8FBC", crypto: "\u6697\u53F7\u8CC7\u7523", wallet: "\u30A6\u30A9\u30EC\u30C3\u30C8", onAccount: "\u30C4\u30B1\u6255\u3044", cashReceived: "\u304A\u9810\u304B\u308A...", change: "\u304A\u91E3\u308A", time: "\u6642\u9593", min: "\u5206" },
+  my: { welcome: "\u1015\u103C\u1014\u103A\u101C\u100A\u103A\u1000\u103C\u102D\u102F\u1006\u102D\u102F\u1015\u102B\u1010\u101A\u103A", login: "\u101E\u1004\u1037\u103A PIN \u1011\u100A\u1037\u103A\u1015\u102B", register: "\u1005\u102C\u101B\u1004\u103A\u1038\u101E\u103D\u1004\u103A\u1038\u101B\u1014\u103A", shift: "\u1021\u101C\u103E\u100A\u1037\u103A", pos: "\u1021\u101B\u1031\u102C\u1004\u103A\u1038", suggest: "\u1021\u101B\u1031\u102C\u1004\u103A\u1038\u1021\u1000\u103C\u1036\u1015\u103C\u102F", dashboard: "\u1012\u1000\u103A\u101B\u103E\u103A\u1018\u102F\u1010\u103A", inventory: "\u1000\u102F\u1014\u103A\u1015\u1005\u1039\u1005\u100A\u103A\u1038", kitchen: "\u1019\u102E\u1038\u1016\u102D\u102F\u1001\u103B\u1031\u102C\u1004\u103A", crm: "\u1016\u1031\u102C\u1000\u103A\u101E\u100A\u103A", rewards: "\u1006\u102F\u101C\u102C\u1018\u103A", finance: "\u1018\u100F\u1039\u100D\u102C\u101B\u1031\u1038", po: "\u101D\u101A\u103A\u101A\u1030\u1019\u103E\u102F\u1021\u1019\u103E\u102C\u1005\u102C", medical: "\u1006\u1031\u1038\u1018\u1000\u103A\u1006\u102D\u102F\u1004\u103A\u101B\u102C", orders: "\u1021\u1031\u102C\u103A\u1012\u102B", affiliate: "\u1019\u102D\u1010\u103A\u1016\u1000\u103A", staff: "\u101D\u1014\u103A\u1011\u1019\u103A\u1038", reports: "\u1021\u1005\u102E\u101B\u1004\u103A\u1001\u1036\u1005\u102C", alerts: "\u101E\u1010\u102D\u1015\u1031\u1038\u1001\u103B\u1000\u103A", apiWeb: "API / \u101D\u1018\u103A\u1006\u102D\u102F\u1000\u103A", work: "\u1021\u101C\u102F\u1015\u103A", scale: "\u1001\u103B\u102D\u1014\u103A\u1001\u103D\u1004\u103A\u1014\u103E\u1004\u1037\u103A \u1015\u102F\u1036\u1014\u103E\u102D\u1015\u103A", marketing: "\u1005\u103B\u1031\u1038\u1000\u103D\u1000\u103A\u101B\u103E\u102C\u1016\u103D\u1031\u101B\u1031\u1038", aiSummary: "AI \u1021\u1014\u103E\u1005\u103A\u1001\u103B\u102F\u1015\u103A", more: "\u1014\u1031\u102C\u1000\u103A\u1011\u1015\u103A", allCat: "\u1021\u102C\u1038\u101C\u102F\u1036\u1038", searchProduct: "\u1000\u102F\u1014\u103A\u1015\u1005\u1039\u1005\u100A\u103A\u1038\u101B\u103E\u102C\u101B\u1014\u103A...", selectCustomer: "\u1016\u1031\u102C\u1000\u103A\u101E\u100A\u103A\u101B\u103D\u1031\u1038\u1015\u102B", customer: "\u1016\u1031\u102C\u1000\u103A\u101E\u100A\u103A", walkin: "\u101D\u1004\u103A\u101B\u1031\u102C\u1000\u103A\u101D\u101A\u103A\u101A\u1030\u101E\u1030", usePoints: "\u1015\u103D\u102D\u102F\u1004\u1037\u103A\u101E\u102F\u1036\u1038\u101B\u1014\u103A", items: "\u1001\u102F", clear: "\u101B\u103E\u1004\u103A\u1038\u101B\u1014\u103A", clearCartQ: "\u1001\u103C\u1004\u103A\u1038\u1010\u1031\u102C\u1004\u103A\u1038\u101B\u103E\u1004\u103A\u1038\u1019\u101C\u102C\u1038?", subtotal: "\u1015\u1031\u102B\u1004\u103A\u1038\u101C\u1012\u103A", discount: "\u101C\u103B\u103E\u1031\u102C\u1037\u1005\u103B\u1031\u1038", pointsDiscount: "\u1015\u103D\u102D\u102F\u1004\u1037\u103A\u101C\u103B\u103E\u1031\u102C\u1037\u1005\u103B\u1031\u1038", total: "\u1005\u102F\u1005\u102F\u1015\u1031\u102B\u1004\u103A\u1038", payment: "\u1004\u103D\u1031\u1015\u1031\u1038\u1001\u103B\u1031\u1019\u103E\u102F", checkout: "\u1004\u103D\u1031\u101B\u103E\u1004\u103A\u1038\u101B\u1014\u103A", viewCart: "\u1001\u103C\u1004\u103A\u1038\u1010\u1031\u102C\u1004\u103A\u1038\u1000\u103C\u100A\u1037\u103A\u104D \u1004\u103D\u1031\u101B\u103E\u1004\u103A\u1038\u101B\u1014\u103A", cash: "\u1004\u103D\u1031\u101E\u102C\u1038", card: "\u1000\u1010\u103A", credit: "\u1000\u101B\u1000\u103A\u1012\u1005\u103A", qr: "QR", transfer: "\u1004\u103D\u1031\u101C\u103D\u103E\u1032", crypto: "\u1001\u101B\u1005\u103A\u1015\u1010\u102D\u102F", wallet: "\u1015\u102D\u102F\u1000\u103A\u1006\u1036\u1021\u102D\u1010\u103A", onAccount: "\u1021\u1000\u103C\u103D\u1031\u1038\u1005\u102C\u101B\u1004\u103A\u1038", cashReceived: "\u101C\u1000\u103A\u1001\u1036\u101B\u101B\u103E\u102D\u1004\u103D\u1031...", change: "\u1015\u103C\u1014\u103A\u1021\u1019\u103A\u1038\u1004\u103D\u1031", time: "\u1021\u1001\u103B\u102D\u1014\u103A", min: "\u1019\u102D\u1014\u1005\u103A" }
 };
+/* Every language falls back to English key-by-key. Without this a key
+   present in one language and absent in another renders the string
+   "undefined" on screen — which is exactly what t.total used to do. */
+Object.keys(T).forEach(function(lg) {
+  if (lg !== "en") T[lg] = Object.assign({}, T.en, T[lg]);
+});
 const BRANCHES = [{ id: 1, name: "Pattanakarn" }, { id: 2, name: "Sathorn" }, { id: 3, name: "Bars" }, { id: 4, name: "Petchaboon" }, { id: 5, name: "Phuket" }];
 const TABLES = [{ id: 1, name: "T1" }, { id: 2, name: "T2" }, { id: 3, name: "T3" }, { id: 4, name: "T4" }, { id: 5, name: "T5" }, { id: 6, name: "T6" }, { id: 7, name: "Bar 1" }, { id: 8, name: "Bar 2" }];
 const VIP_TIERS = [{ name: "Member", min: 0, col: "#9ca3af" }, { name: "Silver", min: 2e4, col: "#cbd5e1" }, { name: "Gold", min: 5e4, col: "#f59e0b" }, { name: "Platinum", min: 12e4, col: "#38bdf8" }, { name: "VVIP", min: 25e4, col: "#c9a84c" }];
@@ -254,8 +326,27 @@ const ONLINE_ORDERS_INIT = [
 const { useState, useEffect, useRef, useCallback } = React;
 function GreenPOS() {
   var _a;
-  const [lang, setLang] = useState("en");
-  const t = T[lang];
+  const [lang, setLang] = useState(function() {
+    /* The till reloads more often than anyone expects — a sleeping tablet,
+       a browser refresh, a new shift. Re-picking the language every time is
+       not a setting, it is a chore. */
+    try {
+      /* Accept the website's key too, so a choice made on the shop page
+         carries into the till. An unknown code (ru/es from the site) is
+         rejected by the T[v] guard and we fall through to English. */
+      var v = localStorage.getItem("dank_lang") || localStorage.getItem("dankLang");
+      if (v && T[v]) return v;
+    } catch (e) {}
+    return "en";
+  });
+  const t = T[lang] || T.en;
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_lang", lang);
+      /* and tell the website, which uses its own key */
+      localStorage.setItem("dankLang", lang);
+    } catch (e) {}
+  }, [lang]);
   const [wasteLog, setWasteLog] = useState([]);
   const [autoSyncTried, setAutoSyncTried] = useState(false);
   const [txHistory, setTxHistory] = useState([]);
@@ -624,10 +715,14 @@ function GreenPOS() {
   const [lineInbox, setLineInbox] = useState([]);
   const [lineInboxLoading, setLineInboxLoading] = useState(false);
   const [lineInboxErr, setLineInboxErr] = useState("");
-  const loadLineInbox = function() {
+  const loadLineInbox = function(manual) {
     var url = (lineNotifyUrl || "").trim();
     if (!url) {
-      setLineInboxErr("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 LINE Server URL (\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E17\u0E35\u0E48 More \u2192 \u2696 Scale & Print) / LINE server URL not set yet");
+      /* The grey banner right above already says this. Repeating it in red
+         made the panel look broken and made Refresh look dead, because the
+         tab-open effect had already set it. */
+      setLineInboxErr("");
+      if (manual === true) notify("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 LINE Server URL \u2014 \u0E44\u0E1B\u0E17\u0E35\u0E48 More \u2192 \u2696 Scale & Print / set the LINE server URL under More \u2192 Scale & Print first", "error");
       return;
     }
     setLineInboxLoading(true);
@@ -640,6 +735,7 @@ function GreenPOS() {
     }).then(function(j) {
       if (!j.ok) throw new Error(j.error || "unknown error");
       setLineInbox(j.messages || []);
+      if (manual === true) notify("\u{1F4F1} " + (j.messages || []).length + " \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21 / messages loaded");
     }).catch(function(e) {
       setLineInboxErr(String(e && e.message || e));
     }).finally(function() {
@@ -2005,11 +2101,24 @@ function GreenPOS() {
   const [poLineDraft, setPoLineDraft] = useState({ pid: "", qty: "" });
   const [showPOModal, setShowPOModal] = useState(false);
   const [financePeriod, setFinancePeriod] = useState("monthly");
-  const [supplierPayments, setSupplierPayments] = useState([
+  const [supplierPayments, setSupplierPayments] = useState(function() {
+    try {
+      var v = JSON.parse(localStorage.getItem("dank_supplier_bills"));
+      if (Array.isArray(v)) return v;
+    } catch (e) {
+    }
+    return [
     { id: 1, supplier: "Premium Farms Co.", amount: 2e4, due: "2026-07-20", paid: false, notes: "Flower restock Jul" },
     { id: 2, supplier: "Infused Products Ltd.", amount: 35e3, due: "2026-07-15", paid: true, notes: "Edibles restock" },
     { id: 3, supplier: "F&B Distributor", amount: 8500, due: "2026-07-18", paid: false, notes: "Beer & drinks" }
-  ]);
+    ];
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_supplier_bills", JSON.stringify(supplierPayments.slice(0, 300)));
+    } catch (e) {
+    }
+  }, [supplierPayments]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCurrencyCalc, setShowCurrencyCalc] = useState(false);
   const [currencies, setCurrencies] = useState({ USD: 36.5, EUR: 40.2, CNY: 5.1, GBP: 46.8, JPY: 0.24, AUD: 23.5 });
@@ -2053,7 +2162,20 @@ function GreenPOS() {
   const [showDeadStock, setShowDeadStock] = useState(false);
   const [settleCurrency, setSettleCurrency] = useState("THB");
   const [fxRates, setFxRates] = useState({ THB: 1, USD: 0.028, EUR: 0.026, CNY: 0.2, JPY: 4.2 });
-  const [staffLoans, setStaffLoans] = useState([]);
+  const [staffLoans, setStaffLoans] = useState(function() {
+    try {
+      var v = JSON.parse(localStorage.getItem("dank_loans"));
+      if (Array.isArray(v)) return v;
+    } catch (e) {
+    }
+    return [];
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_loans", JSON.stringify(staffLoans.slice(0, 300)));
+    } catch (e) {
+    }
+  }, [staffLoans]);
   const [showStaffLoans, setShowStaffLoans] = useState(false);
   const [loanForm, setLoanForm] = useState({ staffId: "", amount: 0, note: "", dueDate: "" });
   const [cashFlowForecast, setCashFlowForecast] = useState([]);
@@ -2140,7 +2262,20 @@ function GreenPOS() {
   const [showFranchise, setShowFranchise] = useState(false);
   const [webhookLog, setWebhookLog] = useState([]);
   const [showWebhook, setShowWebhook] = useState(false);
-  const [emailReports, setEmailReports] = useState({ enabled: false, email: "dankclubbkk@gmail.com", frequency: "daily" });
+  const [emailReports, setEmailReports] = useState(function() {
+    try {
+      var v = JSON.parse(localStorage.getItem("dank_emailrep"));
+      if (v && typeof v === "object" && v.email) return v;
+    } catch (e) {
+    }
+    return { enabled: false, email: "dankclubbkk@gmail.com", frequency: "daily" };
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_emailrep", JSON.stringify(emailReports));
+    } catch (e) {
+    }
+  }, [emailReports]);
   const [showEmailReport, setShowEmailReport] = useState(false);
   const [showQROrder, setShowQROrder] = useState(false);
   const [qrTableOrders, setQrTableOrders] = useState([]);
@@ -3226,17 +3361,20 @@ function GreenPOS() {
       }).length, icon: b === "Pattanakarn" ? "\u{1F33F}" : b === "Sathorn" ? "\u{1F48E}" : "\u{1F37A}" };
     });
   };
-  const sendEmailReport = async function() {
+  const buildEmailReport = function() {
     var stats = getAllBranchStats();
     var totalRev2 = stats.reduce(function(s, b) {
       return s + b.weekRev;
     }, 0);
-    var reportText = "DANK CANNABIS CLINIC - WEEKLY REPORT\nWeek ending: " + (/* @__PURE__ */ new Date()).toLocaleDateString("th-TH") + "\nTotal Revenue: \u0E3F" + totalRev2.toLocaleString() + "\n" + stats.map(function(b) {
-      return b.icon + " " + b.name + ": \u0E3F" + b.weekRev.toLocaleString();
+    return "DANK CANNABIS CLINIC - WEEKLY REPORT\nWeek ending: " + (/* @__PURE__ */ new Date()).toLocaleDateString("th-TH") + "\nTotal Revenue: ฿" + totalRev2.toLocaleString() + "\n" + stats.map(function(b) {
+      return b.icon + " " + b.name + ": ฿" + b.weekRev.toLocaleString();
     }).join("\n") + "\nTotal Bills: " + transactions.filter(function(t2) {
       return !t2.isVoid;
     }).length + "\nActive Customers: " + customers.length;
-    notify("Email report prepared for " + emailReports.email + " \u2705");
+  };
+  const sendEmailReport = async function() {
+    var reportText = buildEmailReport();
+    notify("Email report prepared for " + emailReports.email + " ✅");
     triggerWebhook("EMAIL_REPORT", { to: emailReports.email, summary: reportText.slice(0, 200) });
     setShowEmailReport(false);
   };
@@ -5335,7 +5473,9 @@ function GreenPOS() {
   const rosterSlots = function(branch, barDay) {
     var st = ROSTER_STRUCTURE[branch];
     if (!st) return [];
-    var shifts2 = st.type === "weekly" ? st[barDay].shifts : st.shifts;
+    var day2 = st.type === "weekly" ? st[barDay] : st;
+    var shifts2 = day2 && day2.shifts;
+    if (!Array.isArray(shifts2)) return [];
     var out = [];
     shifts2.forEach(function(sh, si) {
       sh.need.forEach(function(nd, ni) {
@@ -6022,27 +6162,27 @@ function GreenPOS() {
     });
   };
   const TABS = [
-    { id: "shift", icon: "\u{1F550}", label: mob ? "Shift" : "\u0E01\u0E30 Shift" },
-    { id: "pos", icon: "\u{1F6D2}", label: mob ? "POS" : t.pos },
-    { id: "suggest", icon: "\u{1F4A1}", label: mob ? "Suggest" : "\u0E41\u0E19\u0E30\u0E19\u0E33\u0E02\u0E32\u0E22" },
-    { id: "dashboard", icon: "\u{1F4CA}", label: mob ? "Stats" : t.dashboard },
-    { id: "inventory", icon: "\u{1F4E6}", label: mob ? "Stock" : t.inventory },
-    { id: "kitchen", icon: "\u{1F373}", label: mob ? "Kitchen" : "\u0E04\u0E23\u0E31\u0E27 Kitchen" },
-    { id: "crm", icon: "\u{1F465}", label: mob ? "CRM" : t.crm },
-    { id: "rewards", icon: "\u{1F381}", label: mob ? "Rewards" : t.rewards },
-    { id: "finance", icon: "\u{1F4B0}", label: mob ? "Finance" : t.finance },
-    { id: "po", icon: "\u{1F9FE}", label: mob ? "PO" : "\u0E43\u0E1A\u0E2A\u0E31\u0E48\u0E07\u0E0B\u0E37\u0E49\u0E2D PO" },
-    { id: "medical", icon: "\u{1F3E5}", label: mob ? "Medical" : t.medical },
-    { id: "orders", icon: "\u{1F310}", label: mob ? "Orders" : t.orders },
-    { id: "affiliate", icon: "\u{1F91D}", label: mob ? "Affiliate" : t.affiliate },
-    ...canFinance ? [{ id: "staff", icon: "\u{1F464}", label: mob ? "Staff" : t.staff }] : [],
-    ...canFinance ? [{ id: "reports", icon: "\u{1F4D1}", label: mob ? "Reports" : "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19" }] : [],
-    ...canFinance ? [{ id: "notif", icon: "\u{1F514}", label: mob ? "Alerts" : "\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" }] : [],
-    ...canEdit ? [{ id: "api", icon: "\u{1F50C}", label: mob ? "API" : "API / Website" }] : [],
-    { id: "work", icon: "\u{1F4CB}", label: mob ? "Work" : "\u0E07\u0E32\u0E19 Work" },
-    { id: "scale", icon: "\u2696", label: mob ? "Scale" : "Scale & Print" },
-    { id: "marketing", icon: "\u{1F4E3}", label: mob ? "Mktg" : "Marketing" },
-    { id: "aisum", icon: "\u{1F9E0}", label: mob ? "AI Sum" : "AI Summary" }
+    { id: "shift", icon: "\u{1F550}", label: t.shift },
+    { id: "pos", icon: "\u{1F6D2}", label: t.pos },
+    { id: "suggest", icon: "\u{1F4A1}", label: t.suggest },
+    { id: "dashboard", icon: "\u{1F4CA}", label: t.dashboard },
+    { id: "inventory", icon: "\u{1F4E6}", label: t.inventory },
+    { id: "kitchen", icon: "\u{1F373}", label: t.kitchen },
+    { id: "crm", icon: "\u{1F465}", label: t.crm },
+    { id: "rewards", icon: "\u{1F381}", label: t.rewards },
+    { id: "finance", icon: "\u{1F4B0}", label: t.finance },
+    { id: "po", icon: "\u{1F9FE}", label: mob ? "PO" : t.po },
+    { id: "medical", icon: "\u{1F3E5}", label: t.medical },
+    { id: "orders", icon: "\u{1F310}", label: t.orders },
+    { id: "affiliate", icon: "\u{1F91D}", label: t.affiliate },
+    ...canFinance ? [{ id: "staff", icon: "\u{1F464}", label: t.staff }] : [],
+    ...canFinance ? [{ id: "reports", icon: "\u{1F4D1}", label: t.reports }] : [],
+    ...canFinance ? [{ id: "notif", icon: "\u{1F514}", label: t.alerts }] : [],
+    ...canEdit ? [{ id: "api", icon: "\u{1F50C}", label: mob ? "API" : t.apiWeb }] : [],
+    { id: "work", icon: "\u{1F4CB}", label: t.work },
+    { id: "scale", icon: "\u2696", label: mob ? "Scale" : t.scale },
+    { id: "marketing", icon: "\u{1F4E3}", label: t.marketing },
+    { id: "aisum", icon: "\u{1F9E0}", label: mob ? "AI" : t.aiSummary }
   ];
   useEffect(function() {
     if (screen === "main" && !autoSyncTried) {
@@ -6141,7 +6281,7 @@ function GreenPOS() {
     color: C.accent,
     fontWeight: 700,
     cursor: "pointer"
-  }, onClick: () => setActiveTab("orders") }, "\u{1F310} ", orders.filter((o) => o.status === "pending").length, " New Orders")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7 } }, /* @__PURE__ */ React.createElement("select", { value: lang, onChange: (e) => setLang(e.target.value), style: { background: C.card2, border: `1px solid ${C.border}`, borderRadius: 7, padding: "3px 6px", color: C.text, fontSize: 11, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("option", { value: "en" }, "\u{1F1EC}\u{1F1E7} English"), /* @__PURE__ */ React.createElement("option", { value: "th" }, "\u{1F1F9}\u{1F1ED} \u0E44\u0E17\u0E22"), /* @__PURE__ */ React.createElement("option", { value: "my" }, "\u{1F1F2}\u{1F1F2} \u1019\u103C\u1014\u103A\u1019\u102C"), /* @__PURE__ */ React.createElement("option", { value: "zh" }, "\u{1F1E8}\u{1F1F3} \u4E2D\u6587"), /* @__PURE__ */ React.createElement("option", { value: "ja" }, "\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, background: C.card2, borderRadius: 9, padding: "4px 9px", border: `1px solid ${C.border}` } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13 } }, currentStaff == null ? void 0 : currentStaff.avatar), !mob && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700 } }, currentStaff == null ? void 0 : currentStaff.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.accent, textTransform: "capitalize" } }, currentStaff == null ? void 0 : currentStaff.role))), /* @__PURE__ */ React.createElement("button", { onClick: syncStorehub, title: "StoreHub Sync", style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${C.border}` }) }, syncStatus === "syncing" ? "\u23F3" : "\u{1F504}"), /* @__PURE__ */ React.createElement("button", { title: "Age Verification Log", onClick: () => setShowAgeVerif(true), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${ageVerifLog.length > 0 ? "rgba(74,222,128,0.3)" : C.border}`, position: "relative" }) }, "\u{1FAAA}", ageVerifLog.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: -4, right: -4, background: C.green, color: "#000", borderRadius: "50%", width: 14, height: 14, fontSize: 8, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" } }, ageVerifLog.length)), /* @__PURE__ */ React.createElement("button", { title: "Sync with StoreHub", style: __spreadProps(__spreadValues({}, gs.btn(syncStatus === "syncing" ? C.card2 : syncStatus === "success" ? "rgba(74,222,128,0.15)" : C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${syncStatus === "success" ? "rgba(74,222,128,0.3)" : C.border}` }) }, syncStatus === "syncing" ? "\u23F3" : syncStatus === "success" ? "\u2705" : "\u{1F504}"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  }, onClick: () => setActiveTab("orders") }, "\u{1F310} ", orders.filter((o) => o.status === "pending").length, " New Orders")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, /* on a phone this row is wider than the screen; wrap instead of pushing the whole page sideways */ flexWrap: "wrap", justifyContent: "flex-end", minWidth: 0, rowGap: 5 } }, /* @__PURE__ */ React.createElement("select", { value: lang, onChange: (e) => setLang(e.target.value), style: { background: C.card2, border: `1px solid ${C.border}`, borderRadius: 7, padding: "3px 6px", color: C.text, fontSize: 11, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("option", { value: "en" }, "\u{1F1EC}\u{1F1E7} English"), /* @__PURE__ */ React.createElement("option", { value: "th" }, "\u{1F1F9}\u{1F1ED} \u0E44\u0E17\u0E22"), /* @__PURE__ */ React.createElement("option", { value: "my" }, "\u{1F1F2}\u{1F1F2} \u1019\u103C\u1014\u103A\u1019\u102C"), /* @__PURE__ */ React.createElement("option", { value: "zh" }, "\u{1F1E8}\u{1F1F3} \u4E2D\u6587"), /* @__PURE__ */ React.createElement("option", { value: "ja" }, "\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, background: C.card2, borderRadius: 9, padding: "4px 9px", border: `1px solid ${C.border}` } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13 } }, currentStaff == null ? void 0 : currentStaff.avatar), !mob && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700 } }, currentStaff == null ? void 0 : currentStaff.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.accent, textTransform: "capitalize" } }, currentStaff == null ? void 0 : currentStaff.role))), /* @__PURE__ */ React.createElement("button", { title: "Age Verification Log", onClick: () => setShowAgeVerif(true), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${ageVerifLog.length > 0 ? "rgba(74,222,128,0.3)" : C.border}`, position: "relative" }) }, "\u{1FAAA}", ageVerifLog.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: -4, right: -4, background: C.green, color: "#000", borderRadius: "50%", width: 14, height: 14, fontSize: 8, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" } }, ageVerifLog.length)), /* @__PURE__ */ React.createElement("button", { onClick: syncStorehub, title: "Sync with StoreHub", style: __spreadProps(__spreadValues({}, gs.btn(syncStatus === "syncing" ? C.card2 : syncStatus === "success" ? "rgba(74,222,128,0.15)" : C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${syncStatus === "success" ? "rgba(74,222,128,0.3)" : C.border}` }) }, syncStatus === "syncing" ? "\u23F3" : syncStatus === "success" ? "\u2705" : "\u{1F504}"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
     setCurrentStaff(null);
     setScreen("login");
     setCart([]);
@@ -6204,7 +6344,7 @@ function GreenPOS() {
       gap: 1,
       transition: "color 0.15s",
       minWidth: mob ? 48 : void 0
-    } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 16 : 15 } }, "\u22EF"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 8 : 10, fontWeight: moreActive ? 700 : 500, letterSpacing: "0.01em", lineHeight: 1.2 } }, "More"))), showMoreMenu && /* @__PURE__ */ React.createElement("div", { onClick: () => setShowMoreMenu(false), style: { position: "fixed", inset: 0, zIndex: 998 } }, /* @__PURE__ */ React.createElement("div", { onClick: function(e) {
+    } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 16 : 15 } }, "\u22EF"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 8 : 10, fontWeight: moreActive ? 700 : 500, letterSpacing: "0.01em", lineHeight: 1.2 } }, t.more))), showMoreMenu && /* @__PURE__ */ React.createElement("div", { onClick: () => setShowMoreMenu(false), style: { position: "fixed", inset: 0, zIndex: 998 } }, /* @__PURE__ */ React.createElement("div", { onClick: function(e) {
       e.stopPropagation();
     }, style: { position: "absolute", top: mob ? 92 : 104, right: mob ? 8 : 16, zIndex: 999, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 10px 30px rgba(0,0,0,0.4)", display: "grid", gridTemplateColumns: mob ? "repeat(3,1fr)" : "repeat(5,1fr)", gap: 2, padding: 8, minWidth: mob ? 260 : 360 } }, moreTabs.map(function(tab2) {
       return /* @__PURE__ */ React.createElement("button", { key: tab2.id, onClick: () => {
@@ -6647,19 +6787,19 @@ function GreenPOS() {
     }, style: __spreadProps(__spreadValues({}, gs.btn(discType === v ? C.gold : C.card3, discType === v ? "#000" : "#9ca3af")), { flex: 1, padding: "4px 3px", fontSize: 9, border: `1px solid ${C.border}`, opacity: noCustBlock ? 0.4 : 1, cursor: noCustBlock ? "not-allowed" : "pointer" }) }, l);
   })), !selCustomer && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted, marginBottom: 5 } }, "\u{1F512} Walk-in / \u0E44\u0E21\u0E48\u0E21\u0E35 CRM \u2014 \u0E44\u0E21\u0E48\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16\u0E43\u0E2B\u0E49\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14\u0E44\u0E14\u0E49 / No discount without a customer"), (discType === "percent" || discType === "fixed") && /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { fontSize: 12, marginBottom: 5 }), type: "number", placeholder: discType === "percent" ? "% discount" : "\u0E3F amount", value: discVal || "", onChange: (e) => setDiscVal(parseFloat(e.target.value) || 0) }), discAuthorizedBy && discType !== "none" && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.gold, marginBottom: 5 } }, "\u{1F513} \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14\u0E42\u0E14\u0E22 ", discAuthorizedBy), selCustomer && customers.find((c) => c.id === selCustomer.id) && (customers.find((c) => c.id === selCustomer.id).points || 0) > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, t.usePoints, " (", (customers.find((c) => c.id === selCustomer.id) || {}).points || 0, " avail)"), /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { fontSize: 12 }), type: "number", placeholder: "0", value: usePoints || "", onChange: (e) => setUsePoints(Math.min(parseInt(e.target.value) || 0, (customers.find((c) => c.id === selCustomer.id) || {}).points || 0)) }))), /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px", borderTop: `1px solid ${C.border}` } }, cart.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: C.muted, fontWeight: 700 } }, "\u{1F6D2} ", cart.reduce(function(s2, i) {
     return s2 + i.qty;
-  }, 0), " \u0E0A\u0E34\u0E49\u0E19 / items"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
-    if (cart.length && confirm("\u0E25\u0E49\u0E32\u0E07\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32? / Clear cart?")) {
+  }, 0), " " + t.items), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    if (cart.length && confirm(t.clearCartQ)) {
       setCart([]);
       setSelCustomer(null);
       setCashGiven("");
     }
-  }, style: __spreadProps(__spreadValues({}, gs.btn("rgba(244,63,94,0.1)", "#fca5a5")), { fontSize: 9, padding: "3px 9px", border: "1px solid rgba(244,63,94,0.25)" }) }, "\u{1F5D1} \u0E25\u0E49\u0E32\u0E07 / Clear")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: C.muted, marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", null, "Subtotal"), /* @__PURE__ */ React.createElement("span", null, "\u0E3F", cartSub.toLocaleString())), discAmt > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: C.gold, marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", null, "Discount"), /* @__PURE__ */ React.createElement("span", null, "-\u0E3F", discAmt.toFixed(0))), ptDisc > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: C.accent, marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", null, "Points Discount"), /* @__PURE__ */ React.createElement("span", null, "-\u0E3F", ptDisc.toFixed(0))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: mob ? 15 : 17, fontWeight: 900, padding: "7px 0", borderTop: `1px solid ${C.border}`, marginBottom: 7 } }, /* @__PURE__ */ React.createElement("span", null, t.total), /* @__PURE__ */ React.createElement("span", { style: { color: C.green } }, "\u0E3F", finalTotal.toFixed(0))), selCustomer && earnedPts > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.accent, marginBottom: 7, background: "rgba(129,140,248,0.08)", borderRadius: 5, padding: "3px 7px" } }, "+", earnedPts, " pts after purchase"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 5, fontWeight: 700 } }, "\u0E27\u0E34\u0E18\u0E35\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 / Payment"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 7 } }, [["cash", "\u{1F4B5}", "\u0E40\u0E07\u0E34\u0E19\u0E2A\u0E14 Cash"], ["credit", "\u{1F4B3}", "\u0E40\u0E04\u0E23\u0E14\u0E34\u0E15 Credit"], ["bank", "\u{1F3E6}", "\u0E42\u0E2D\u0E19 Transfer"], ["crypto", "\u20BF", "\u0E04\u0E23\u0E34\u0E1B\u0E42\u0E15 Crypto"], ["omise", "\u{1F532}", "Omise QR"], ["kbank", "\u{1F17A}", "K PAY QR"], ["duckypay", "\u{1F986}", "DuckyPay"]].concat(selCustomer ? [["wallet", "\u{1F45B}", "\u0E22\u0E2D\u0E14\u0E40\u0E07\u0E34\u0E19 Wallet"], ["tab", "\u{1F9FE}", "\u0E04\u0E49\u0E32\u0E07\u0E08\u0E48\u0E32\u0E22 On Account"]] : []).map(function(pay) {
+  }, style: __spreadProps(__spreadValues({}, gs.btn("rgba(244,63,94,0.1)", "#fca5a5")), { fontSize: 9, padding: "3px 9px", border: "1px solid rgba(244,63,94,0.25)" }) }, "\u{1F5D1} " + t.clear)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: C.muted, marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", null, t.subtotal), /* @__PURE__ */ React.createElement("span", null, "\u0E3F", cartSub.toLocaleString())), discAmt > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: C.gold, marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", null, t.discount), /* @__PURE__ */ React.createElement("span", null, "-\u0E3F", discAmt.toFixed(0))), ptDisc > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: C.accent, marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", null, t.pointsDiscount), /* @__PURE__ */ React.createElement("span", null, "-\u0E3F", ptDisc.toFixed(0))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: mob ? 15 : 17, fontWeight: 900, padding: "7px 0", borderTop: `1px solid ${C.border}`, marginBottom: 7 } }, /* @__PURE__ */ React.createElement("span", null, t.total), /* @__PURE__ */ React.createElement("span", { style: { color: C.green } }, "\u0E3F", finalTotal.toFixed(0))), selCustomer && earnedPts > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.accent, marginBottom: 7, background: "rgba(129,140,248,0.08)", borderRadius: 5, padding: "3px 7px" } }, "+", earnedPts, " pts after purchase"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 5, fontWeight: 700 } }, t.payment), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 7 } }, [["cash", "\u{1F4B5}", t.cash], ["credit", "\u{1F4B3}", t.credit], ["bank", "\u{1F3E6}", t.transfer], ["crypto", "\u20BF", t.crypto], ["omise", "\u{1F532}", "Omise QR"], ["kbank", "\u{1F17A}", "K PAY QR"], ["duckypay", "\u{1F986}", "DuckyPay"]].concat(selCustomer ? [["wallet", "\u{1F45B}", t.wallet], ["tab", "\u{1F9FE}", t.onAccount]] : []).map(function(pay) {
     var m = pay[0];
     var ic = pay[1];
     var lb = pay[2];
     var on = payMethod === m;
     return /* @__PURE__ */ React.createElement("button", { key: m, onClick: () => setPayMethod(m), style: { background: on ? C.green : C.card2, border: "2px solid " + (on ? C.green : C.border), borderRadius: 10, padding: "11px 4px", color: on ? "#000" : C.text, cursor: "pointer", fontSize: 11, fontWeight: 800, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 20 } }, ic), /* @__PURE__ */ React.createElement("span", null, lb));
-  })), payMethod === "cash" && /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 5, fontSize: 14, textAlign: "center" }), type: "number", placeholder: "\u{1F4B5} \u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E21\u0E32 / Cash received...", value: cashGiven, onChange: (e) => setCashGiven(e.target.value) }), payMethod === "cash" && cashGiven && parseFloat(cashGiven) >= finalTotal && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, color: C.green, marginBottom: 7, fontWeight: 900, textAlign: "center" } }, "\u0E40\u0E07\u0E34\u0E19\u0E17\u0E2D\u0E19 / Change: \u0E3F", (parseFloat(cashGiven) - finalTotal).toFixed(2)), payMethod === "credit" && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "9px", background: C.card2, borderRadius: 9, marginBottom: 7, fontSize: 11, color: C.muted } }, "\u{1F4B3} \u0E23\u0E39\u0E14\u0E1A\u0E31\u0E15\u0E23\u0E17\u0E35\u0E48\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07 EDC \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14\u0E02\u0E32\u0E22"), payMethod === "tab" && selCustomer && (function() {
+  })), payMethod === "cash" && /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 5, fontSize: 14, textAlign: "center" }), type: "number", placeholder: "\u{1F4B5} " + t.cashReceived, value: cashGiven, onChange: (e) => setCashGiven(e.target.value) }), payMethod === "cash" && cashGiven && parseFloat(cashGiven) >= finalTotal && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, color: C.green, marginBottom: 7, fontWeight: 900, textAlign: "center" } }, t.change + ": \u0E3F", (parseFloat(cashGiven) - finalTotal).toFixed(2)), payMethod === "credit" && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "9px", background: C.card2, borderRadius: 9, marginBottom: 7, fontSize: 11, color: C.muted } }, "\u{1F4B3} \u0E23\u0E39\u0E14\u0E1A\u0E31\u0E15\u0E23\u0E17\u0E35\u0E48\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07 EDC \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14\u0E02\u0E32\u0E22"), payMethod === "tab" && selCustomer && (function() {
     var cLim = +selCustomer.creditLimit || 0;
     var owedNow = (_arDebtors.find(function(d) {
       return String(d.customerId) === String(selCustomer.id);
@@ -6707,7 +6847,7 @@ function GreenPOS() {
       else notify("\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E39\u0E1B\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 / Upload failed", "error");
     });
     e.target.value = "";
-  } }))))), /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px", borderTop: `1px solid ${C.border}`, background: C.card, position: "sticky", bottom: 0, zIndex: 5, boxShadow: "0 -6px 18px rgba(0,0,0,0.35)" } }, /* @__PURE__ */ React.createElement("button", { onClick: payMethod === "omise" ? startOmisePayment : payMethod === "kbank" ? startKbankPayment : payMethod === "duckypay" ? startDuckyPayment : processCheckout, style: __spreadProps(__spreadValues({}, gs.btnLg(C.green)), { boxShadow: "0 4px 18px rgba(74,222,128,0.25)", fontSize: mob ? 15 : 17, padding: "14px 8px" }) }, payMethod === "omise" ? "\u{1F532} \u0E2D\u0E2D\u0E01 QR Omise \u2014 \u0E3F" + finalTotal.toFixed(0) : payMethod === "kbank" ? "\u{1F17A} \u0E2D\u0E2D\u0E01 QR K PAY \u2014 \u0E3F" + finalTotal.toFixed(0) : payMethod === "duckypay" ? "\u{1F986} \u0E2D\u0E2D\u0E01 QR DuckyPay \u2014 \u0E3F" + finalTotal.toFixed(0) : "\u2705 \u0E02\u0E32\u0E22 / Checkout \u2014 \u0E3F" + finalTotal.toFixed(0)))), mob && cart.length > 0 && !showMobileCart && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", bottom: 0, left: 0, right: 0, background: C.card, borderTop: `1px solid ${C.border}`, padding: "11px 13px", zIndex: 50, boxShadow: "0 -8px 28px rgba(0,0,0,0.4)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.muted } }, cart.reduce((s, i) => s + i.qty, 0), " items"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.green } }, "\u0E3F", finalTotal.toFixed(0))), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMobileCart(true), style: __spreadValues({}, gs.btnLg(C.green)) }, "\u{1F6D2} \u0E14\u0E39\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32 / View Cart & Checkout"))), activeTab === "suggest" && (function() {
+  } }))))), /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px", borderTop: `1px solid ${C.border}`, background: C.card, position: "sticky", bottom: 0, zIndex: 5, boxShadow: "0 -6px 18px rgba(0,0,0,0.35)" } }, /* @__PURE__ */ React.createElement("button", { onClick: payMethod === "omise" ? startOmisePayment : payMethod === "kbank" ? startKbankPayment : payMethod === "duckypay" ? startDuckyPayment : processCheckout, style: __spreadProps(__spreadValues({}, gs.btnLg(C.green)), { boxShadow: "0 4px 18px rgba(74,222,128,0.25)", fontSize: mob ? 15 : 17, padding: "14px 8px" }) }, payMethod === "omise" ? "\u{1F532} \u0E2D\u0E2D\u0E01 QR Omise \u2014 \u0E3F" + finalTotal.toFixed(0) : payMethod === "kbank" ? "\u{1F17A} \u0E2D\u0E2D\u0E01 QR K PAY \u2014 \u0E3F" + finalTotal.toFixed(0) : payMethod === "duckypay" ? "\u{1F986} \u0E2D\u0E2D\u0E01 QR DuckyPay \u2014 \u0E3F" + finalTotal.toFixed(0) : "\u2705 " + t.checkout + " \u2014 \u0E3F" + finalTotal.toFixed(0)))), mob && cart.length > 0 && !showMobileCart && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", bottom: 0, left: 0, right: 0, background: C.card, borderTop: `1px solid ${C.border}`, padding: "11px 13px", zIndex: 50, boxShadow: "0 -8px 28px rgba(0,0,0,0.4)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.muted } }, cart.reduce((s, i) => s + i.qty, 0), " items"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.green } }, "\u0E3F", finalTotal.toFixed(0))), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMobileCart(true), style: __spreadValues({}, gs.btnLg(C.green)) }, "\u{1F6D2} " + t.viewCart))), activeTab === "suggest" && (function() {
     var today = /* @__PURE__ */ new Date();
     var promoItems = products.filter(function(p) {
       return promoProductIds.indexOf(p.id) >= 0 && (+p.stock || 0) > 0;
@@ -7357,7 +7497,9 @@ function GreenPOS() {
   }))), activeTab === "orders" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900 } }, "\u{1F310} Delivery Orders"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setNewOrder({ customerName: selCustomer ? selCustomer.name : "", phone: selCustomer ? selCustomer.phone : "", address: "", dist: "", fee: "40", note: "", originId: "sathorn", memberId: selCustomer ? String(selCustomer.id) : "", routeMin: 0, lineUserId: "" });
     setShowNewOrder(true);
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11, marginLeft: "auto" }) }, "+ New Delivery")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(6,199,85,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, "\u{1F4F1} \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E08\u0E32\u0E01 LINE OA \xB7 Messages from LINE Official Account"), /* @__PURE__ */ React.createElement("button", { onClick: loadLineInbox, disabled: lineInboxLoading, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border, marginLeft: "auto" }) }, lineInboxLoading ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14..." : "\u{1F504} Refresh")), !(lineNotifyUrl || "").trim() && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D \u2014 \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 LINE Server URL \u0E17\u0E35\u0E48 More \u2192 \u2696 Scale & Print \u2192 \u{1F4F1} LINE Notifications \u0E01\u0E48\u0E2D\u0E19 / Not connected \u2014 set the LINE server URL under More \u2192 Scale & Print \u2192 LINE Notifications first."), lineInboxErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.red } }, "\u26A0 ", lineInboxErr), (lineNotifyUrl || "").trim() && !lineInboxErr && lineInbox.length === 0 && !lineInboxLoading && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E43\u0E2B\u0E21\u0E48\u0E43\u0E19 48 \u0E0A\u0E21.\u0E17\u0E35\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E21\u0E32 / No new messages in the last 48h"), (function() {
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11, marginLeft: "auto" }) }, "+ New Delivery")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(6,199,85,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, "\u{1F4F1} \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E08\u0E32\u0E01 LINE OA \xB7 Messages from LINE Official Account"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    loadLineInbox(true);
+  }, disabled: lineInboxLoading, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 9, padding: "4px 9px", border: "1px solid " + C.border, marginLeft: "auto" }) }, lineInboxLoading ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14..." : "\u{1F504} Refresh")), !(lineNotifyUrl || "").trim() && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D \u2014 \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 LINE Server URL \u0E17\u0E35\u0E48 More \u2192 \u2696 Scale & Print \u2192 \u{1F4F1} LINE Notifications \u0E01\u0E48\u0E2D\u0E19 / Not connected \u2014 set the LINE server URL under More \u2192 Scale & Print \u2192 LINE Notifications first."), lineInboxErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.red } }, "\u26A0 ", lineInboxErr), (lineNotifyUrl || "").trim() && !lineInboxErr && lineInbox.length === 0 && !lineInboxLoading && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E43\u0E2B\u0E21\u0E48\u0E43\u0E19 48 \u0E0A\u0E21.\u0E17\u0E35\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E21\u0E32 / No new messages in the last 48h"), (function() {
     var byUser = {};
     lineInbox.forEach(function(m) {
       var uid = m.userId || m.user_id || m.sourceId || m.source_id;
@@ -8396,7 +8538,351 @@ function GreenPOS() {
     })), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, marginBottom: 8, padding: "10px 12px" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: C.blue, marginBottom: 4 } }, "\u2696\uFE0F \u0E02\u0E2D\u0E07\u0E02\u0E32\u0E14\u0E08\u0E32\u0E01\u0E01\u0E30 \u2014 \u0E3F", Math.round(shiftShort).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, "\u0E04\u0E33\u0E19\u0E27\u0E13\u0E08\u0E32\u0E01\u0E01\u0E32\u0E23\u0E0A\u0E31\u0E48\u0E07\u0E40\u0E02\u0E49\u0E32-\u0E2D\u0E2D\u0E01\u0E01\u0E30 \xB7 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E04\u0E19\u0E44\u0E14\u0E49\u0E17\u0E35\u0E48\u0E1B\u0E38\u0E48\u0E21 \u{1F916} AI \u0E27\u0E34\u0E40\u0E04\u0E23\u0E32\u0E30\u0E2B\u0E4C \u0E43\u0E19\u0E41\u0E1C\u0E07 Shifts")), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setShowShrinkage(false);
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { width: "100%", border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14")));
-  })(), showRoster && /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
+  })(), showCashFlow && finModal(gs, "\u{1F4A7} Cash-flow forecast \xB7 30 วัน", function() {
+    setShowCashFlow(false);
+  }, 640, (function() {
+    var f = Array.isArray(cashFlowForecast) ? cashFlowForecast : [];
+    if (!f.length) return finEmpty("ยังไม่มีข้อมูล — press \u{1F4A7} Cash Flow again to build a 30-day forecast.");
+    var totIn = f.reduce(function(a, d) {
+      return a + d.inflow;
+    }, 0);
+    var totOut = f.reduce(function(a, d) {
+      return a + d.outflow;
+    }, 0);
+    var low = f.reduce(function(a, d) {
+      return d.balance < a.balance ? d : a;
+    }, f[0]);
+    var end = f[f.length - 1];
+    return /* @__PURE__ */ React.createElement("div", null, finRow("ยอดตั้งต้น / opening", finBaht(drawerFloat)), finRow("รับรวม 30 วัน / cash in", finBaht(totIn), C.green), finRow("จ่ายรวม 30 วัน / cash out", finBaht(totOut), C.red), finRow("ยอดปลาย / closing", finBaht(end.balance), end.balance >= 0 ? C.green : C.red), finRow("ต่ำสุด / lowest point", finBaht(low.balance) + " \xB7 " + low.date, low.balance < 0 ? C.red : C.gold), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto", marginTop: 10 } }, /* @__PURE__ */ React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 10, width: "100%" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, ["วัน / day", "In", "Out", "Balance"].map(function(h, i) {
+      return /* @__PURE__ */ React.createElement("th", { key: i, style: { textAlign: i ? "right" : "left", padding: "5px 6px", color: C.muted, fontSize: 9, borderBottom: "1px solid " + C.border, whiteSpace: "nowrap" } }, h);
+    }))), /* @__PURE__ */ React.createElement("tbody", null, f.map(function(d, i) {
+      return /* @__PURE__ */ React.createElement("tr", { key: i }, /* @__PURE__ */ React.createElement("td", { style: { padding: "4px 6px", whiteSpace: "nowrap", color: C.muted } }, "D" + d.day + " \xB7 " + d.date), /* @__PURE__ */ React.createElement("td", { style: { padding: "4px 6px", textAlign: "right", color: C.green } }, finBaht(d.inflow)), /* @__PURE__ */ React.createElement("td", { style: { padding: "4px 6px", textAlign: "right", color: C.red } }, finBaht(d.outflow)), /* @__PURE__ */ React.createElement("td", { style: { padding: "4px 6px", textAlign: "right", fontWeight: 800, color: d.balance < 0 ? C.red : C.text } }, finBaht(d.balance)));
+    })))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 9, lineHeight: 1.65 } }, "ℹ️ ประมาณการจากยอดขาย 7 วันล่าสุด — modelled from the last 7 days of sales and the daily expense target. An estimate, not a bank statement."));
+  })()), showCompare && finModal(gs, "⚖ เทียบสายพันธุ์ / Compare Strains", function() {
+    setShowCompare(false);
+  }, 700, (function() {
+    /* Anything carrying a lab figure is comparable. If the catalogue has no
+       cannabinoid data at all, fall back to the whole list rather than opening
+       an empty box — an empty modal reads exactly like the dead button did. */
+    var pool = (products || []).filter(function(p) {
+      return (+p.thc || 0) > 0 || (+p.cbd || 0) > 0;
+    });
+    if (!pool.length) pool = (products || []).slice();
+
+    var picked = (compareIds || []).map(function(id) {
+      return pool.find(function(p) { return String(p.id) === String(id); });
+    }).filter(Boolean);
+
+    var num = function(v) { return +v || 0; };
+    var perThc = function(p) {
+      var th = num(p.thc);
+      return th > 0 ? num(p.price) / th : null;      /* ฿ per 1% THC */
+    };
+    /* Best-in-row markers. With one column selected nothing is "best", so only
+       mark once there is something to compare against. */
+    var best = function(fn, dir) {
+      if (picked.length < 2) return null;
+      var vals = picked.map(fn).filter(function(v) { return v !== null && v > 0; });
+      if (!vals.length) return null;
+      return dir === "min" ? Math.min.apply(null, vals) : Math.max.apply(null, vals);
+    };
+    var bThc = best(function(p) { return num(p.thc); }, "max");
+    var bCbd = best(function(p) { return num(p.cbd); }, "max");
+    var bVal = best(perThc, "min");
+
+    var cell = function(text2, hit) {
+      return React.createElement("div", { style: {
+        fontSize: 11.5, fontWeight: hit ? 900 : 700, padding: "6px 4px",
+        color: hit ? C.accentBright : C.text, textAlign: "center",
+        borderBottom: "1px solid " + C.border
+      } }, text2, hit ? " ★" : "");
+    };
+    var rowLabel = function(text2) {
+      return React.createElement("div", { style: {
+        fontSize: 10, color: C.muted, padding: "6px 4px",
+        borderBottom: "1px solid " + C.border, whiteSpace: "nowrap",
+        overflow: "hidden", textOverflow: "ellipsis"
+      } }, text2);
+    };
+
+    var cols = "120px repeat(" + Math.max(picked.length, 1) + ", 1fr)";
+
+    return React.createElement("div", null,
+      React.createElement("select", {
+        value: "",
+        onChange: function(e) {
+          var v = e.target.value;
+          if (!v) return;
+          if ((compareIds || []).length >= 3) {
+            notify("เทียบได้ครั้งละ 3 สายพันธุ์ / compare up to 3 at a time", "error");
+            return;
+          }
+          setCompareIds(function(prev) {
+            return (prev || []).indexOf(v) >= 0 ? prev : (prev || []).concat([v]);
+          });
+        },
+        style: Object.assign({}, gs.input, { width: "100%", padding: "7px 9px", fontSize: 11, marginBottom: 10 })
+      },
+        React.createElement("option", { value: "" }, "+ เพิ่มสายพันธุ์ / add a strain to compare"),
+        pool.filter(function(p) { return (compareIds || []).indexOf(String(p.id)) < 0; })
+            .map(function(p) {
+          return React.createElement("option", { key: p.id, value: String(p.id) },
+            p.name + " · THC " + num(p.thc) + "%");
+        })),
+
+      picked.length === 0
+        ? finEmpty("เลือกสายพันธุ์ด้านบนเพื่อเทียบกัน — pick up to three strains above to see THC, CBD and value side by side.")
+        : React.createElement("div", { style: { display: "grid", gridTemplateColumns: cols, gap: 0, alignItems: "center" } },
+            React.createElement("div", null),
+            picked.map(function(p) {
+              return React.createElement("div", { key: "h" + p.id, style: { textAlign: "center", padding: "0 4px 6px" } },
+                React.createElement("div", { style: { fontSize: 11.5, fontWeight: 900, lineHeight: 1.25 } }, p.name),
+                React.createElement("button", {
+                  onClick: function() {
+                    setCompareIds(function(prev) {
+                      return (prev || []).filter(function(x) { return String(x) !== String(p.id); });
+                    });
+                  },
+                  style: Object.assign({}, gs.btn(C.card2, C.muted), { fontSize: 9, padding: "1px 7px", marginTop: 3, border: "1px solid " + C.border })
+                }, "✕ เอาออก"));
+            }),
+
+            rowLabel("ชนิด / type"),
+            picked.map(function(p) { return React.createElement("div", { key: "t" + p.id }, cell(p.type || "—", false)); }),
+
+            rowLabel("THC %"),
+            picked.map(function(p) { return React.createElement("div", { key: "c1" + p.id }, cell(num(p.thc) + "%", bThc !== null && num(p.thc) === bThc)); }),
+
+            rowLabel("CBD %"),
+            picked.map(function(p) { return React.createElement("div", { key: "c2" + p.id }, cell(num(p.cbd) + "%", bCbd !== null && num(p.cbd) === bCbd)); }),
+
+            rowLabel("THC : CBD"),
+            picked.map(function(p) {
+              var th = num(p.thc), cb = num(p.cbd);
+              var ratio = cb > 0 ? (th / cb).toFixed(1) + " : 1" : (th > 0 ? "THC only" : "—");
+              return React.createElement("div", { key: "r" + p.id }, cell(ratio, false));
+            }),
+
+            rowLabel("ราคา / price"),
+            picked.map(function(p) {
+              return React.createElement("div", { key: "p" + p.id }, cell(finBaht(p.price) + " / " + (p.unit || "pc"), false));
+            }),
+
+            rowLabel("฿ ต่อ / per 1% THC"),
+            picked.map(function(p) {
+              var v = perThc(p);
+              return React.createElement("div", { key: "v" + p.id },
+                cell(v === null ? "—" : "฿" + v.toFixed(1), bVal !== null && v !== null && Math.abs(v - bVal) < 1e-9));
+            }),
+
+            rowLabel("คงเหลือ / stock"),
+            picked.map(function(p) {
+              var st = num(p.stock);
+              return React.createElement("div", { key: "s" + p.id },
+                React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, padding: "6px 4px", textAlign: "center", color: st > 0 ? C.text : C.red, borderBottom: "1px solid " + C.border } },
+                  st > 0 ? st + " " + (p.unit || "pc") : "หมด / out"));
+            }),
+
+            React.createElement("div", null),
+            picked.map(function(p) {
+              return React.createElement("div", { key: "a" + p.id, style: { padding: "9px 4px 0", textAlign: "center" } },
+                React.createElement("button", {
+                  onClick: function() {
+                    addToCart(p);
+                    setShowCompare(false);
+                  },
+                  disabled: num(p.stock) <= 0,
+                  style: Object.assign({}, gs.btn(num(p.stock) > 0 ? C.accent : C.card3, num(p.stock) > 0 ? "#000" : C.muted), { fontSize: 10, padding: "5px 10px", width: "100%" })
+                }, "+ ใส่ตะกร้า"));
+            })),
+
+      picked.length > 1 && React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 10, lineHeight: 1.6 } },
+        "★ = สูงสุด/คุ้มที่สุดในแถวนั้น · marks the strongest THC, the strongest CBD and the best ฿-per-1%-THC. Figures come from the inventory record — keep THC/CBD up to date in \u{1F4E6} Inventory and this stays honest.")
+    );
+  })()), showBreakEven && finModal(gs, "⚖️ Break-even \xB7 จุดคุ้มทุน", function() {
+    setShowBreakEven(false);
+  }, 520, (function() {
+    var r = breakEvenCalc && breakEvenCalc.result;
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("select", { value: "", onChange: function(e) {
+      if (e.target.value) calcBreakEven(e.target.value);
+    }, style: Object.assign({}, gs.input, { width: "100%", padding: "7px 9px", fontSize: 11, marginBottom: 10 }) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "— เลือกสินค้า / pick a product —"), products.map(function(p) {
+      return /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.id }, p.name + " \xB7 " + finBaht(p.price));
+    })), r ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, fontWeight: 900, marginBottom: 6, color: C.accent } }, breakEvenCalc.pid), finRow("ราคาขาย / price", finBaht(r.price)), finRow("ต้นทุน / cost", finBaht(r.cost)), finRow("ค่าใช้จ่ายคงที่ต่อชิ้น / fixed per unit", finBaht(r.fixedPerUnit)), finRow("กำไรต่อชิ้น / profit per unit", finBaht(r.profit), Number(r.profit) >= 0 ? C.green : C.red), finRow("Margin", r.margin + "%", Number(r.margin) >= 0 ? C.green : C.red), finRow("ขายกี่ชิ้นถึงจุดคุ้มทุน / units to break even", r.breakEvenUnits + " ชิ้น/วัน", C.gold)) : finEmpty("เลือกสินค้าด้านบน — pick a product to see how many a day it has to sell to cover its share of fixed costs."));
+  })()), showStaffLoans && finModal(gs, "\u{1F4B5} เงินยืมพนักงาน / Staff advances", function() {
+    setShowStaffLoans(false);
+  }, 560, (function() {
+    var openLoans = (staffLoans || []).filter(function(l) {
+      return !l.repaid;
+    });
+    var outstanding = openLoans.reduce(function(a, l) {
+      return a + (Number(l.amount) || 0);
+    }, 0);
+    return /* @__PURE__ */ React.createElement("div", null, finRow("ค้างชำระรวม / outstanding", finBaht(outstanding), outstanding > 0 ? C.gold : C.green), finRow("รายการค้าง / open advances", String(openLoans.length)), /* @__PURE__ */ React.createElement("div", { style: Object.assign({}, gs.card2, { marginTop: 10, marginBottom: 10 }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, marginBottom: 6 } }, "➕ บันทึกเงินยืม / record an advance"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("select", { value: loanForm.staffId, onChange: function(e) {
+      var v = e.target.value;
+      setLoanForm(function(p) {
+        return Object.assign({}, p, { staffId: v });
+      });
+    }, style: Object.assign({}, gs.input, { padding: "6px 8px", fontSize: 11 }) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "— พนักงาน / staff —"), staff.map(function(s2) {
+      return /* @__PURE__ */ React.createElement("option", { key: s2.id, value: s2.id }, s2.name);
+    })), /* @__PURE__ */ React.createElement("input", { type: "number", value: loanForm.amount || "", placeholder: "จำนวนเงิน ฿", onChange: function(e) {
+      var v = e.target.value;
+      setLoanForm(function(p) {
+        return Object.assign({}, p, { amount: v });
+      });
+    }, style: Object.assign({}, gs.input, { padding: "6px 8px", fontSize: 11 }) })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("input", { type: "date", value: loanForm.dueDate || "", onChange: function(e) {
+      var v = e.target.value;
+      setLoanForm(function(p) {
+        return Object.assign({}, p, { dueDate: v });
+      });
+    }, style: Object.assign({}, gs.input, { padding: "6px 8px", fontSize: 11 }) }), /* @__PURE__ */ React.createElement("input", { placeholder: "หมายเหตุ / note", value: loanForm.note || "", onChange: function(e) {
+      var v = e.target.value;
+      setLoanForm(function(p) {
+        return Object.assign({}, p, { note: v });
+      });
+    }, style: Object.assign({}, gs.input, { padding: "6px 8px", fontSize: 11 }) })), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      var sf = staff.find(function(s2) {
+        return String(s2.id) === String(loanForm.staffId);
+      });
+      var amt = Number(loanForm.amount) || 0;
+      if (!sf || amt <= 0) {
+        notify("เลือกพนักงานและใส่จำนวนเงิน / pick a staff member and an amount", "error");
+        return;
+      }
+      setStaffLoans(function(p) {
+        return [{ id: Date.now(), staffId: sf.id, staffName: sf.name, amount: amt, note: loanForm.note || "", dueDate: loanForm.dueDate || "", at: (/* @__PURE__ */ new Date()).toISOString(), repaid: false }].concat(p || []);
+      });
+      setLoanForm({ staffId: "", amount: 0, note: "", dueDate: "" });
+      notify("\u{1F4B5} บันทึกเงินยืมแล้ว / advance recorded");
+    }, style: Object.assign({}, gs.btn(C.gold, "#000"), { fontSize: 10.5, width: "100%" }) }, "\u{1F4B5} บันทึก / Record")), (staffLoans || []).length ? (staffLoans || []).map(function(l) {
+      return /* @__PURE__ */ React.createElement("div", { key: l.id, style: Object.assign({}, gs.card2, { marginBottom: 6, opacity: l.repaid ? 0.55 : 1 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800 } }, l.staffName, " \xB7 ", finBaht(l.amount)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 2 } }, (l.dueDate ? "กำหนด " + l.dueDate : "ไม่ระบุกำหนด") + (l.note ? " \xB7 " + l.note : ""))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+        setStaffLoans(function(p) {
+          return (p || []).map(function(x) {
+            return x.id === l.id ? Object.assign({}, x, { repaid: !x.repaid }) : x;
+          });
+        });
+      }, style: Object.assign({}, gs.btn(l.repaid ? C.card2 : C.green, l.repaid ? "#fff" : "#000"), { fontSize: 9.5, border: "1px solid " + C.border }) }, l.repaid ? "↩ ยังค้าง" : "✓ คืนแล้ว"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+        setStaffLoans(function(p) {
+          return (p || []).filter(function(x) {
+            return x.id !== l.id;
+          });
+        });
+      }, style: Object.assign({}, gs.btn(C.card2, "#fca5a5"), { fontSize: 9.5, border: "1px solid " + C.border }) }, "✕"))));
+    }) : finEmpty("ยังไม่มีเงินยืม — no advances recorded yet."));
+  })()), showVatReport && finModal(gs, "\u{1F9FE} VAT \xB7 ภาษีมูลค่าเพิ่ม", function() {
+    setShowVatReport(false);
+  }, 560, (function() {
+    var now2 = /* @__PURE__ */ new Date();
+    var tx = (Array.isArray(transactions) ? transactions : []).filter(function(t2) {
+      if (!t2 || t2.isVoid) return false;
+      var ms = Number(String(t2.id || "").split("-")[1]) || Date.parse(t2.date || "") || 0;
+      if (!ms) return false;
+      var d = new Date(ms);
+      return d.getMonth() === now2.getMonth() && d.getFullYear() === now2.getFullYear();
+    });
+    var gross = tx.reduce(function(a, t2) {
+      return a + (Number(t2.total) || 0);
+    }, 0);
+    var net = vatEnabled ? gross / (1 + vatRate) : gross;
+    var vat = gross - net;
+    var exRate = exciseTax && exciseTax.enabled ? (Number(exciseTax.rate) || 0) / 100 : 0;
+    return /* @__PURE__ */ React.createElement("div", null, finRow("เดือนนี้ / bills this month", String(tx.length)), finRow("ยอดรวม / gross", finBaht(gross)), finRow("ก่อน VAT / net", finBaht(net)), finRow("VAT " + (vatRate * 100).toFixed(0) + "%", finBaht(vat), vat > 0 ? C.gold : C.muted), finRow("ภาษีสรรพสามิต / excise " + (exRate * 100).toFixed(0) + "%", finBaht(net * exRate), exRate ? C.gold : C.muted), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setVatEnabled(!vatEnabled);
+    }, style: Object.assign({}, gs.btn(vatEnabled ? C.green : C.card2, vatEnabled ? "#000" : "#fff"), { fontSize: 10.5, width: "100%", marginTop: 10, border: "1px solid " + C.border }) }, vatEnabled ? "✅ VAT เปิดอยู่ / VAT on" : "⚪ VAT ปิดอยู่ / VAT off"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 9, lineHeight: 1.65 } }, "ℹ️ ใบเสร็จไม่ได้แยก VAT ไว้ในบิล — receipts do not itemise VAT, so this treats recorded totals as VAT-inclusive. Check with your accountant before filing."));
+  })()), showPaymentModal && finModal(gs, "\u{1F4B3} บิลซัพพลายเออร์ / Supplier bills", function() {
+    setShowPaymentModal(false);
+  }, 560, (function() {
+    var today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    var bills = Array.isArray(supplierPayments) ? supplierPayments : [];
+    var openBills = bills.filter(function(b2) {
+      return !b2.paid;
+    });
+    var overdue = openBills.filter(function(b2) {
+      return b2.due && b2.due < today;
+    });
+    var sum = function(list) {
+      return list.reduce(function(a, b2) {
+        return a + (Number(b2.amount) || 0);
+      }, 0);
+    };
+    return /* @__PURE__ */ React.createElement("div", null, finRow("ค้างจ่าย / outstanding", finBaht(sum(openBills)), openBills.length ? C.gold : C.green), finRow("เกินกำหนด / overdue", String(overdue.length) + " \xB7 " + finBaht(sum(overdue)), overdue.length ? C.red : C.green), finRow("จ่ายแล้ว / paid", finBaht(sum(bills.filter(function(b2) {
+      return b2.paid;
+    }))), C.green), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, bills.length ? bills.map(function(b2) {
+      var late = !b2.paid && b2.due && b2.due < today;
+      return /* @__PURE__ */ React.createElement("div", { key: b2.id, style: Object.assign({}, gs.card2, { marginBottom: 6, borderLeft: "3px solid " + (b2.paid ? C.green : late ? C.red : C.gold) }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800 } }, b2.supplier, " \xB7 ", finBaht(b2.amount)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: late ? C.red : C.muted, marginTop: 2 } }, "กำหนด " + (b2.due || "—") + (late ? " \xB7 เกินกำหนด overdue" : "") + (b2.notes ? " \xB7 " + b2.notes : ""))), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+        setSupplierPayments(function(p) {
+          return (p || []).map(function(x) {
+            return x.id === b2.id ? Object.assign({}, x, { paid: !x.paid, paidAt: !x.paid ? (/* @__PURE__ */ new Date()).toISOString() : null }) : x;
+          });
+        });
+      }, style: Object.assign({}, gs.btn(b2.paid ? C.card2 : C.green, b2.paid ? "#fff" : "#000"), { fontSize: 9.5, whiteSpace: "nowrap", border: "1px solid " + C.border }) }, b2.paid ? "↩ ยังไม่จ่าย" : "✓ จ่ายแล้ว")));
+    }) : finEmpty("ยังไม่มีบิล — no supplier bills recorded yet.")));
+  })()), showPOModal && finModal(gs, "\u{1F4CB} ใบสั่งซื้อ / Purchase orders", function() {
+    setShowPOModal(false);
+  }, 560, (function() {
+    var po = Array.isArray(purchaseOrders) ? purchaseOrders : [];
+    var byStatus = {};
+    po.forEach(function(p) {
+      var k = p.status || "draft";
+      byStatus[k] = (byStatus[k] || 0) + 1;
+    });
+    var openVal = po.filter(function(p) {
+      return p.status !== "received" && p.status !== "cancelled";
+    }).reduce(function(a, p) {
+      return a + (Number(p.total) || 0);
+    }, 0);
+    return /* @__PURE__ */ React.createElement("div", null, finRow("ทั้งหมด / total POs", String(po.length)), finRow("ร่าง / draft", String(byStatus.draft || 0)), finRow("ส่งแล้ว / sent", String(byStatus.sent || 0), C.blue), finRow("รับของแล้ว / received", String(byStatus.received || 0), C.green), finRow("มูลค่าค้างรับ / open value", finBaht(openVal), openVal ? C.gold : C.green), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, po.length ? po.slice(0, 8).map(function(p, i) {
+      return /* @__PURE__ */ React.createElement("div", { key: p.id || i, style: Object.assign({}, gs.card2, { marginBottom: 6 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800 } }, p.supplier || "—"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: C.gold } }, finBaht(p.total))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 2 } }, String(p.status || "draft").toUpperCase() + " \xB7 " + String(p.date || "").slice(0, 10) + ((p.items && p.items.length) ? " \xB7 " + p.items.length + " รายการ" : "")));
+    }) : finEmpty("ยังไม่มีใบสั่งซื้อ — no purchase orders yet.")), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShowPOModal(false);
+      setActiveTab("po");
+    }, style: Object.assign({}, gs.btn(C.blue, "#000"), { fontSize: 10.5, width: "100%", marginTop: 10 }) }, "\u{1F9FE} เปิดแท็บ PO / Open the PO tab"));
+  })()), showWebhook && finModal(gs, "\u{1F517} Webhook \xB7 การเชื่อมต่อเว็บไซต์", function() {
+    setShowWebhook(false);
+  }, 560, (function() {
+    var wc = {};
+    try {
+      wc = JSON.parse(localStorage.getItem("dank_apicfg")) || {};
+    } catch (e) {
+      wc = {};
+    }
+    var log = Array.isArray(webhookLog) ? webhookLog : [];
+    return /* @__PURE__ */ React.createElement("div", null, finRow("เว็บไซต์ / site", String(wc.site || location.origin || "—")), finRow("API Key", wc.apiKey ? "✅ ตั้งไว้แล้ว / set" : "⚠️ ยังไม่ได้ตั้ง / not set", wc.apiKey ? C.green : C.red), finRow("ส่งเมนู / share menu", wc.shareMenu === false ? "off" : "on", wc.shareMenu === false ? C.muted : C.green), finRow("ส่งรายชื่อสมาชิก / share members", wc.shareCustomers === false ? "off" : "on", wc.shareCustomers === false ? C.muted : C.green), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, margin: "12px 0 6px" } }, "ประวัติการส่ง / delivery log"), log.length ? log.slice(0, 20).map(function(w, i) {
+      return /* @__PURE__ */ React.createElement("div", { key: i, style: Object.assign({}, gs.card2, { marginBottom: 5 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 800 } }, String(w.event || w.type || "event")), /* @__PURE__ */ React.createElement("span", { style: { color: w.ok === false ? C.red : C.green, fontWeight: 800 } }, w.ok === false ? "failed" : "ok")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 2 } }, String(w.at || w.date || "")));
+    }) : finEmpty("ยังไม่มีรายการ — no webhook deliveries recorded yet. The link key is set in Settings → Website / E-commerce connection, and the website checks it against its POS_SYNC_KEY environment variable."));
+  })()), showEmailReport && finModal(gs, "\u{1F4E7} รายงานทางอีเมล / Email report", function() {
+    setShowEmailReport(false);
+  }, 560, (function() {
+    var reportText = buildEmailReport();
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: Object.assign({}, gs.card2, { marginBottom: 10 }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, marginBottom: 6 } }, "⚙️ ส่งให้ใคร / recipient"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 6, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("input", { type: "email", value: emailReports.email || "", placeholder: "name@example.com", onChange: function(e) {
+      var v = e.target.value;
+      setEmailReports(function(p) {
+        return Object.assign({}, p, { email: v });
+      });
+    }, style: Object.assign({}, gs.input, { padding: "6px 8px", fontSize: 11 }) }), /* @__PURE__ */ React.createElement("select", { value: emailReports.frequency || "daily", onChange: function(e) {
+      var v = e.target.value;
+      setEmailReports(function(p) {
+        return Object.assign({}, p, { frequency: v });
+      });
+    }, style: Object.assign({}, gs.input, { padding: "6px 8px", fontSize: 11 }) }, /* @__PURE__ */ React.createElement("option", { value: "daily" }, "ทุกวัน / daily"), /* @__PURE__ */ React.createElement("option", { value: "weekly" }, "ทุกสัปดาห์ / weekly"), /* @__PURE__ */ React.createElement("option", { value: "monthly" }, "ทุกเดือน / monthly"))), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setEmailReports(function(p) {
+        return Object.assign({}, p, { enabled: !p.enabled });
+      });
+    }, style: Object.assign({}, gs.btn(emailReports.enabled ? C.green : C.card2, emailReports.enabled ? "#000" : "#fff"), { fontSize: 10.5, width: "100%", border: "1px solid " + C.border }) }, emailReports.enabled ? "✓ ตั้งส่งอัตโนมัติไว้แล้ว / scheduled ON" : "○ ยังไม่ได้ตั้งส่งอัตโนมัติ / scheduled OFF")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, marginBottom: 5 } }, "\u{1F441}️ ตัวรายงานจริง / this is exactly what goes out"), /* @__PURE__ */ React.createElement("textarea", { readOnly: true, value: reportText, onFocus: function(e) {
+      e.target.select();
+    }, style: Object.assign({}, gs.input, { width: "100%", minHeight: 132, fontSize: 10.5, lineHeight: 1.6, fontFamily: "ui-monospace, Menlo, monospace", padding: "8px 9px", resize: "vertical" }) }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(reportText);
+          notify("\u{1F4CB} คัดลอกรายงานแล้ว / report copied");
+          return;
+        }
+      } catch (e) {
+      }
+      notify("กดค้างที่กล่องข้อความเพื่อคัดลอก / tap and hold the box to copy", "error");
+    }, style: Object.assign({}, gs.btn(C.card2, "#fff"), { fontSize: 10.5, flex: 1, border: "1px solid " + C.border }) }, "\u{1F4CB} คัดลอก / Copy"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      sendEmailReport();
+    }, style: Object.assign({}, gs.btn(C.gold, "#000"), { fontSize: 10.5, flex: 1 }) }, "\u{1F4E7} เตรียมส่ง / Queue it")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, lineHeight: 1.65, marginTop: 9 } }, "ตอนนี้ POS ยังส่งอีเมลเองไม่ได้ — the POS has no mail server of its own, so “Queue it” writes the report to the webhook log (\u{1F517} Webhook) for the website to pick up and send. คัดลอกแล้วส่งเองได้เลยถ้าต้องการวันนี้. To make it send by itself, connect the site in Settings → Website / E-commerce connection."));
+  })()), showRoster && /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
     setShowRoster(false);
   } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 560, maxHeight: "92vh", overflowY: "auto" }), onClick: function(e) {
     e.stopPropagation();
@@ -8463,7 +8949,25 @@ function GreenPOS() {
     var bd = rosterBranch === "Bars" ? rosterBarDay : null;
     var slots = rosterSlots(rosterBranch, bd);
     var st = ROSTER_STRUCTURE[rosterBranch];
-    var shiftsMeta = st.type === "weekly" ? st[bd].shifts : st.shifts;
+    var stDay = st && st.type === "weekly" ? st[bd] : st;
+    if (!st || !stDay || !Array.isArray(stDay.shifts)) {
+      /* Petchaboon and Phuket opened after these templates were written.
+         Say so plainly — reading .type off undefined used to unmount the
+         entire POS, so a manager lost the till mid-shift for tapping a
+         branch name. Manual and 2-Week work for every shop. */
+      return /* @__PURE__ */ React.createElement("div", { style: Object.assign({}, gs.card, { background: C.card2, padding: "16px 14px", textAlign: "center" }) },
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 24, marginBottom: 6 } }, "\u{1F4C5}"),
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 6 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E15\u0E31\u0E49\u0E07\u0E01\u0E30\u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19\u0E02\u0E2D\u0E07 ", rosterBranch),
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.muted, lineHeight: 1.65, marginBottom: 10 } }, "No shift template for this branch yet, so Auto has nothing to fill. \u0E43\u0E0A\u0E49 Manual \u0E2B\u0E23\u0E37\u0E2D 2-Week \u0E44\u0E14\u0E49\u0E40\u0E25\u0E22 \u2014 \u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32."),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, justifyContent: "center" } },
+          /* @__PURE__ */ React.createElement("button", { onClick: function() {
+            setRosterMode("manual");
+          }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10.5 }) }, "\u270D\uFE0F Manual"),
+          /* @__PURE__ */ React.createElement("button", { onClick: function() {
+            setRosterMode("biweekly");
+          }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10.5, border: "1px solid " + C.border }) }, "\u{1F4C5} 2-Week")));
+    }
+    var shiftsMeta = stDay.shifts;
     var filled = slots.filter(function(sl) {
       return roster[sl.key];
     }).length;
@@ -10131,14 +10635,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(
    Uses the existing Settings → "Website / E-commerce connection"
    card (localStorage dank_apicfg): siteUrl, apiKey and the
    shareMenu / shareStock / sharePrices toggles all apply here.
-   With no setup at all it pushes to https://dankbkk.com using a
-   built-in link key. It never pushes an empty product list, so it
-   can't blank the website by accident.
+   The API Key is REQUIRED — press Generate in that card, then set the
+   same value as POS_SYNC_KEY on the website. There used to be a key
+   baked in here so it would "just work" with no setup, but a key
+   printed in a public page is not a key: anyone could have replaced
+   the whole shop catalogue, and pos-feed also writes the customer
+   records that website member logins are checked against. No key now
+   means no push, and the till says so. It never pushes an empty
+   product list either, so it can't blank the website by accident.
    Manual push from console: __dankWebSync.pushNow()
    ============================================================ */
 (function () {
   "use strict";
-  var BAKED_KEY = "DANK-POS-LINK-8k3n9q2f";
   var FIRST_MS = 8000, EVERY_MS = 45000;
   var lastHash = "", inflight = false;
 
@@ -10178,8 +10686,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(
   }
   /* CRM → website: members who joined in the SHOP can log in on the website
      too and get member prices + see their points. Only the basics are sent
-     (name · phone · points · visits) — no medical or personal details.     */
+     (name · phone · points · visits) — no medical or personal details.
+     Set dank_apicfg.shareCustomers = false to keep the CRM in the shop only;
+     website member login stops working for shop-only members if you do.     */
   function buildCustomers() {
+    var c = cfg();
+    if (c.shareCustomers === false) return [];
     var list = [];
     try { list = JSON.parse(localStorage.getItem("dank_customers")) || []; } catch (e) {}
     var out = [];
@@ -10190,15 +10702,51 @@ ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(
     }
     return out;
   }
+  /* A silent no-op is the worst outcome here: the owner thinks the website is
+     mirroring the shop while it quietly shows a stale menu. Say it once, on
+     screen, with the exact place to fix it. */
+  var toldNoKey = false;
+  function warnNoKey() {
+    if (toldNoKey) return;
+    toldNoKey = true;
+    console.warn("[DANK web-sync] no API Key set — website menu sync is off.");
+    try {
+      if (document.getElementById("dankNoKey")) return;
+      var d = document.createElement("div");
+      d.id = "dankNoKey";
+      d.style.cssText = "position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;max-width:520px;" +
+        "margin:0 auto;background:#2a1e05;border:1px solid #d9b25b;border-radius:12px;padding:13px 15px;" +
+        "font-family:-apple-system,system-ui,sans-serif;color:#f2e4c2;font-size:12.5px;line-height:1.55;" +
+        "box-shadow:0 8px 30px rgba(0,0,0,.45)";
+      d.innerHTML =
+        '<div style="font-weight:800;margin-bottom:4px">\u26a0\ufe0f Website menu sync is off</div>' +
+        '<div>The website can\'t be updated until this till has an API Key. Open ' +
+        '<b>Settings \u2192 Website / E-commerce connection</b>, press <b>Generate</b>, ' +
+        'then set that same value as <b>POS_SYNC_KEY</b> on the website.<br>' +
+        '<span style="color:#d9b25b">\u0e15\u0e31\u0e49\u0e07\u0e04\u0e35\u0e22\u0e4c API ' +
+        '\u0e43\u0e19\u0e2b\u0e19\u0e49\u0e32\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32 ' +
+        '\u0e01\u0e48\u0e2d\u0e19\u0e40\u0e21\u0e19\u0e39\u0e08\u0e36\u0e07\u0e08\u0e30' +
+        '\u0e2d\u0e31\u0e1e\u0e40\u0e14\u0e15\u0e02\u0e36\u0e49\u0e19\u0e40\u0e27\u0e47\u0e1a</span></div>' +
+        '<button id="dankNoKeyX" style="margin-top:10px;background:#d9b25b;color:#241a03;font-weight:800;' +
+        'border:none;border-radius:8px;padding:7px 16px;font-size:12px;cursor:pointer">OK</button>';
+      document.body.appendChild(d);
+      var x = document.getElementById("dankNoKeyX");
+      if (x) x.onclick = function () { d.remove(); };
+    } catch (e) {}
+  }
+
   function push(force) {
     if (inflight) return;
     var c = cfg();
     if (c.shareMenu === false) return;                 // owner turned menu sharing off
     var site = dankSiteBase(c);
     if (!/^https?:/.test(site)) return;
+    /* No fallback key on purpose — see the note at the top of this block. */
+    var key = String(c.apiKey || "").trim();
+    if (!key) { warnNoKey(); return; }
     var payload = buildPayload(c);
     if (!payload) return;
-    var body = JSON.stringify({ key: c.apiKey || BAKED_KEY, products: payload, customers: buildCustomers() });
+    var body = JSON.stringify({ key: key, products: payload, customers: buildCustomers() });
     var h = djb2(body);
     if (!force && h === lastHash) return;              // nothing changed since last push
     inflight = true;

@@ -11,25 +11,24 @@
    the POS within ~30s of any change. A feed older than POS_FEED_MAX_AGE_H
    (default 72h) is ignored and the site falls back to StoreHub/bundled.
 
-   Auth: shared link key. Default is baked into both sides so it works with
-   zero setup; override with env POS_SYNC_KEY (website) + the API-key field
-   in the POS Settings → Website connection card (both must match).
+   Auth: shared link key, POS_SYNC_KEY, which must be set on this deployment
+   and pasted into POS Settings → Website connection. There used to be a
+   default baked into both sides "so it works with zero setup" — which also
+   meant anyone holding a copy of the source could replace the entire shop
+   catalogue, prices included, on any deployment that never set the variable.
+   With it unset the endpoint now rejects every push instead.
 
    Flower mapping: POS sells flowers per-gram (unit "g", price = 1g). The
    website shows weight tiers, derived exactly from DANK's price card:
    ½g = price/2 · 1g = price · 3.5g bulk = 3×price (the 3+1 deal), with
    member prices from the POS mPrice (≈10% off).                             */
-import crypto from "node:crypto";
 import { getJSON, setJSON } from "./_store.js";
 import { bustMenu } from "./_menu.js";
+import { requireEnv, safeEq } from "./_auth.js";
+import { normPhone as digits } from "./_phone.js";
 
-const KEY = process.env.POS_SYNC_KEY || "DANK-POS-LINK-8k3n9q2f";
 const MAX_ITEMS = 1000;
 
-const safeEq = (a, b) => {
-  const A = Buffer.from(String(a)), B = Buffer.from(String(b));
-  return A.length === B.length && crypto.timingSafeEqual(A, B);
-};
 const num = (v) => { const n = Number(v); return isFinite(n) ? n : 0; };
 const looksLikeImg = (s) => /^(https?:|data:image)/.test(String(s || ""));
 
@@ -89,9 +88,10 @@ export default async function handler(req, res) {
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method" });
 
+  if (!requireEnv(res, ["POS_SYNC_KEY"])) return;
   const b = req.body || {};
   const key = b.key || req.headers["x-api-key"] || "";
-  if (!safeEq(key, KEY)) return res.status(401).json({ error: "bad key" });
+  if (!safeEq(key, process.env.POS_SYNC_KEY)) return res.status(401).json({ error: "bad key" });
 
   if (!Array.isArray(b.products) || !b.products.length) {
     return res.status(400).json({ error: "products must be a non-empty array" });
@@ -104,7 +104,8 @@ export default async function handler(req, res) {
   // optional CRM slice from the POS — lets shop members log in on the website
   let crmCount = 0;
   if (Array.isArray(b.customers) && b.customers.length) {
-    const digits = (s) => String(s || "").replace(/[^0-9]/g, "").replace(/^66/, "0");
+    // Same normaliser as the wallet and the member list — the `d` field written
+    // here is what /api/member matches a login against, so it has to agree.
     const list = b.customers.slice(0, 2000)
       .map((c) => ({ id: c.id, name: String(c.name || ""), phone: String(c.phone || ""), d: digits(c.phone), points: Number(c.points) || 0, visits: Number(c.visits) || 0 }))
       .filter((c) => c.d.length >= 6);

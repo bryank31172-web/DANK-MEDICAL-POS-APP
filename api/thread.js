@@ -6,15 +6,15 @@
      POST {action:"send", threadId, text}            (from customer)
      GET  ?threadId=...&since=N                      → {status, messages:[...]}
 
-   Staff (requires key = STAFF_KEY env, default "dankstaff" — CHANGE IT):
+   Staff (requires key = STAFF_KEY env; unset ⇒ the staff side is closed):
      GET  ?list=1&key=...                            → {threads:[summary]}
      GET  ?threadId=...&since=N&key=...              (same as customer)
      POST {action:"send", threadId, text, key, staffName}
      POST {action:"close", threadId, key}                                   */
 
 import { getJSON, setJSON, indexAdd, indexList, usingRedis } from "./_store.js";
+import { requireStaff, isStaffKey } from "./_auth.js";
 
-const STAFF_KEY = process.env.STAFF_KEY || "dankstaff";
 const rid = () =>
   "CH" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
 
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const { threadId, since, list, key } = req.query || {};
       if (list) {
-        if (key !== STAFF_KEY) return res.status(401).json({ error: "bad key" });
+        if (!requireStaff(req, res)) return;
         const ids = await indexList();
         const threads = [];
         for (const id of ids.slice(0, 60)) {
@@ -47,12 +47,14 @@ export default async function handler(req, res) {
       const t = await getJSON("thread:" + threadId);
       if (!t) return res.status(404).json({ error: "not found" });
       const n = Number(since || 0);
+      // The customer polls this too, with no key — they get the messages only.
+      const staff = isStaffKey(key);
       return res.status(200).json({
         status: t.status,
-        customer: key === STAFF_KEY ? t.customer : undefined,
-        transcript: key === STAFF_KEY ? t.transcript : undefined,
-        cart: key === STAFF_KEY ? t.cart : undefined,
-        subtotal: key === STAFF_KEY ? t.subtotal : undefined,
+        customer: staff ? t.customer : undefined,
+        transcript: staff ? t.transcript : undefined,
+        cart: staff ? t.cart : undefined,
+        subtotal: staff ? t.subtotal : undefined,
         messages: t.messages.filter((m) => m.seq > n),
       });
     }
@@ -80,7 +82,7 @@ export default async function handler(req, res) {
     if (b.action === "send") {
       const t = await getJSON("thread:" + b.threadId);
       if (!t) return res.status(404).json({ error: "not found" });
-      const isStaff = b.key === STAFF_KEY;
+      const isStaff = isStaffKey(b.key);
       if (!isStaff && b.key) return res.status(401).json({ error: "bad key" });
       const text = String(b.text || "").slice(0, 1000).trim();
       if (!text) return res.status(400).json({ error: "empty" });
@@ -97,7 +99,7 @@ export default async function handler(req, res) {
     }
 
     if (b.action === "close") {
-      if (b.key !== STAFF_KEY) return res.status(401).json({ error: "bad key" });
+      if (!requireStaff(req, res)) return;
       const t = await getJSON("thread:" + b.threadId);
       if (!t) return res.status(404).json({ error: "not found" });
       t.status = "closed";

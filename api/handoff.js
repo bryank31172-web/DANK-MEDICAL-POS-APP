@@ -12,9 +12,17 @@
 
    Returns {ok, ticketId, delivered} — delivered=false means no channel
    is configured yet (logged in Vercel logs); the widget then sends the
-   customer straight to LINE so nobody is left hanging.              */
+   customer straight to LINE so nobody is left hanging.
+
+   Each call pushes a LINE message (billable), a Telegram message and an
+   email, from a request that carries no key — the shopper pressing "talk to
+   a human" hasn't got one. So it is gated the same way /api/chat is: the
+   request must come from a page on this deployment, and one address only gets
+   a few per hour. Staff tooling can also pass the staff key and skip both. */
 
 import { notifyStaffLine } from "./_line.js";
+import { isStaff, sameOrigin } from "./_auth.js";
+import { requireRate } from "./_ratelimit.js";
 
 const esc = (s) => String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
 
@@ -23,6 +31,12 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+
+  if (!isStaff(req)) {
+    if (!sameOrigin(req)) return res.status(403).json({ error: "forbidden" });
+    // A customer asks for a human once, maybe twice if the first went quiet.
+    if (!(await requireRate(req, res, "handoff", 5, 3600))) return;
+  }
 
   const { transcript, customer, reason, cart, subtotal, threadId } = req.body || {};
   if (!customer?.contact) return res.status(400).json({ error: "contact required" });
