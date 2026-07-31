@@ -1459,7 +1459,7 @@ function GreenPOS() {
     });
     return L.join("\n") + "\n\n\n";
   };
-  const EXPENSE_TARGETS = {
+  const DEFAULT_EXPENSE_TARGETS = {
     daily: 23370,
     monthly: 665554,
     quarterly: 1996662,
@@ -1489,6 +1489,22 @@ function GreenPOS() {
       contingency: { monthly: 19385, yearly: 232621 }
     }
   };
+  const [expenseTargets, setExpenseTargets] = useState(function() {
+    try {
+      var v = JSON.parse(localStorage.getItem("dank_expense_targets"));
+      if (v && v.monthly && v.byBranch && v.byCategory) return v;
+    } catch (e) {
+    }
+    return DEFAULT_EXPENSE_TARGETS;
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_expense_targets", JSON.stringify(expenseTargets));
+    } catch (e) {
+    }
+  }, [expenseTargets]);
+  const EXPENSE_TARGETS = expenseTargets;
+  const [budgetEdit, setBudgetEdit] = useState(null);
   const getCatRevenue = function() {
     const cats = {};
     transactions.filter((t2) => !t2.isVoid).forEach((tx) => {
@@ -7714,7 +7730,60 @@ function GreenPOS() {
     Object.keys(actByCat).forEach(function(k) {
       if (catKeys.indexOf(k) < 0) catKeys.push(k);
     });
-    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 9, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: "3px solid " + C.red }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E07\u0E1A Fixed/\u0E40\u0E14\u0E37\u0E2D\u0E19 \xB7 Budget"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.red } }, "\u0E3F", Math.round(budgetMonth).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, _branchKey || "\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: "3px solid " + C.gold }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E08\u0E23\u0E34\u0E07\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49 \xB7 Actual"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.gold } }, "\u0E3F", Math.round(actualMonth).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: actualMonth > budgetMonth ? C.red : C.green } }, actualMonth > budgetMonth ? "\u0E40\u0E01\u0E34\u0E19\u0E07\u0E1A " : "\u0E43\u0E0A\u0E49\u0E44\u0E1B ", budgetMonth > 0 ? Math.round(actualMonth / budgetMonth * 100) : 0, "%")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: "3px solid " + C.blue }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E40\u0E09\u0E25\u0E35\u0E48\u0E22/\u0E27\u0E31\u0E19 \xB7 Daily Burn"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.blue } }, "\u0E3F", _fixedDaily.toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E07\u0E1A \xF7 30 \u0E27\u0E31\u0E19")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: "3px solid " + C.green }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \xB7 Entries"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.green } }, expScoped.length), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49 ", expMonth.length, ")"))), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 14 }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 8 } }, "\u{1F4CA} \u0E07\u0E1A\u0E15\u0E32\u0E21\u0E2B\u0E21\u0E27\u0E14 vs \u0E08\u0E48\u0E32\u0E22\u0E08\u0E23\u0E34\u0E07\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49 \xB7 Budget vs Actual by Category"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", fontSize: 8.5, color: C.muted, fontWeight: 700, padding: "2px 0", borderBottom: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 2 } }, "\u0E2B\u0E21\u0E27\u0E14"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E07\u0E1A/\u0E40\u0E14\u0E37\u0E2D\u0E19"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E08\u0E48\u0E32\u0E22\u0E08\u0E23\u0E34\u0E07"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E15\u0E48\u0E32\u0E07")), catKeys.map(function(k) {
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 9, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: "3px solid " + C.red }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E07\u0E1A Fixed/\u0E40\u0E14\u0E37\u0E2D\u0E19 \xB7 Budget"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.red } }, "\u0E3F", Math.round(budgetMonth).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, _branchKey || "\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: "3px solid " + C.gold }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E08\u0E23\u0E34\u0E07\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49 \xB7 Actual"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.gold } }, "\u0E3F", Math.round(actualMonth).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: actualMonth > budgetMonth ? C.red : C.green } }, actualMonth > budgetMonth ? "\u0E40\u0E01\u0E34\u0E19\u0E07\u0E1A " : "\u0E43\u0E0A\u0E49\u0E44\u0E1B ", budgetMonth > 0 ? Math.round(actualMonth / budgetMonth * 100) : 0, "%")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: "3px solid " + C.blue }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E40\u0E09\u0E25\u0E35\u0E48\u0E22/\u0E27\u0E31\u0E19 \xB7 Daily Burn"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.blue } }, "\u0E3F", _fixedDaily.toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E07\u0E1A \xF7 30 \u0E27\u0E31\u0E19")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { borderLeft: "3px solid " + C.green }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \xB7 Entries"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.green } }, expScoped.length), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49 ", expMonth.length, ")"))), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 14 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700 } }, "\u{1F4CA} \u0E07\u0E1A\u0E15\u0E32\u0E21\u0E2B\u0E21\u0E27\u0E14 vs \u0E08\u0E48\u0E32\u0E22\u0E08\u0E23\u0E34\u0E07\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49 \xB7 Budget vs Actual by Category"), isMaster && !budgetEdit && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      var d = { monthly: String(EXPENSE_TARGETS.monthly), branches: {}, cats: {} };
+      Object.keys(EXPENSE_TARGETS.byBranch).forEach(function(b) {
+        d.branches[b] = String(EXPENSE_TARGETS.byBranch[b].monthly || 0);
+      });
+      Object.keys(EXPENSE_TARGETS.byCategory).forEach(function(k) {
+        d.cats[k] = String(EXPENSE_TARGETS.byCategory[k].monthly || 0);
+      });
+      setBudgetEdit(d);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 10, padding: "5px 10px" }) }, "\u270F \u0E41\u0E01\u0E49\u0E07\u0E1A Edit Budget")), budgetEdit && (function() {
+      var upd = function(part, k, v) {
+        setBudgetEdit(function(p) {
+          var n = JSON.parse(JSON.stringify(p));
+          if (part === "monthly") n.monthly = v;
+          else n[part][k] = v;
+          return n;
+        });
+      };
+      var saveBudget = function() {
+        var oldT = EXPENSE_TARGETS;
+        var chg = [];
+        var mo = Math.max(0, parseFloat(budgetEdit.monthly) || 0);
+        if (mo !== oldT.monthly) chg.push("\u0E23\u0E27\u0E21/\u0E40\u0E14\u0E37\u0E2D\u0E19 " + oldT.monthly.toLocaleString() + "\u2192" + mo.toLocaleString());
+        var nb = {};
+        Object.keys(budgetEdit.branches).forEach(function(b) {
+          var v = Math.max(0, parseFloat(budgetEdit.branches[b]) || 0);
+          nb[b] = { monthly: v, yearly: v * 12 };
+          if (v !== ((oldT.byBranch[b] || {}).monthly || 0)) chg.push(b + " " + ((oldT.byBranch[b] || {}).monthly || 0).toLocaleString() + "\u2192" + v.toLocaleString());
+        });
+        var nc = {};
+        Object.keys(budgetEdit.cats).forEach(function(k) {
+          var v = Math.max(0, parseFloat(budgetEdit.cats[k]) || 0);
+          nc[k] = { monthly: v, yearly: v * 12 };
+          if (v !== ((oldT.byCategory[k] || {}).monthly || 0)) chg.push(k + " " + ((oldT.byCategory[k] || {}).monthly || 0).toLocaleString() + "\u2192" + v.toLocaleString());
+        });
+        setExpenseTargets({ daily: Math.round(mo / 30), monthly: mo, quarterly: mo * 3, yearly: mo * 12, byBranch: nb, byCategory: nc });
+        addAudit("BUDGET EDIT", chg.length ? chg.join(", ") : "(no change)", currentStaff && currentStaff.name);
+        setBudgetEdit(null);
+        notify("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E07\u0E1A\u0E43\u0E2B\u0E21\u0E48\u0E41\u0E25\u0E49\u0E27 \u2713 (\u0E25\u0E07 Audit report)");
+      };
+      return /* @__PURE__ */ React.createElement("div", { style: { background: C.card2, border: "1px solid " + C.gold + "66", borderRadius: 10, padding: "10px 12px", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: C.gold, marginBottom: 6 } }, "\u270F \u0E41\u0E01\u0E49\u0E07\u0E1A Fixed Cost (Master/CEO) \u2014 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E21\u0E35\u0E1C\u0E25\u0E01\u0E31\u0E1A Net Profit, Break-even \u0E17\u0E31\u0E19\u0E17\u0E35 \u0E41\u0E25\u0E30\u0E25\u0E07 Audit report"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, width: 150 } }, "\u0E07\u0E1A\u0E23\u0E27\u0E21\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32 \u0E3F/\u0E40\u0E14\u0E37\u0E2D\u0E19"), /* @__PURE__ */ React.createElement("input", { type: "number", value: budgetEdit.monthly, onChange: function(e) {
+        upd("monthly", null, e.target.value);
+      }, style: __spreadProps(__spreadValues({}, gs.input), { width: 110, padding: "4px 7px", fontSize: 11 }) })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, fontWeight: 800, color: C.muted, margin: "6px 0 3px" } }, "\u0E23\u0E32\u0E22\u0E2A\u0E32\u0E02\u0E32 \u0E3F/\u0E40\u0E14\u0E37\u0E2D\u0E19"), Object.keys(budgetEdit.branches).map(function(b) {
+        return /* @__PURE__ */ React.createElement("div", { key: b, style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, width: 150 } }, b), /* @__PURE__ */ React.createElement("input", { type: "number", value: budgetEdit.branches[b], onChange: function(e) {
+          upd("branches", b, e.target.value);
+        }, style: __spreadProps(__spreadValues({}, gs.input), { width: 110, padding: "4px 7px", fontSize: 11 }) }));
+      }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, fontWeight: 800, color: C.muted, margin: "6px 0 3px" } }, "\u0E23\u0E32\u0E22\u0E2B\u0E21\u0E27\u0E14 \u0E3F/\u0E40\u0E14\u0E37\u0E2D\u0E19"), Object.keys(budgetEdit.cats).map(function(k) {
+        return /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, width: 150 } }, cl(k)[0], " ", cl(k)[1]), /* @__PURE__ */ React.createElement("input", { type: "number", value: budgetEdit.cats[k], onChange: function(e) {
+          upd("cats", k, e.target.value);
+        }, style: __spreadProps(__spreadValues({}, gs.input), { width: 110, padding: "4px 7px", fontSize: 11 }) }));
+      }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, marginTop: 9 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+        setBudgetEdit(null);
+      }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { flex: 1, fontSize: 10.5, border: "1px solid " + C.border }) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"), /* @__PURE__ */ React.createElement("button", { onClick: saveBudget, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { flex: 1, fontSize: 10.5 }) }, "\u{1F4BE} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E07\u0E1A + \u0E25\u0E07 Audit")));
+    })(), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", fontSize: 8.5, color: C.muted, fontWeight: 700, padding: "2px 0", borderBottom: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 2 } }, "\u0E2B\u0E21\u0E27\u0E14"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E07\u0E1A/\u0E40\u0E14\u0E37\u0E2D\u0E19"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E08\u0E48\u0E32\u0E22\u0E08\u0E23\u0E34\u0E07"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E15\u0E48\u0E32\u0E07")), catKeys.map(function(k) {
       var bud = (EXPENSE_TARGETS.byCategory[k] || {}).monthly || 0;
       var act = actByCat[k] || 0;
       var diff = act - bud;
