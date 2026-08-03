@@ -1001,6 +1001,23 @@ function GreenPOS() {
   const qrImgUrl = function(data, size) {
     return "https://api.qrserver.com/v1/create-qr-code/?size=" + (size || 220) + "x" + (size || 220) + "&data=" + encodeURIComponent(String(data || ""));
   };
+  const memberCodeOf = function(c) {
+    if (!c) return "";
+    var raw = String(c.id || "");
+    var h = 0;
+    for (var i = 0; i < raw.length; i++) {
+      h = h * 31 + raw.charCodeAt(i) >>> 0;
+    }
+    return "DK-" + ("00000" + String(h % 1e6)).slice(-6);
+  };
+  const memberCardUrl = function(c) {
+    var base = "https://dank-medical-pos-app.vercel.app/";
+    try {
+      if (location.protocol !== "file:" && location.origin && location.origin !== "null") base = location.origin + location.pathname;
+    } catch (e) {
+    }
+    return base + "?member=" + encodeURIComponent(String(c.id));
+  };
   const tableOrderUrl = function(name) {
     var base = (apiCfg && apiCfg.siteUrl || "https://dankbkk-site.vercel.app").trim().replace(/\/+$/, "");
     return base + "/?table=" + encodeURIComponent(name) + "&src=tableqr";
@@ -1905,6 +1922,16 @@ function GreenPOS() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [custSearch, setCustSearch] = useState("");
   const [showCustModal, setShowCustModal] = useState(false);
+  const [memberCardCust, setMemberCardCust] = useState(null);
+  const [memberScanInput, setMemberScanInput] = useState("");
+  const [pendingMemberScan, setPendingMemberScan] = useState(function() {
+    try {
+      var m = (window.location.search || "").match(/[?&]member=([^&]+)/);
+      return m ? decodeURIComponent(m[1]) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [newCust, setNewCust] = useState({ name: "", phone: "", birthday: "", isMedical: false, prescriptionNo: "", doctorName: "", medCondition: "" });
   const [showRewardModal, setShowRewardModal] = useState(false);
@@ -3825,6 +3852,91 @@ function GreenPOS() {
     addAudit("REFERRAL", "Customer " + referrerId + " referred " + newCustId + " \u2014 +100 pts");
     notify("Referral recorded! +100 points to referrer");
   };
+  const findCustomerByScan = function(q) {
+    q = String(q || "").trim();
+    if (!q) return null;
+    var m = q.match(/[?&]member=([^&\s]+)/);
+    if (m) {
+      try {
+        q = decodeURIComponent(m[1]);
+      } catch (e) {
+        q = m[1];
+      }
+    }
+    var ql = q.toLowerCase();
+    var byId = customers.find(function(c) {
+      return String(c.id) === q;
+    });
+    if (byId) return byId;
+    var byCode = customers.find(function(c) {
+      return memberCodeOf(c).toLowerCase() === ql;
+    });
+    if (byCode) return byCode;
+    var dg = q.replace(/[^0-9]/g, "");
+    if (dg.length >= 6) {
+      var byPhone = customers.find(function(c) {
+        return String(c.phone || "").replace(/[^0-9]/g, "").indexOf(dg) >= 0;
+      });
+      if (byPhone) return byPhone;
+    }
+    return null;
+  };
+  const applyMemberScan = function(q, src) {
+    var c = findCustomerByScan(q);
+    if (!c) {
+      notify("\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01 / Member not found: " + String(q).slice(0, 30), "error");
+      return false;
+    }
+    setSelCustomer(c);
+    setMemberPricing(true);
+    notify("\u{1FAAA} " + c.name + " (" + memberCodeOf(c) + ") \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E02\u0E49\u0E32 POS \u0E41\u0E25\u0E49\u0E27 \u2713 \u0E25\u0E14\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01 10%");
+    addAudit("MEMBER SCAN", c.name + " " + memberCodeOf(c) + (src ? " via " + src : ""), currentStaff && currentStaff.name);
+    return true;
+  };
+  const downloadMemberQR = function(c) {
+    var url = qrImgUrl(memberCardUrl(c), 480);
+    fetch(url).then(function(r) {
+      return r.blob();
+    }).then(function(b) {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(b);
+      a.download = "MEMBER-" + memberCodeOf(c) + ".png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      notify("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 QR \u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01 " + c.name + " \u0E41\u0E25\u0E49\u0E27 \u2713");
+    }).catch(function() {
+      window.open(url, "_blank");
+    });
+  };
+  const printMemberCard = function(c) {
+    try {
+      var tier = getVIP(+c.totalSpent || 0);
+      var w = window.open("", "_blank");
+      if (!w) {
+        notify("\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C\u0E1A\u0E25\u0E47\u0E2D\u0E01\u0E1B\u0E4A\u0E2D\u0E1B\u0E2D\u0E31\u0E1B / popup blocked", "error");
+        return;
+      }
+      w.document.write("<html><head><title>Member Card \u2014 " + c.name + '</title><style>body{font-family:Arial,sans-serif;margin:0;padding:24px;display:flex;justify-content:center}.c{width:330px;border:2px solid #111;border-radius:16px;padding:20px 14px;text-align:center}.lg{font-weight:900;font-size:14px;letter-spacing:2px}.nm{font-weight:900;font-size:20px;margin:6px 0 2px}.cd{font-weight:900;font-size:22px;letter-spacing:3px;margin:8px 0;color:#8a6a2f}.tr{font-size:12px;color:#555}img{width:210px;height:210px;margin-top:6px}.hint{font-size:11px;margin-top:8px;color:#555}</style></head><body><div class="c"><div class="lg">\u{1F33F} DANK MEMBER</div><div class="nm">' + c.name + '</div><div class="tr">' + tier.icon + " " + tier.name + '</div><div class="cd">' + memberCodeOf(c) + '</div><img src="' + qrImgUrl(memberCardUrl(c), 300) + '"/><div class="hint">\u0E42\u0E0A\u0E27\u0E4C\u0E1A\u0E31\u0E15\u0E23\u0E19\u0E35\u0E49\u0E01\u0E31\u0E1A\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E17\u0E38\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E23\u0E31\u0E1A\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01\u0E41\u0E25\u0E30\u0E2A\u0E30\u0E2A\u0E21\u0E41\u0E15\u0E49\u0E21<br/>Show this card to staff to get member discount &amp; earn points</div></div><script>window.onload=function(){setTimeout(function(){window.print();},700);};<\/script></body></html>');
+      w.document.close();
+    } catch (e) {
+      notify("\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: " + (e && e.message), "error");
+    }
+  };
+  useEffect(function() {
+    if (!pendingMemberScan || !currentStaff || !customers.length) return;
+    var ok = applyMemberScan(pendingMemberScan, "QR scan");
+    if (ok) {
+      var c = findCustomerByScan(pendingMemberScan);
+      if (c) setCustDetailView(c);
+      setActiveTab("pos");
+    }
+    setPendingMemberScan(null);
+    try {
+      window.history.replaceState({}, "", window.location.pathname);
+    } catch (e) {
+    }
+  }, [pendingMemberScan, currentStaff, customers.length]);
   const canEdit = (currentStaff == null ? void 0 : currentStaff.pin) === "110114" || (currentStaff == null ? void 0 : currentStaff.role) === "owner" || (currentStaff == null ? void 0 : currentStaff.role) === "manager";
   const isMaster = (currentStaff == null ? void 0 : currentStaff.pin) === "110114";
   const isAccountant = (currentStaff == null ? void 0 : currentStaff.role) === "accountant";
@@ -7014,7 +7126,15 @@ function GreenPOS() {
     setIsMedTx(false);
     setDiscType("none");
     setDiscAuthorizedBy(null);
-  }, style: { background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 15, padding: 2 } }, "\u2715"))) : /* @__PURE__ */ React.createElement("button", { onClick: () => setShowCustModal(true), style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { width: "100%", fontSize: 11, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }) }, /* @__PURE__ */ React.createElement("span", null, "\u{1F464}"), /* @__PURE__ */ React.createElement("span", null, "+ ", t.selectCustomer))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: "9px 11px" } }, cart.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", color: C.muted, marginTop: 28, padding: 18 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 36, marginBottom: 7, opacity: 0.3 } }, "\u{1F6D2}"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 600 } }, "\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E27\u0E48\u0E32\u0E07 / Cart is empty"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, marginTop: 3 } }, "\u0E41\u0E15\u0E30\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21 / Tap a product to add")), cart.length > 0 && cart.map((item) => /* @__PURE__ */ React.createElement("div", { key: item.id, style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 7, padding: "7px 9px", background: C.card2, borderRadius: 9, border: `1px solid ${C.border}` } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 17 } }, item.img), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cleanName(item).short), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.green, fontWeight: 700 } }, "\u0E3F", ((item.unitPrice || item.price) * item.qty).toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => updateQty(item.id, -1), style: { background: C.border, border: "none", borderRadius: 5, width: 22, height: 22, color: C.text, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u2212"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: 800, minWidth: 18, textAlign: "center" } }, item.qty), /* @__PURE__ */ React.createElement("button", { onClick: () => updateQty(item.id, 1), style: { background: C.green, border: "none", borderRadius: 5, width: 22, height: 22, color: "#000", cursor: "pointer", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" } }, "+")), /* @__PURE__ */ React.createElement("button", { onClick: () => removeFromCart(item.id), style: { background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, padding: 1 } }, "\u2715"))), cart.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "7px 11px", borderTop: `1px solid ${C.border}`, background: C.card2 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 6 } }, [["none", "No Disc"], ["percent", "% Off"], ["fixed", "\u0E3F Off"], ["happyhour", "HH"]].map(function(pair) {
+  }, style: { background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 15, padding: 2 } }, "\u2715"))) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowCustModal(true), style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { width: "100%", fontSize: 11, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }) }, /* @__PURE__ */ React.createElement("span", null, "\u{1F464}"), /* @__PURE__ */ React.createElement("span", null, "+ ", t.selectCustomer)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6 } }, /* @__PURE__ */ React.createElement("input", { value: memberScanInput, onChange: function(e) {
+    setMemberScanInput(e.target.value);
+  }, onKeyDown: function(e) {
+    if (e.key === "Enter") {
+      if (applyMemberScan(memberScanInput, "manual/scanner")) setMemberScanInput("");
+    }
+  }, placeholder: "\u{1FAAA} \u0E2A\u0E41\u0E01\u0E19/\u0E1E\u0E34\u0E21\u0E1E\u0E4C Member ID (DK-... \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23)", style: __spreadProps(__spreadValues({}, gs.input), { flex: 1, padding: "6px 8px", fontSize: 10 }) }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    if (applyMemberScan(memberScanInput, "manual/scanner")) setMemberScanInput("");
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 10.5, padding: "6px 10px" }) }, "\u2713")))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: "9px 11px" } }, cart.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", color: C.muted, marginTop: 28, padding: 18 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 36, marginBottom: 7, opacity: 0.3 } }, "\u{1F6D2}"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 600 } }, "\u0E15\u0E30\u0E01\u0E23\u0E49\u0E32\u0E27\u0E48\u0E32\u0E07 / Cart is empty"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, marginTop: 3 } }, "\u0E41\u0E15\u0E30\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21 / Tap a product to add")), cart.length > 0 && cart.map((item) => /* @__PURE__ */ React.createElement("div", { key: item.id, style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 7, padding: "7px 9px", background: C.card2, borderRadius: 9, border: `1px solid ${C.border}` } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 17 } }, item.img), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cleanName(item).short), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.green, fontWeight: 700 } }, "\u0E3F", ((item.unitPrice || item.price) * item.qty).toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => updateQty(item.id, -1), style: { background: C.border, border: "none", borderRadius: 5, width: 22, height: 22, color: C.text, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" } }, "\u2212"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: 800, minWidth: 18, textAlign: "center" } }, item.qty), /* @__PURE__ */ React.createElement("button", { onClick: () => updateQty(item.id, 1), style: { background: C.green, border: "none", borderRadius: 5, width: 22, height: 22, color: "#000", cursor: "pointer", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" } }, "+")), /* @__PURE__ */ React.createElement("button", { onClick: () => removeFromCart(item.id), style: { background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, padding: 1 } }, "\u2715"))), cart.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "7px 11px", borderTop: `1px solid ${C.border}`, background: C.card2 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 6 } }, [["none", "No Disc"], ["percent", "% Off"], ["fixed", "\u0E3F Off"], ["happyhour", "HH"]].map(function(pair) {
     var v = pair[0];
     var l = pair[1];
     var noCustBlock = !selCustomer && v !== "none";
@@ -7584,7 +7704,7 @@ function GreenPOS() {
     return /* @__PURE__ */ React.createElement("button", { key: sb[0], onClick: function() {
       setActiveTab(sb[0]);
     }, style: __spreadProps(__spreadValues({}, gs.btn(activeTab === sb[0] ? C.green : C.card2, activeTab === sb[0] ? "#000" : "#9ca3af")), { fontSize: 10.5, padding: "6px 12px", border: "1px solid " + C.border }) }, sb[1], " ", sb[2]);
-  })), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginBottom: 11 } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.muted } }, "\u{1F50D}"), /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { paddingLeft: 34 }), placeholder: "Search customers...", value: custSearch, onChange: (e) => setCustSearch(e.target.value) })), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.25)", padding: "8px 11px", marginBottom: 10, fontSize: 9.5, color: C.muted, lineHeight: 1.6 }) }, "\u2139\uFE0F Points & Spend grow from sales made in this app (select the member at checkout). StoreHub does not sync old loyalty balances, so tap ", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, "\u270F Edit"), " to enter a member\u2019s existing points/spend once.", /* @__PURE__ */ React.createElement("br", null), "\u0E41\u0E15\u0E49\u0E21 & \u0E22\u0E2D\u0E14\u0E2A\u0E30\u0E2A\u0E21\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E08\u0E32\u0E01\u0E01\u0E32\u0E23\u0E02\u0E32\u0E22\u0E43\u0E19\u0E41\u0E2D\u0E1B\u0E19\u0E35\u0E49 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01\u0E15\u0E2D\u0E19\u0E04\u0E34\u0E14\u0E40\u0E07\u0E34\u0E19) \xB7 StoreHub \u0E44\u0E21\u0E48\u0E2A\u0E48\u0E07\u0E41\u0E15\u0E49\u0E21\u0E40\u0E01\u0E48\u0E32\u0E21\u0E32\u0E43\u0E2B\u0E49 \u2014 \u0E01\u0E14 \u270F Edit \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E41\u0E15\u0E49\u0E21/\u0E22\u0E2D\u0E14\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01\u0E44\u0E14\u0E49"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gap: 9 } }, customers.filter((c) => c.name.toLowerCase().includes(custSearch.toLowerCase()) || c.phone.includes(custSearch)).map((c) => {
+  })), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginBottom: 11 } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.muted } }, "\u{1F50D}"), /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, gs.input), { paddingLeft: 34 }), placeholder: "Search customers...", value: custSearch, onChange: (e) => setCustSearch(e.target.value) })), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.25)", padding: "8px 11px", marginBottom: 10, fontSize: 9.5, color: C.muted, lineHeight: 1.6 }) }, "\u2139\uFE0F Points & Spend grow from sales made in this app (select the member at checkout). StoreHub does not sync old loyalty balances, so tap ", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, "\u270F Edit"), " to enter a member\u2019s existing points/spend once.", /* @__PURE__ */ React.createElement("br", null), "\u0E41\u0E15\u0E49\u0E21 & \u0E22\u0E2D\u0E14\u0E2A\u0E30\u0E2A\u0E21\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E08\u0E32\u0E01\u0E01\u0E32\u0E23\u0E02\u0E32\u0E22\u0E43\u0E19\u0E41\u0E2D\u0E1B\u0E19\u0E35\u0E49 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01\u0E15\u0E2D\u0E19\u0E04\u0E34\u0E14\u0E40\u0E07\u0E34\u0E19) \xB7 StoreHub \u0E44\u0E21\u0E48\u0E2A\u0E48\u0E07\u0E41\u0E15\u0E49\u0E21\u0E40\u0E01\u0E48\u0E32\u0E21\u0E32\u0E43\u0E2B\u0E49 \u2014 \u0E01\u0E14 \u270F Edit \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E41\u0E15\u0E49\u0E21/\u0E22\u0E2D\u0E14\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01\u0E44\u0E14\u0E49"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gap: 9 } }, customers.filter((c) => c.name.toLowerCase().includes(custSearch.toLowerCase()) || c.phone.includes(custSearch) || memberCodeOf(c).toLowerCase().includes(custSearch.toLowerCase())).map((c) => {
     const tier = getVIP(c.totalSpent);
     const nt = VIP_TIERS.find((vt) => vt.min > c.totalSpent);
     const pct = nt ? (c.totalSpent - tier.min) / (nt.min - tier.min) * 100 : 100;
@@ -7592,7 +7712,7 @@ function GreenPOS() {
     const isBday = bd && bd.getMonth() === td.getMonth() && bd.getDate() === td.getDate();
     return /* @__PURE__ */ React.createElement("div", { key: c.id, onClick: function() {
       setCustDetailView(c);
-    }, style: __spreadProps(__spreadValues({}, gs.card), { cursor: "pointer", border: `1px solid ${isBday ? "rgba(245,158,11,0.45)" : C.border}`, boxShadow: isBday ? "0 0 14px rgba(245,158,11,0.13)" : "none" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, fontWeight: 800 } }, "\u{1F464} ", c.name), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(tier.col, "#000")), { fontSize: 8 }) }, tier.icon, " ", tier.name), c.isMedical && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(56,189,248,0.18)", "#38bdf8")), { fontSize: 8 }) }, "\u{1F3E5}"), isBday && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.gold, "#000")), { fontSize: 8 }) }, "\u{1F382} Birthday!")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u{1F4DE} ", c.phone, " \xB7 Joined ", c.joinDate), c.birthday && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u{1F382} ", c.birthday), c.email && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u2709 ", c.email), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }, onClick: function(e) {
+    }, style: __spreadProps(__spreadValues({}, gs.card), { cursor: "pointer", border: `1px solid ${isBday ? "rgba(245,158,11,0.45)" : C.border}`, boxShadow: isBday ? "0 0 14px rgba(245,158,11,0.13)" : "none" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, fontWeight: 800 } }, "\u{1F464} ", c.name), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(tier.col, "#000")), { fontSize: 8 }) }, tier.icon, " ", tier.name), c.isMedical && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(56,189,248,0.18)", "#38bdf8")), { fontSize: 8 }) }, "\u{1F3E5}"), isBday && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.gold, "#000")), { fontSize: 8 }) }, "\u{1F382} Birthday!")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u{1F4DE} ", c.phone, " \xB7 Joined ", c.joinDate), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.gold, fontWeight: 800, letterSpacing: 1 } }, "\u{1FAAA} ", memberCodeOf(c)), c.birthday && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u{1F382} ", c.birthday), c.email && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u2709 ", c.email), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }, onClick: function(e) {
       e.stopPropagation();
     } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: C.muted } }, "\u{1FAAA} Medical card:"), medCards[c.id] ? /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("a", { href: medCards[c.id], target: "_blank", rel: "noopener", style: __spreadProps(__spreadValues({}, gs.badge("rgba(74,222,128,0.18)", "#4ade80")), { fontSize: 9, textDecoration: "none", cursor: "pointer" }) }, "\u2705 YES \u2014 \u0E14\u0E39\u0E44\u0E1F\u0E25\u0E4C"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setMedCardCust(c);
@@ -7612,7 +7732,7 @@ function GreenPOS() {
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 10px" }) }, "Select"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
       setRedeemCust(c);
       setShowRewardModal(true);
-    }, style: __spreadProps(__spreadValues({}, gs.btn(C.accent, "#fff")), { fontSize: 10, padding: "5px 10px" }) }, "Redeem"), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.accent, "#fff")), { fontSize: 10, padding: "5px 10px" }) }, "Redeem"), /* @__PURE__ */ React.createElement("button", { onClick: () => setMemberCardCust(c), style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 10, padding: "5px 10px" }) }, "\u{1FAAA} Card"), canEdit && /* @__PURE__ */ React.createElement("button", { onClick: () => {
       setEditCustomer(Object.assign({}, c));
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10, padding: "5px 10px", border: "1px solid " + C.border }) }, "\u270F Edit"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
       setTopUpForm({ amount: "", method: "cash" });
@@ -9906,9 +10026,11 @@ function GreenPOS() {
       setCustDetailView(null);
     } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 460, maxHeight: "88vh", overflowY: "auto" }), onClick: function(e) {
       e.stopPropagation();
-    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 15 } }, "\u{1F464} ", c.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, "\u{1F4DE} ", c.phone, c.email ? " \xB7 \u2709 " + c.email : "")), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 15 } }, "\u{1F464} ", c.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, "\u{1F4DE} ", c.phone, c.email ? " \xB7 \u2709 " + c.email : ""), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.gold, fontWeight: 800, letterSpacing: 1 } }, "\u{1FAAA} ", memberCodeOf(c))), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setCustDetailView(null);
-    }, style: { background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 17 } }, "\u2715")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 10px", textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.green } }, "\u0E3F", totalSpend.toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "TOTAL SPENT")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 10px", textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.blue } }, validBills.length), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "BILLS")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 10px", textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.accent } }, "\u0E3F", avgBill.toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "AVG/BILL"))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, marginBottom: 7 } }, "\u{1F9FE} \u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E1A\u0E34\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \xB7 All Bills (", bills.length, ")"), bills.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "18px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E01\u0E32\u0E23\u0E0B\u0E37\u0E49\u0E2D \u2014 StoreHub sync \u0E2B\u0E23\u0E37\u0E2D\u0E02\u0E32\u0E22\u0E43\u0E19\u0E41\u0E2D\u0E1B\u0E19\u0E35\u0E49\u0E08\u0E30\u0E42\u0E0A\u0E27\u0E4C\u0E17\u0E35\u0E48\u0E19\u0E35\u0E48"), bills.map(function(b, bi) {
+    }, style: { background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 17 } }, "\u2715")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 10px", textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.green } }, "\u0E3F", totalSpend.toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "TOTAL SPENT")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 10px", textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.blue } }, validBills.length), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "BILLS")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 10px", textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.accent } }, "\u0E3F", avgBill.toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "AVG/BILL"))), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setMemberCardCust(c);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { width: "100%", marginBottom: 10, fontSize: 10.5 }) }, "\u{1FAAA} \u0E1A\u0E31\u0E15\u0E23\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01 + QR / Member Card"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, marginBottom: 7 } }, "\u{1F9FE} \u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E1A\u0E34\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \xB7 All Bills (", bills.length, ")"), bills.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "18px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E01\u0E32\u0E23\u0E0B\u0E37\u0E49\u0E2D \u2014 StoreHub sync \u0E2B\u0E23\u0E37\u0E2D\u0E02\u0E32\u0E22\u0E43\u0E19\u0E41\u0E2D\u0E1B\u0E19\u0E35\u0E49\u0E08\u0E30\u0E42\u0E0A\u0E27\u0E4C\u0E17\u0E35\u0E48\u0E19\u0E35\u0E48"), bills.map(function(b, bi) {
       return /* @__PURE__ */ React.createElement("div", { key: bi, style: __spreadProps(__spreadValues({}, gs.card), { background: b.isVoid ? "rgba(244,63,94,0.05)" : C.card2, padding: "9px 11px", marginBottom: 7, border: "1px solid " + (b.isVoid ? "rgba(244,63,94,0.25)" : C.border) }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, b.date, " ", b.source === "storehub" && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 7, marginLeft: 4 }) }, "StoreHub"), b.isVoid && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(244,63,94,0.15)", "#fda4af")), { fontSize: 7, marginLeft: 4 }) }, "VOID")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 900, color: b.isVoid ? C.red : C.green } }, "\u0E3F", b.total.toLocaleString())), b.items.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.text, lineHeight: 1.6 } }, b.items.map(function(it, ii) {
         return /* @__PURE__ */ React.createElement("div", { key: ii }, it.name, " x", it.qty, it.price ? " \xB7 \u0E3F" + (+it.price).toLocaleString() : "");
       })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 4, fontSize: 8.5, color: C.muted } }, /* @__PURE__ */ React.createElement("span", null, "\u{1F4B3} ", b.payment || "\u2014"), b.discAmt > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: C.gold } }, "\u{1F3F7} \u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14 \u0E3F", b.discAmt.toLocaleString(), b.discType && b.discType !== "none" ? " (" + (b.discType === "percent" ? b.discVal + "%" : b.discType === "fixed" ? "\u0E3F" + b.discVal : b.discType) + ")" : "")));
@@ -9919,6 +10041,20 @@ function GreenPOS() {
       setActiveTab("pos");
       notify(`Selected ${c.name} \u2014 \u0E25\u0E14 10% \u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01 \u2705`);
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { width: "100%", marginTop: 6 }) }, "\u{1F6D2} \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E19\u0E35\u0E49\u0E44\u0E1B\u0E02\u0E32\u0E22 / Select for Checkout")));
+  })(), memberCardCust && (function() {
+    var c = memberCardCust;
+    var tier = getVIP(+c.totalSpent || 0);
+    return /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
+      setMemberCardCust(null);
+    } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 360, textAlign: "center" }), onClick: function(e) {
+      e.stopPropagation();
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, letterSpacing: 2, background: "linear-gradient(135deg,#e8c0a8 0%,#c9967d 50%,#9a6a4d 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } }, "\u{1F33F} DANK MEMBER"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, marginTop: 7 } }, c.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, marginTop: 2 } }, tier.icon, " ", tier.name, " \xB7 \u2B50 ", (+c.points || 0).toLocaleString(), " pts \xB7 \u0E3F", ((+c.totalSpent || 0) / 1e3).toFixed(1), "K spent"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 19, fontWeight: 900, letterSpacing: 3, color: C.gold, margin: "9px 0 7px" } }, memberCodeOf(c)), /* @__PURE__ */ React.createElement("div", { style: { background: "#fff", borderRadius: 12, padding: 8, display: "inline-block" } }, /* @__PURE__ */ React.createElement("img", { src: qrImgUrl(memberCardUrl(c), 200), style: { width: 190, height: 190, display: "block" }, alt: "Member QR" })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, margin: "9px 0", lineHeight: 1.6 } }, "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E40\u0E0B\u0E1F/\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E1A\u0E31\u0E15\u0E23\u0E19\u0E35\u0E49\u0E44\u0E27\u0E49\u0E42\u0E0A\u0E27\u0E4C\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19 \xB7 \u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E2A\u0E41\u0E01\u0E19 QR \u0E14\u0E49\u0E27\u0E22\u0E01\u0E25\u0E49\u0E2D\u0E07\u0E21\u0E37\u0E2D\u0E16\u0E37\u0E2D = \u0E40\u0E1B\u0E34\u0E14 POS \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01\u0E04\u0E19\u0E19\u0E35\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E23\u0E2B\u0E31\u0E2A ", memberCodeOf(c), " \u0E43\u0E19\u0E0A\u0E48\u0E2D\u0E07 \u{1FAAA} \u0E17\u0E35\u0E48\u0E2B\u0E19\u0E49\u0E32\u0E02\u0E32\u0E22", /* @__PURE__ */ React.createElement("br", null), "Customer shows this card \u2014 scanning the QR opens the POS with this member selected; or type the ID in the POS \u{1FAAA} box."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      downloadMemberQR(c);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { flex: 1, fontSize: 10.5 }) }, "\u2B07 Save PNG"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      printMemberCard(c);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, fontSize: 10.5, border: "1px solid " + C.border }) }, "\u{1F5A8} Print"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setMemberCardCust(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { flex: 1, fontSize: 10.5, border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14"))));
   })(), medCardCust && /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
     setMedCardCust(null);
   } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 400 }), onClick: function(e) {
