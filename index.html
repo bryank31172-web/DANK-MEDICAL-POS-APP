@@ -1067,9 +1067,9 @@ function GreenPOS() {
       return { id: p.id, name: cleanName(p).short, cat: p.cat || "", unit: p.unit || "pc", expected: Math.round((+p.stock || 0) * 100) / 100, measured: "", cost: +p.cost || 0, price: +p.price || 0, reason: "", note: "" };
     });
     if (rows.length === 0) {
-      mode === "in" ? directClockIn(s, []) : setShiftCheck({ mode: "out", staffId: s.id, staffName: s.name, rows: [], step: "report", cash: "", notes: "", issues: "", sigOut: "", mgrPin: "", reasonsOk: true, proofPhoto: null });
+      mode === "in" ? directClockIn(s, []) : setShiftCheck({ mode: "out", staffId: s.id, staffName: s.name, rows: [], step: "report", cash: "", notes: "", issues: "", sigOut: "", mgrPin: "", reasonsOk: true, proofPhoto: null, byCat: true });
       if (mode === "in") return;
-    } else setShiftCheck({ mode, staffId: s.id, staffName: s.name, rows, step: "weigh", cash: "", notes: "", issues: "", sigOut: "", mgrPin: "", proofPhoto: null });
+    } else setShiftCheck({ mode, staffId: s.id, staffName: s.name, rows, step: "weigh", cash: "", notes: "", issues: "", sigOut: "", mgrPin: "", proofPhoto: null, byCat: true });
   };
   const clockIn = function(s) {
     beginClock(s, "in");
@@ -10248,7 +10248,11 @@ function GreenPOS() {
     return /* @__PURE__ */ React.createElement("div", { key: a2.id, style: { fontSize: 9.5, padding: "5px 0", borderBottom: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, a2.time), " \xB7 ", /* @__PURE__ */ React.createElement("b", null, a2.action), " \xB7 ", a2.detail, " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.accent } }, "(", a2.user, ")"), a2.reason ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.gold, marginTop: 1 } }, "\u{1F4AC} ", a2.reason) : null);
   }))), shiftCheck && /* @__PURE__ */ React.createElement("div", { style: OVERLAY }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 560, maxHeight: "92vh", overflowY: "auto" }), onClick: function(e) {
     e.stopPropagation();
-  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, marginBottom: 2 } }, shiftCheck.mode === "in" ? "\u2696 \u0E40\u0E0A\u0E47\u0E04\u0E2A\u0E15\u0E47\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E40\u0E02\u0E49\u0E32\u0E07\u0E32\u0E19 \xB7 Clock-In Inventory Check" : "\u2696 \u0E40\u0E0A\u0E47\u0E04\u0E2A\u0E15\u0E47\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E2D\u0E01\u0E07\u0E32\u0E19 \xB7 Clock-Out Inventory Check"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, shiftCheck.staffName, " \xB7 ", currentShiftSlot().name, " \xB7 \u0E19\u0E31\u0E1A/\u0E0A\u0E31\u0E48\u0E07\u0E17\u0E38\u0E01 SKU \u0E01\u0E48\u0E2D\u0E19", shiftCheck.mode === "in" ? "\u0E40\u0E23\u0E34\u0E48\u0E21\u0E07\u0E32\u0E19" : "\u0E2D\u0E2D\u0E01\u0E07\u0E32\u0E19", " \u2014 \u0E43\u0E0A\u0E49\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 (\u0E41\u0E17\u0E47\u0E1A Scale) \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E2D\u0E07"), shiftCheck.step === "weigh" && /* @__PURE__ */ React.createElement("button", { onClick: scaleConnected ? disconnectScale : connectScale, style: __spreadProps(__spreadValues({}, gs.btn(scaleConnected ? "rgba(74,222,128,0.15)" : C.blue, scaleConnected ? C.green : "#000")), { fontSize: 10, padding: "6px 11px", marginBottom: 9 }) }, scaleConnected ? "\u2696 \u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\u0E1E\u0E23\u0E49\u0E2D\u0E21 \xB7 " + (+scaleReading || 0).toFixed(2) + "g \u2014 \u0E01\u0E14 \u2696 \u0E02\u0E49\u0E32\u0E07\u0E41\u0E15\u0E48\u0E25\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" : "\u2696 \u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 / Connect scale"), shiftCheck.step === "weigh" && /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, marginBottom: 2 } }, shiftCheck.mode === "in" ? "\u2696 \u0E40\u0E0A\u0E47\u0E04\u0E2A\u0E15\u0E47\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E40\u0E02\u0E49\u0E32\u0E07\u0E32\u0E19 \xB7 Clock-In Inventory Check" : "\u2696 \u0E40\u0E0A\u0E47\u0E04\u0E2A\u0E15\u0E47\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E2D\u0E01\u0E07\u0E32\u0E19 \xB7 Clock-Out Inventory Check"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, shiftCheck.staffName, " \xB7 ", currentShiftSlot().name, " \xB7 \u0E19\u0E31\u0E1A/\u0E0A\u0E31\u0E48\u0E07\u0E17\u0E38\u0E01 SKU \u0E01\u0E48\u0E2D\u0E19", shiftCheck.mode === "in" ? "\u0E40\u0E23\u0E34\u0E48\u0E21\u0E07\u0E32\u0E19" : "\u0E2D\u0E2D\u0E01\u0E07\u0E32\u0E19", " \u2014 \u0E43\u0E0A\u0E49\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 (\u0E41\u0E17\u0E47\u0E1A Scale) \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E2D\u0E07"), shiftCheck.step === "weigh" && /* @__PURE__ */ React.createElement("button", { onClick: scaleConnected ? disconnectScale : connectScale, style: __spreadProps(__spreadValues({}, gs.btn(scaleConnected ? "rgba(74,222,128,0.15)" : C.blue, scaleConnected ? C.green : "#000")), { fontSize: 10, padding: "6px 11px", marginBottom: 9 }) }, scaleConnected ? "\u2696 \u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\u0E1E\u0E23\u0E49\u0E2D\u0E21 \xB7 " + (+scaleReading || 0).toFixed(2) + "g \u2014 \u0E01\u0E14 \u2696 \u0E02\u0E49\u0E32\u0E07\u0E41\u0E15\u0E48\u0E25\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" : "\u2696 \u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 / Connect scale"), shiftCheck.step === "weigh" && /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    setShiftCheck(function(p) {
+      return Object.assign({}, p, { byCat: !p.byCat });
+    });
+  }, style: __spreadProps(__spreadValues({}, gs.btn(shiftCheck.byCat ? "rgba(74,222,128,0.15)" : C.card2, shiftCheck.byCat ? C.green : "#9ca3af")), { fontSize: 10, padding: "6px 11px", border: "1px solid " + C.border }) }, "\u{1F5C2} \u0E41\u0E22\u0E01\u0E15\u0E32\u0E21\u0E2B\u0E21\u0E27\u0E14 / Divide by categories ", shiftCheck.byCat ? "ON" : "OFF"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setShiftCheck(function(p) {
       var n = Object.assign({}, p);
       n.rows = p.rows.map(function(x) {
@@ -10256,53 +10260,97 @@ function GreenPOS() {
       });
       return n;
     });
-    notify("\u2713 \u0E01\u0E23\u0E2D\u0E01\u0E15\u0E23\u0E07\u0E15\u0E32\u0E21\u0E23\u0E30\u0E1A\u0E1A\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \u2014 \u0E41\u0E01\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07");
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, flex: 1 }) }, "\u2713 \u0E15\u0E23\u0E07\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 / All match (", shiftCheck.rows.length, " SKU)"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, alignSelf: "center" } }, shiftCheck.rows.filter(function(r) {
-    return r.measured !== "";
-  }).length, "/", shiftCheck.rows.length)), shiftCheck.rows.map(function(r, idx) {
-    var m = r.measured === "" ? null : +r.measured;
-    var wgh = r.unit === "g" || r.unit === "ml" || !r.unit;
-    var d = m === null ? null : Math.round((m - r.expected) * 100) / 100;
-    var st = m === null ? "\u2014" : d >= -0.05 ? "\u2705 OK" : "\u26A0 Short " + Math.abs(d).toFixed(2) + (r.unit || "g");
-    return /* @__PURE__ */ React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", background: C.card2, borderRadius: 9, border: "1px solid " + (m === null ? C.border : d >= -0.05 ? "rgba(74,222,128,0.4)" : "rgba(245,158,11,0.5)"), marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 140px", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, "Expected ", r.expected, r.unit || "g")), /* @__PURE__ */ React.createElement("input", { type: "number", step: wgh ? "0.01" : "1", placeholder: r.unit || "g", value: r.measured, onChange: function(e) {
-      var v = e.target.value;
-      setShiftCheck(function(p) {
-        var n = Object.assign({}, p);
-        n.rows = p.rows.map(function(x, i) {
-          return i === idx ? Object.assign({}, x, { measured: v }) : x;
-        });
-        return n;
+    notify("\u2705 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E15\u0E23\u0E07\u0E15\u0E32\u0E21\u0E23\u0E30\u0E1A\u0E1A\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \u2014 \u0E41\u0E01\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07");
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, flex: 1, minWidth: 180 }) }, "\u2705 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E15\u0E23\u0E07\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 / Confirm All correct")), (function() {
+    var _total = shiftCheck.rows.length;
+    var _filled = shiftCheck.rows.filter(function(r) {
+      return r.measured !== "";
+    }).length;
+    var _okN = shiftCheck.rows.filter(function(r) {
+      if (r.measured === "") return false;
+      var d = Math.round(((+r.measured || 0) - r.expected) * 100) / 100;
+      return d >= -0.05;
+    }).length;
+    var _pct = _total ? Math.round(_filled * 100 / _total) : 0;
+    var _all = _total > 0 && _okN === _total;
+    return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, height: 30, background: C.card2, border: "1px solid " + C.border, borderRadius: 15, overflow: "hidden", position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, bottom: 0, width: _pct + "%", background: _all ? "#4ade80" : "rgba(74,222,128,0.35)", transition: "width .25s", borderRadius: 15 } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 900, color: _all ? "#052e16" : "#e5e7eb" } }, _all ? "All match (" + _total + " SKU)" : "\u0E19\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27 " + _filled + "/" + _total + (_filled > _okN ? " \xB7 \u26A0 \u0E44\u0E21\u0E48\u0E15\u0E23\u0E07 " + (_filled - _okN) : ""))), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: _all ? C.green : C.muted } }, _okN, "/", _total));
+  })(), (function() {
+    var _wi = shiftCheck.rows.map(function(r, idx) {
+      return { r, idx };
+    });
+    var _groups;
+    if (!shiftCheck.byCat) {
+      _groups = [{ cat: null, items: _wi }];
+    } else {
+      var _gm = {}, _go = [];
+      _wi.forEach(function(x) {
+        var c = x.r.cat || "Other";
+        if (!_gm[c]) {
+          _gm[c] = [];
+          _go.push(c);
+        }
+        _gm[c].push(x);
       });
-    }, style: __spreadProps(__spreadValues({}, gs.input), { width: 86, textAlign: "center" }) }), wgh ? /* @__PURE__ */ React.createElement("button", { onClick: function() {
-      var v = (+scaleReading || 0).toFixed(2);
-      setShiftCheck(function(p) {
-        var n = Object.assign({}, p);
-        n.rows = p.rows.map(function(x, i) {
-          return i === idx ? Object.assign({}, x, { measured: v }) : x;
-        });
-        return n;
+      _groups = _go.map(function(c) {
+        return { cat: c, items: _gm[c] };
       });
-    }, title: "\u0E43\u0E0A\u0E49\u0E04\u0E48\u0E32\u0E08\u0E32\u0E01\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07", style: __spreadProps(__spreadValues({}, gs.btn(scaleConnected ? "rgba(74,222,128,0.15)" : C.card3, scaleConnected ? C.green : "#9ca3af")), { fontSize: 9, padding: "5px 8px", border: "1px solid " + C.border }) }, "\u2696 ", (+scaleReading || 0).toFixed(1), "g") : /* @__PURE__ */ React.createElement("button", { onClick: function() {
-      setShiftCheck(function(p) {
-        var n = Object.assign({}, p);
-        n.rows = p.rows.map(function(x, i) {
-          return i === idx ? Object.assign({}, x, { measured: String((+x.measured || 0) + 1) }) : x;
-        });
-        return n;
-      });
-    }, title: "+1 \u0E0A\u0E34\u0E49\u0E19 / count one", style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 11, padding: "5px 11px", border: "1px solid " + C.border, fontWeight: 900 }) }, "\uFF0B1"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, fontWeight: 800, minWidth: 76, textAlign: "right", color: m === null ? C.muted : d >= -0.05 ? C.green : C.gold } }, st), shiftCheck.mode === "out" && m !== null && d < -0.05 && /* @__PURE__ */ React.createElement("select", { value: r.reason, onChange: function(e) {
-      var v = e.target.value;
-      setShiftCheck(function(p) {
-        var n = Object.assign({}, p);
-        n.rows = p.rows.map(function(x, i) {
-          return i === idx ? Object.assign({}, x, { reason: v }) : x;
-        });
-        return n;
-      });
-    }, style: __spreadProps(__spreadValues({}, gs.input), { width: "100%", fontSize: 10 }) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E02\u0E2D\u0E07\u0E2A\u0E48\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E22 (\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19) \u2014"), ["Customer sample", "Trim loss", "Flower dried", "Packaging mistake", "Human counting error", "Manager adjustment", "Unknown"].map(function(rz) {
-      return /* @__PURE__ */ React.createElement("option", { key: rz, value: rz }, rz);
-    })));
-  }), (function() {
+    }
+    return _groups.map(function(_g) {
+      return /* @__PURE__ */ React.createElement("span", { key: _g.cat || "__all", style: { display: "contents" } }, _g.cat && (function() {
+        var _ok = _g.items.filter(function(x) {
+          var r2 = x.r;
+          if (r2.measured === "") return false;
+          var d2 = Math.round(((+r2.measured || 0) - r2.expected) * 100) / 100;
+          return d2 >= -0.05;
+        }).length;
+        return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "8px 0 6px", padding: "5px 10px", background: C.card3, borderRadius: 8, border: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, fontWeight: 900 } }, "\u{1F5C2} ", _g.cat), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: _ok === _g.items.length ? C.green : C.muted } }, _ok, "/", _g.items.length));
+      })(), _g.items.map(function(_x) {
+        var r = _x.r, idx = _x.idx;
+        var m = r.measured === "" ? null : +r.measured;
+        var wgh = r.unit === "g" || r.unit === "ml" || !r.unit;
+        var d = m === null ? null : Math.round((m - r.expected) * 100) / 100;
+        var st = m === null ? "\u2014" : d >= -0.05 ? "\u2705 OK" : "\u26A0 Short " + Math.abs(d).toFixed(2) + (r.unit || "g");
+        return /* @__PURE__ */ React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", background: C.card2, borderRadius: 9, border: "1px solid " + (m === null ? C.border : d >= -0.05 ? "rgba(74,222,128,0.4)" : "rgba(245,158,11,0.5)"), marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 140px", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, "Expected ", r.expected, r.unit || "g")), /* @__PURE__ */ React.createElement("input", { type: "number", step: wgh ? "0.01" : "1", placeholder: r.unit || "g", value: r.measured, onChange: function(e) {
+          var v = e.target.value;
+          setShiftCheck(function(p) {
+            var n = Object.assign({}, p);
+            n.rows = p.rows.map(function(x, i) {
+              return i === idx ? Object.assign({}, x, { measured: v }) : x;
+            });
+            return n;
+          });
+        }, style: __spreadProps(__spreadValues({}, gs.input), { width: 86, textAlign: "center" }) }), wgh ? /* @__PURE__ */ React.createElement("button", { onClick: function() {
+          var v = (+scaleReading || 0).toFixed(2);
+          setShiftCheck(function(p) {
+            var n = Object.assign({}, p);
+            n.rows = p.rows.map(function(x, i) {
+              return i === idx ? Object.assign({}, x, { measured: v }) : x;
+            });
+            return n;
+          });
+        }, title: "\u0E43\u0E0A\u0E49\u0E04\u0E48\u0E32\u0E08\u0E32\u0E01\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07", style: __spreadProps(__spreadValues({}, gs.btn(scaleConnected ? "rgba(74,222,128,0.15)" : C.card3, scaleConnected ? C.green : "#9ca3af")), { fontSize: 9, padding: "5px 8px", border: "1px solid " + C.border }) }, "\u2696 ", (+scaleReading || 0).toFixed(1), "g") : /* @__PURE__ */ React.createElement("button", { onClick: function() {
+          setShiftCheck(function(p) {
+            var n = Object.assign({}, p);
+            n.rows = p.rows.map(function(x, i) {
+              return i === idx ? Object.assign({}, x, { measured: String((+x.measured || 0) + 1) }) : x;
+            });
+            return n;
+          });
+        }, title: "+1 \u0E0A\u0E34\u0E49\u0E19 / count one", style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 11, padding: "5px 11px", border: "1px solid " + C.border, fontWeight: 900 }) }, "\uFF0B1"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, fontWeight: 800, minWidth: 76, textAlign: "right", color: m === null ? C.muted : d >= -0.05 ? C.green : C.gold } }, st), shiftCheck.mode === "out" && m !== null && d < -0.05 && /* @__PURE__ */ React.createElement("select", { value: r.reason, onChange: function(e) {
+          var v = e.target.value;
+          setShiftCheck(function(p) {
+            var n = Object.assign({}, p);
+            n.rows = p.rows.map(function(x, i) {
+              return i === idx ? Object.assign({}, x, { reason: v }) : x;
+            });
+            return n;
+          });
+        }, style: __spreadProps(__spreadValues({}, gs.input), { width: "100%", fontSize: 10 }) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E02\u0E2D\u0E07\u0E2A\u0E48\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E22 (\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19) \u2014"), ["Customer sample", "Trim loss", "Flower dried", "Packaging mistake", "Human counting error", "Manager adjustment", "Unknown"].map(function(rz) {
+          return /* @__PURE__ */ React.createElement("option", { key: rz, value: rz }, rz);
+        })));
+      }));
+    });
+  })(), (function() {
     var filled = shiftCheck.rows.every(function(r) {
       return r.measured !== "";
     });
