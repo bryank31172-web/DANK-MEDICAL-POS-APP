@@ -1,5 +1,5 @@
 // StoreHub API proxy v5 — /digest (AI Spot text) + /report (daily business report JSON).
-const ALLOWED = ["products", "transactions", "customers", "inventory", "employees", "stores", "timesheets", "digest", "report"];
+const ALLOWED = ["products", "transactions", "customers", "inventory", "employees", "stores", "timesheets", "digest", "report", "sold"];
 
 async function shFetch(path, auth) {
   const r = await fetch("https://api.storehubhq.com/" + path, { headers: { Authorization: auth, Accept: "application/json" } });
@@ -146,6 +146,56 @@ async function buildReport(auth) {
   };
 }
 
+async function buildSold(auth, from, to, q, productId) {
+  const products = await shFetch("products", auth).catch(() => []);
+  const byId = {};
+  (Array.isArray(products) ? products : []).forEach(p => { byId[p.id] = { name: p.name || p.id, sku: p.sku || "", unit: p.unit || "" }; });
+  // pull transactions day-by-day so very large ranges never blow a single upstream call
+  const DAY = 24 * 3600 * 1000;
+  const d0 = new Date(from + "T00:00:00Z").getTime(), d1 = new Date(to + "T00:00:00Z").getTime();
+  const spanDays = Math.max(1, Math.round((d1 - d0) / DAY));
+  let tx = [];
+  if (spanDays <= 35) {
+    tx = await shFetch("transactions?from=" + from + "&to=" + to, auth);
+  } else {
+    for (let t0 = d0; t0 < d1; t0 += 30 * DAY) {
+      const f2 = new Date(t0).toISOString().slice(0, 10);
+      const t2 = new Date(Math.min(t0 + 30 * DAY, d1)).toISOString().slice(0, 10);
+      try { const part = await shFetch("transactions?from=" + f2 + "&to=" + t2, auth); if (Array.isArray(part)) tx = tx.concat(part); } catch (e) {}
+    }
+  }
+  const agg = {};
+  (Array.isArray(tx) ? tx : []).forEach(t => {
+    if (/return|refund|void/i.test(String(t.transactionType || ""))) return;
+    const day = bkkDay(t.transactionTime || 0);
+    (t.items || []).forEach(it => {
+      const pid = it.productId; if (!pid) return;
+      if (!agg[pid]) agg[pid] = { productId: pid, name: (byId[pid] && byId[pid].name) || String(pid), sku: (byId[pid] && byId[pid].sku) || "", unit: (byId[pid] && byId[pid].unit) || "", units: 0, revenue: 0, txCount: 0, firstSold: day, lastSold: day };
+      const a = agg[pid];
+      a.units += (+it.quantity || 0);
+      a.revenue += (+it.total || 0);
+      a.txCount += 1;
+      if (day < a.firstSold) a.firstSold = day;
+      if (day > a.lastSold) a.lastSold = day;
+    });
+  });
+  let rows = Object.keys(agg).map(k => agg[k]);
+  if (productId) rows = rows.filter(r => String(r.productId) === String(productId));
+  if (q) {
+    const ql = String(q).toLowerCase();
+    rows = rows.filter(r => String(r.name).toLowerCase().indexOf(ql) >= 0 || String(r.sku).toLowerCase() === ql);
+  }
+  rows.sort((a, b) => b.revenue - a.revenue);
+  rows.forEach(r => { r.units = Math.round(r.units * 100) / 100; r.revenue = Math.round(r.revenue); r.avgPrice = r.units ? Math.round(r.revenue / r.units) : 0; });
+  return {
+    ok: true, from, to, query: q || "", productId: productId || "",
+    matchedProducts: rows.length,
+    totalUnits: Math.round(rows.reduce((s, r) => s + r.units, 0) * 100) / 100,
+    totalRevenue: Math.round(rows.reduce((s, r) => s + r.revenue, 0)),
+    products: rows.slice(0, 300),
+  };
+}
+
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "GET") { res.status(405).json({ error: "GET only" }); return; }
@@ -187,6 +237,20 @@ export default async function handler(req, res) {
       res.status(200).json(j);
     } catch (e) {
       res.status(502).json({ error: "Report error: " + String(e && e.message) });
+    }
+    return;
+  }
+  if (clean === "sold") {
+    try {
+      const BKKMS = 7 * 3600 * 1000;
+      const today = new Date(Date.now() + BKKMS).toISOString().slice(0, 10);
+      const defFrom = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const from = (u.searchParams.get("from") || defFrom).slice(0, 10);
+      const to = (u.searchParams.get("to") || today).slice(0, 10);
+      const j = await buildSold(auth, from, to, u.searchParams.get("q") || "", u.searchParams.get("productId") || "");
+      res.status(200).json(j);
+    } catch (e) {
+      res.status(502).json({ error: "Sold error: " + String(e && e.message) });
     }
     return;
   }
