@@ -189,30 +189,30 @@ const INIT_CUSTOMERS=[
   {id:7,name:"David L.",phone:"084-444-5555",birthday:"1990-02-17",points:95,totalSpent:2400,visits:2,isMedical:true,prescriptionNo:"MED-5102",doctorName:"Dr. Anong",medCondition:"Insomnia",tags:"medical",pref:"Indica",joined:"2026-06-28"}
 ];
 const INIT_STAFF=[
-  {id:1,name:"Bryan (CEO)",pin:"110114",role:"owner",branch:"Pattanakarn",payType:"monthly",wage:60000,sales:0,kpi:98,kpiScore:98,clockIns:[],approved:true,email:"dankclubbkk@gmail.com",shiftId:1},
-  {id:2,name:"Bank",pin:"999999",role:"manager",branch:"Pattanakarn",payType:"monthly",wage:38000,sales:0,kpi:92,kpiScore:92,clockIns:[],approved:true,email:"",shiftId:null,customSchedule:"คาบเกี่ยวกะ Mid–Night (ระหว่าง 17:00–10:00 โดยประมาณ — รอเวลาที่แน่นอน)"},
-  {id:3,name:"Ken",pin:"700020",role:"shareholder",branch:"",payType:"profit_share",wage:0,profitSharePct:5,sales:0,kpi:0,kpiScore:0,clockIns:[],approved:true,email:"",note:"Shareholder · 5% of net profit after all expenses"}
+  {id:1,name:"Bryan (CEO)",pin:"",role:"owner",branch:"Pattanakarn",payType:"monthly",wage:60000,sales:0,kpi:98,kpiScore:98,clockIns:[],approved:true,email:"dankclubbkk@gmail.com",shiftId:1},
+  {id:2,name:"Bank",pin:"",role:"manager",branch:"Pattanakarn",payType:"monthly",wage:38000,sales:0,kpi:92,kpiScore:92,clockIns:[],approved:true,email:"",shiftId:null,customSchedule:"คาบเกี่ยวกะ Mid–Night (ระหว่าง 17:00–10:00 โดยประมาณ — รอเวลาที่แน่นอน)"},
+  {id:3,name:"Ken",pin:"",role:"shareholder",branch:"",payType:"profit_share",wage:0,profitSharePct:5,sales:0,kpi:0,kpiScore:0,clockIns:[],approved:true,email:"",note:"Shareholder · 5% of net profit after all expenses"}
 ];
 const CORE_STAFF=[
-  {id:6,name:"Zoo",pin:"700016",role:"kitchen",branch:"Pattanakarn",payType:"monthly",wage:16000,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Mon",shiftId:1,note:"ครัว · หยุด 1 วัน/สัปดาห์ (Kittisak แทน)"},
-  {id:7,name:"Palm Kittisak",pin:"700017",role:"budtender",branch:"Pattanakarn",payType:"daily",wage:600,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:1,note:"เช้า Morning (บัดเทนเดอร์) · แทนครัว Zoo วันหยุดด้วย"},
-  {id:8,name:"Zaw",pin:"700018",role:"rider",branch:"Pattanakarn",payType:"monthly",wage:17000,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Tue",shiftId:1,note:"ไรเดอร์กะเช้า · หยุด 1 วัน/สัปดาห์"},
-  {id:9,name:"Got",pin:"700019",role:"rider",branch:"Pattanakarn",payType:"monthly",wage:17000,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Wed",shiftId:3,note:"ไรเดอร์กะดึก · หยุด 1 วัน/สัปดาห์"},
-  {id:10,name:"Nalek",pin:"700021",role:"accountant",branch:"Pattanakarn",payType:"monthly",wage:28000,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Sun",shiftId:null,customSchedule:"11:00–20:00 (9 ชม.) · ไม่อยู่กะบริการหน้าร้าน",note:"บัญชี · Accountant — not on the service floor shift, works 11:00–20:00 · หยุด 1 วัน/สัปดาห์ (อาทิตย์)"},
-  {id:11,name:"Meng",pin:"700022",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:1,note:"เช้า Morning · รอกรอกเงินเดือน — Sathorn"},
-  {id:12,name:"Ploy",pin:"700023",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:2,note:"กลางวัน/เย็น Mid · รอกรอกเงินเดือน — Sathorn"},
-  {id:13,name:"Pok",pin:"700024",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:2,note:"กลางวัน/เย็น Mid · รอกรอกเงินเดือน — Sathorn"},
-  {id:14,name:"Raizo",pin:"700025",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:3,note:"ดึก Night · รอกรอกเงินเดือน — Sathorn"},
-  {id:15,name:"Jack",pin:"700026",role:"budtender",branch:"Bars",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Mon",customSchedule:"อังคาร–พฤหัส 20:00–05:00 (+9ชม.) · ศุกร์–เสาร์–อาทิตย์ 21:00–06:00 (+9ชม.) · หยุดจันทร์",note:"Bars — Tue–Thu 8pm+9hrs · Fri/Sat/Sun 9pm+9hrs · off every Monday. รอกรอกเงินเดือน"},
-  {id:16,name:"Honey",pin:"700027",role:"budtender",branch:"Bars",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",customSchedule:"ศุกร์–เสาร์–อาทิตย์ 17:00–02:00 (+9ชม.) · จันทร์ 20:00–05:00 (+9ชม.)",note:"Bars — Fri/Sat/Sun 5pm+9hrs · Mon 8pm+9hrs. รอกรอกเงินเดือน/วันหยุดที่เหลือ"},
-  {id:17,name:"Alexander Alexy",pin:"700028",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:2,note:"กลางวัน/เย็น Mid · รอกรอกเงินเดือน — Pattanakarn (จาก StoreHub)"},
-  {id:18,name:"AMoe AMoe",pin:"700029",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:2,note:"กลางวัน/เย็น Mid · รอกรอกเงินเดือน — Pattanakarn (จาก StoreHub)"},
-  {id:19,name:"bond sran",pin:"700030",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:3,note:"ดึก Night · รอกรอกเงินเดือน — Pattanakarn (จาก StoreHub)"},
-  {id:20,name:"Rena marketing",pin:"700031",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:3,note:"ดึก Night · รอกรอกเงินเดือน — Pattanakarn (จาก StoreHub)"},
-  {id:21,name:"Ca Mel",pin:"700032",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:null,note:"Sathorn · คนที่ 5 (สำรอง) — รอกำหนดกะ/เงินเดือน"},
-  {id:22,name:"Archa Mon",pin:"700033",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:null,note:"บัดเทนเดอร์เสริม Pattanakarn — รอระบุกะ/เงินเดือน"},
-  {id:23,name:"Dylan K pop",pin:"700034",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:null,note:"บัดเทนเดอร์เสริม Pattanakarn — รอระบุกะ/เงินเดือน"},
-  {id:24,name:"Steve glizzy flock",pin:"700035",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:null,note:"บัดเทนเดอร์เสริม Pattanakarn — รอระบุกะ/เงินเดือน"}
+  {id:6,name:"Zoo",pin:"",role:"kitchen",branch:"Pattanakarn",payType:"monthly",wage:16000,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Mon",shiftId:1,note:"ครัว · หยุด 1 วัน/สัปดาห์ (Kittisak แทน)"},
+  {id:7,name:"Palm Kittisak",pin:"",role:"budtender",branch:"Pattanakarn",payType:"daily",wage:600,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:1,note:"เช้า Morning (บัดเทนเดอร์) · แทนครัว Zoo วันหยุดด้วย"},
+  {id:8,name:"Zaw",pin:"",role:"rider",branch:"Pattanakarn",payType:"monthly",wage:17000,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Tue",shiftId:1,note:"ไรเดอร์กะเช้า · หยุด 1 วัน/สัปดาห์"},
+  {id:9,name:"Got",pin:"",role:"rider",branch:"Pattanakarn",payType:"monthly",wage:17000,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Wed",shiftId:3,note:"ไรเดอร์กะดึก · หยุด 1 วัน/สัปดาห์"},
+  {id:10,name:"Nalek",pin:"",role:"accountant",branch:"Pattanakarn",payType:"monthly",wage:28000,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Sun",shiftId:null,customSchedule:"11:00–20:00 (9 ชม.) · ไม่อยู่กะบริการหน้าร้าน",note:"บัญชี · Accountant — not on the service floor shift, works 11:00–20:00 · หยุด 1 วัน/สัปดาห์ (อาทิตย์)"},
+  {id:11,name:"Meng",pin:"",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:1,note:"เช้า Morning · รอกรอกเงินเดือน — Sathorn"},
+  {id:12,name:"Ploy",pin:"",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:2,note:"กลางวัน/เย็น Mid · รอกรอกเงินเดือน — Sathorn"},
+  {id:13,name:"Pok",pin:"",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:2,note:"กลางวัน/เย็น Mid · รอกรอกเงินเดือน — Sathorn"},
+  {id:14,name:"Raizo",pin:"",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:3,note:"ดึก Night · รอกรอกเงินเดือน — Sathorn"},
+  {id:15,name:"Jack",pin:"",role:"budtender",branch:"Bars",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",dayOff:"Mon",customSchedule:"อังคาร–พฤหัส 20:00–05:00 (+9ชม.) · ศุกร์–เสาร์–อาทิตย์ 21:00–06:00 (+9ชม.) · หยุดจันทร์",note:"Bars — Tue–Thu 8pm+9hrs · Fri/Sat/Sun 9pm+9hrs · off every Monday. รอกรอกเงินเดือน"},
+  {id:16,name:"Honey",pin:"",role:"budtender",branch:"Bars",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",customSchedule:"ศุกร์–เสาร์–อาทิตย์ 17:00–02:00 (+9ชม.) · จันทร์ 20:00–05:00 (+9ชม.)",note:"Bars — Fri/Sat/Sun 5pm+9hrs · Mon 8pm+9hrs. รอกรอกเงินเดือน/วันหยุดที่เหลือ"},
+  {id:17,name:"Alexander Alexy",pin:"",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:2,note:"กลางวัน/เย็น Mid · รอกรอกเงินเดือน — Pattanakarn (จาก StoreHub)"},
+  {id:18,name:"AMoe AMoe",pin:"",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:2,note:"กลางวัน/เย็น Mid · รอกรอกเงินเดือน — Pattanakarn (จาก StoreHub)"},
+  {id:19,name:"bond sran",pin:"",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:3,note:"ดึก Night · รอกรอกเงินเดือน — Pattanakarn (จาก StoreHub)"},
+  {id:20,name:"Rena marketing",pin:"",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:3,note:"ดึก Night · รอกรอกเงินเดือน — Pattanakarn (จาก StoreHub)"},
+  {id:21,name:"Ca Mel",pin:"",role:"budtender",branch:"Sathorn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:null,note:"Sathorn · คนที่ 5 (สำรอง) — รอกำหนดกะ/เงินเดือน"},
+  {id:22,name:"Archa Mon",pin:"",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:null,note:"บัดเทนเดอร์เสริม Pattanakarn — รอระบุกะ/เงินเดือน"},
+  {id:23,name:"Dylan K pop",pin:"",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:null,note:"บัดเทนเดอร์เสริม Pattanakarn — รอระบุกะ/เงินเดือน"},
+  {id:24,name:"Steve glizzy flock",pin:"",role:"budtender",branch:"Pattanakarn",payType:"monthly",wage:0,sales:0,kpi:80,kpiScore:80,clockIns:[],approved:true,email:"",shiftId:null,note:"บัดเทนเดอร์เสริม Pattanakarn — รอระบุกะ/เงินเดือน"}
 ];
 const INIT_EXPENSES=[
   {id:1,cat:"rent",amount:85000,note:"Rent — Pattanakarn",date:"2026-07-01",branch:"Pattanakarn"},
@@ -2350,8 +2350,40 @@ function GreenPOS() {
     setPendingMemberScan(null);
     try{window.history.replaceState({},"",window.location.pathname);}catch(e){}
   },[pendingMemberScan,currentStaff,customers.length]);
-  const canEdit=currentStaff?.pin==="110114"||currentStaff?.role==="owner"||currentStaff?.role==="manager";
-  const isMaster=currentStaff?.pin==="110114";
+  const canEdit=currentStaff?.role==="owner"||currentStaff?.role==="manager";
+  const isMaster=currentStaff?.role==="owner";
+  // A seeded account carries no PIN, so it can never be logged into from a
+  // fresh browser — the roster used to ship every staff PIN in a public repo.
+  const staffByPin=function(list,typed){
+    var tp=String(typed||"");
+    if(tp.length<4)return null;
+    return (list||[]).find(function(s){return s.pin&&String(s.pin)===tp;})||null;
+  };
+  // Local first (so existing devices and offline shifts keep working), then the
+  // server, which holds the real PINs in env and refuses everyone if unset.
+  const attemptLogin=async function(typed){
+    var found=staffByPin(staff,typed);
+    if(!found){
+      try{
+        var r=await fetch("/api/staff-auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pin:typed})});
+        var d=await r.json();
+        if(d&&d.ok){
+          found=staff.find(function(s){return (d.id&&s.id===d.id)||(d.name&&String(s.name).toLowerCase()===String(d.name).toLowerCase());});
+          found=found?Object.assign({},found,{role:d.role||found.role,approved:true})
+                     :{id:d.id||9001,name:d.name||"Master",role:d.role||"owner",branch:"",approved:true,clockIns:[],pin:""};
+        }
+      }catch(e){}
+    }
+    if(found&&found.approved){
+      setCurrentStaff(found);setScreen("main");setPinInput("");setLoginError("");
+      notify(t.welcome+", "+found.name+" \u2705");
+      return true;
+    }
+    setLoginError(found?"\u23f3 Awaiting approval":"\u274c Invalid PIN");
+    setPinInput("");
+    return false;
+  };
+
   const isAccountant=currentStaff?.role==="accountant";
   const canFinance=canEdit||isAccountant;
   const maskPin=function(p){var v=String(p||"");return v.length<=2?("**"+v):("*".repeat(v.length-2)+v.slice(-2));};
@@ -2813,7 +2845,7 @@ function GreenPOS() {
   const confirmVoid=()=>{
     if(!voidReason){notify("Select void reason first","error");return;}
     if(!voidProof){notify("ต้องแนบรูปหลักฐานก่อนยกเลิกบิล / Photo proof required before voiding","error");return;}
-    const s=staff.find(s=>s.pin===voidPin&&(s.role==="manager"||s.role==="owner"||s.pin==="110114"));
+    const s=staff.find(s=>s.pin===voidPin&&(s.role==="manager"||s.role==="owner"));
     if(!s){notify("Manager PIN required!","error");return;}
     const vtx=transactions.find(function(x){return x.id===pendingVoid;});
     if(vtx&&!vtx.isVoid){
@@ -3432,7 +3464,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     if(has("รับของ","รับสินค้า","receive","เพิ่มสต็อก","add stock","เติมสต็อก"))
       return "📥 วิธีรับของเข้า (Receive):\n1. Stock → ปุ่ม 📥 Receive\n2. เลือกสินค้า + Supplier (ไม่มีกด + เพิ่ม supplier)\n3. ใส่จำนวน Active(ขายได้)/Inactive(หลังร้าน) — กรัมกด ⚖ ยืนยันจากเครื่องชั่ง\n4. ดูมูลค่าต้นทุน/ขายรวม → 💾 รับเข้า\n(ไม่เลือก supplier ต้องใส่ Manager/CEO PIN)";
     if(has("supplier","ซัพพลาย","ผู้ขาย"))
-      return "🏭 Supplier:\n• ดู/เพิ่มที่ Stock → Suppliers → + เพิ่ม Supplier (กรอกข้อมูลครบ)\n• ผู้ติดต่อ/เบอร์โทร เห็นเฉพาะบัญชีมาสเตอร์ (PIN 110114)\n• รับของต้องผูก supplier ทุกครั้ง";
+      return "🏭 Supplier:\n• ดู/เพิ่มที่ Stock → Suppliers → + เพิ่ม Supplier (กรอกข้อมูลครบ)\n• ผู้ติดต่อ/เบอร์โทร เห็นเฉพาะบัญชีมาสเตอร์ (บัญชี owner)\n• รับของต้องผูก supplier ทุกครั้ง";
     if(has("ส่วนลด","discount","สมาชิก","member","crm","แต้ม","points"))
       return "💎 สมาชิก & ส่วนลด:\n• สมาชิก CRM ทุกคนได้ส่วนลดอัตโนมัติ (เลือกลูกค้าใน POS แล้วกด 💎)\n• มีลูกค้า "+customers.length+" คน\n• ดู/เพิ่มสมาชิกที่แท็บ CRM";
     if(has("vat","ภาษี","tax"))
@@ -3679,17 +3711,14 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 const np=pinInput+k;setPinInput(np);
                 if(np.length===6){
                   setTimeout(()=>{
-                    const found=staff.find(s=>s.pin===np);
-                    if(found&&found.approved){setCurrentStaff(found);setScreen("main");setPinInput("");notify(`${t.welcome}, ${found.name} ✅`);}
-                    else{setLoginError(found?"⏳ Awaiting approval":"❌ Invalid PIN");setPinInput("");}
+                    attemptLogin(np);
                   },80);
                 }
               }
             }} style={{...gs.btn(k==="⌫"?C.red:C.card3,"#fff"),padding:mob?"12px 8px":"14px 8px",fontSize:mob?16:18,opacity:k===""?0:1,pointerEvents:k===""?"none":"auto",border:`1px solid ${C.border}`}}>{k}</button>
       ))}
         </div>
-        <button onClick={()=>{const found=staff.find(s=>s.pin===pinInput);if(!found){setLoginError("❌ Invalid PIN");setPinInput("");return;}if(!found.approved){setLoginError("⏳ Awaiting approval");setPinInput("");return;}setCurrentStaff(found);setScreen("main");setPinInput("");notify(`${t.welcome},
-            ${found.name} ✅`);}} style={{...gs.btnLg(C.green),marginBottom:11}}>🔓 Login</button>
+        <button onClick={()=>{attemptLogin(pinInput);}} style={{...gs.btnLg(C.green),marginBottom:11}}>🔓 Login</button>
         <div style={{textAlign:"center"}}>
           <span style={{color:C.muted,fontSize:11}}>New staff? </span>
           <button onClick={()=>setShowRegister(true)} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>{t.register}</button>
@@ -5158,7 +5187,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{fontSize:10,color:C.muted,marginBottom:14}}>Supplier list & data are visible only with the master PIN.</div>
               <div style={{display:"flex",gap:7,justifyContent:"center"}}>
                 <input type="password" inputMode="numeric" maxLength={6} placeholder="Master PIN" value={supUnlockPin} onChange={function(e){setSupUnlockPin(e.target.value.replace(/[^0-9]/g,""));}} style={{...gs.input,width:150,textAlign:"center",letterSpacing:3}}/>
-                <button onClick={function(){if(supUnlockPin==="110114"){setSupUnlocked(true);setSupUnlockPin("");addAudit("SUPPLIER_UNLOCK","supplier list unlocked with master PIN",currentStaff&&currentStaff.name);}else{setSupUnlockPin("");notify("PIN ไม่ถูกต้อง / Wrong PIN","error");}}} style={{...gs.btn(C.green),fontSize:11,padding:"0 16px"}}>ปลดล็อก / Unlock</button>
+                <button onClick={function(){if((staffByPin(staff,supUnlockPin)||{}).role==="owner"){setSupUnlocked(true);setSupUnlockPin("");addAudit("SUPPLIER_UNLOCK","supplier list unlocked with master PIN",currentStaff&&currentStaff.name);}else{setSupUnlockPin("");notify("PIN ไม่ถูกต้อง / Wrong PIN","error");}}} style={{...gs.btn(C.green),fontSize:11,padding:"0 16px"}}>ปลดล็อก / Unlock</button>
               </div>
             </div>
           )}
@@ -5174,7 +5203,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
                     <div style={{minWidth:0}}>
                       <div style={{fontSize:12,fontWeight:700}}>{s.name||"(ยังไม่ตั้งชื่อ)"}</div>
-                      <div style={{fontSize:10,color:C.muted}}>{(isMaster)?(s.contact+" · "+s.phone):"🔒 ติดต่อซัพพลายเออร์ — เฉพาะบัญชีมาสเตอร์/บัญชี (110114)"}</div>
+                      <div style={{fontSize:10,color:C.muted}}>{(isMaster)?(s.contact+" · "+s.phone):"🔒 ติดต่อซัพพลายเออร์ — เฉพาะบัญชี owner"}</div>
                       <div style={{fontSize:10,color:C.accent,marginTop:3}}>{s.cat||"—"} · {s.leadDays||0}d lead · {sp.length} สินค้า</div>
                     </div>
                     <div style={{display:"flex",gap:5,flexWrap:"wrap",justifyContent:"flex-end"}}>
@@ -6496,7 +6525,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{fontSize:9.5,color:"#fcd34d",fontWeight:700,marginBottom:4}}>⚠ ยังไม่เลือก supplier — รับเข้าโดยไม่มี supplier ต้องให้ผู้จัดการ/CEO อนุมัติ (ใส่ PIN)</div>
               <input type="password" inputMode="numeric" maxLength={6} placeholder="Manager/CEO PIN" value={receiveForm.mgrPin||""} onChange={function(e){var v=e.target.value.replace(/[^0-9]/g,"");setReceiveForm(function(p){return Object.assign({},p,{mgrPin:v});});}} style={{...gs.input,width:160,textAlign:"center",letterSpacing:3}}/>
             </div>}
-            {(function(){var _rp=products.find(function(x){return x.id===receiveForm.pid;});var _u=_rp?(_rp.unit||"pc"):"pc";var _cost=_rp?(+_rp.cost||0):0;var _price=_rp?(+_rp.price||0):0;var _wgh=(_u==="g"||_u==="ml");var qin=+receiveForm.qtyIn||0;var _rec=_wgh?Math.round(qin*0.4*100)/100:Math.floor(qin*0.4);var ta=Math.max(0,+receiveForm.toActive||0);var tb=Math.max(0,Math.round((qin-ta)*100)/100);var _canMgr=currentStaff&&(currentStaff.role==="manager"||currentStaff.role==="owner"||currentStaff.pin==="110114");return (
+            {(function(){var _rp=products.find(function(x){return x.id===receiveForm.pid;});var _u=_rp?(_rp.unit||"pc"):"pc";var _cost=_rp?(+_rp.cost||0):0;var _price=_rp?(+_rp.price||0):0;var _wgh=(_u==="g"||_u==="ml");var qin=+receiveForm.qtyIn||0;var _rec=_wgh?Math.round(qin*0.4*100)/100:Math.floor(qin*0.4);var ta=Math.max(0,+receiveForm.toActive||0);var tb=Math.max(0,Math.round((qin-ta)*100)/100);var _canMgr=currentStaff&&(currentStaff.role==="manager"||currentStaff.role==="owner"||currentStaff.role==="owner");return (
             <span style={{display:"contents"}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:6}}>
               <div style={{gridColumn:"1 / -1"}}><label style={gs.label}>จำนวนรับเข้าจาก supplier · Qty received ({_u})</label>
@@ -6539,11 +6568,11 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 var ta=Math.max(0,+receiveForm.toActive||0);
                 if(!p||qin<=0){notify("เลือกสินค้าและใส่จำนวนรับเข้าก่อน","error");return;}
                 if(ta>qin){notify("ย้ายเข้า Active ("+ta+") เกินจำนวนที่รับเข้า ("+qin+")","error");return;}
-                if(!receiveForm.sid){var _mg=staff.find(function(x){return x.pin===receiveForm.mgrPin&&(x.role==="manager"||x.role==="owner"||x.pin==="110114");});if(!_mg){notify("ไม่มี supplier — ต้องใส่ Manager/CEO PIN เพื่ออนุมัติ","error");return;}}
-                var _canMgr=currentStaff&&(currentStaff.role==="manager"||currentStaff.role==="owner"||currentStaff.pin==="110114");
+                if(!receiveForm.sid){var _mg=staff.find(function(x){return x.pin===receiveForm.mgrPin&&(x.role==="manager"||x.role==="owner");});if(!_mg){notify("ไม่มี supplier — ต้องใส่ Manager/CEO PIN เพื่ออนุมัติ","error");return;}}
+                var _canMgr=currentStaff&&(currentStaff.role==="manager"||currentStaff.role==="owner"||currentStaff.role==="owner");
                 var _mgActBy=null;
                 if(ta>0&&!_canMgr){
-                  var _mg2=staff.find(function(x){return x.pin===receiveForm.mgrPin2&&(x.role==="manager"||x.role==="owner"||x.pin==="110114");});
+                  var _mg2=staff.find(function(x){return x.pin===receiveForm.mgrPin2&&(x.role==="manager"||x.role==="owner");});
                   if(!_mg2){notify("ย้ายเข้า Active ต้องเป็นผู้จัดการ — ใส่ Manager/CEO PIN หรือตั้งเป็น 0 (เก็บหลังร้านทั้งหมด)","error");return;}
                   _mgActBy=_mg2.name;
                 }
@@ -6742,7 +6771,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div><label style={gs.label}>ผู้ติดต่อ / Contact</label>
                 {(isMaster||supDetail._new)?<input style={gs.input} value={supDetail.contact||""} onChange={function(e){var v=e.target.value;setSupDetail(function(p){return Object.assign({},p,{contact:v});});}}/>:<input readOnly value="🔒 มาสเตอร์เท่านั้น" style={{...gs.input,color:C.muted}}/>}</div>
               <div><label style={gs.label}>โทร / Phone</label>
-                {(isMaster||supDetail._new)?<input style={gs.input} value={supDetail.phone||""} onChange={function(e){var v=e.target.value;setSupDetail(function(p){return Object.assign({},p,{phone:v});});}}/>:<input readOnly value="🔒 110114" style={{...gs.input,color:C.muted}}/>}</div>
+                {(isMaster||supDetail._new)?<input style={gs.input} value={supDetail.phone||""} onChange={function(e){var v=e.target.value;setSupDetail(function(p){return Object.assign({},p,{phone:v});});}}/>:<input readOnly value="🔒 ••••••" style={{...gs.input,color:C.muted}}/>}</div>
               <div><label style={gs.label}>Email / LINE</label>
                 {(isMaster||supDetail._new)?<input style={gs.input} value={supDetail.email||""} onChange={function(e){var v=e.target.value;setSupDetail(function(p){return Object.assign({},p,{email:v});});}}/>:<input readOnly value="🔒 มาสเตอร์เท่านั้น" style={{...gs.input,color:C.muted}}/>}</div>
               <div><label style={gs.label}>หมวดสินค้า</label>
@@ -8465,7 +8494,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <div style={{display:"flex",gap:7,marginTop:8}}>
               <button onClick={function(){setShowDiscAuth(false);setPendingDiscType(null);}} style={{...gs.btn(C.card2,"#fff"),flex:1,border:"1px solid "+C.border}}>ยกเลิก</button>
               <button onClick={function(){
-                var auth=staff.find(function(s2){return s2.pin===discAuthPin&&(s2.pin==="110114"||s2.role==="manager"||s2.role==="owner");});
+                var auth=staff.find(function(s2){return s2.pin===discAuthPin&&(s2.role==="manager"||s2.role==="owner");});
                 if(!auth){setDiscAuthErr("PIN ไม่ถูกต้อง หรือไม่มีสิทธิ์ผู้จัดการ/มาสเตอร์");return;}
                 setDiscType(pendingDiscType);if(pendingDiscType==="happyhour")setDiscVal(10);
                 setDiscAuthorizedBy(auth.name);
