@@ -1,4 +1,12 @@
 // StoreHub API proxy v5 — /digest (AI Spot text) + /report (daily business report JSON).
+//
+// Access: this hands out the whole shop — products, transactions, customers,
+// employees, timesheets. It used to answer anyone who knew the URL. Now a
+// caller must either be a page served by this deployment (the POS itself) or
+// present STAFF_KEY, so pasting the address into a browser gets nothing.
+import { isStaff, requireSameOrigin } from "../_auth.js";
+import { requireRate } from "../_ratelimit.js";
+
 const ALLOWED = ["products", "transactions", "customers", "inventory", "employees", "stores", "timesheets", "digest", "report", "sold"];
 
 async function shFetch(path, auth) {
@@ -199,6 +207,9 @@ async function buildSold(auth, from, to, q, productId) {
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "GET") { res.status(405).json({ error: "GET only" }); return; }
+  // the POS calls this from its own page; scripts may use STAFF_KEY instead
+  if (!isStaff(req) && !requireSameOrigin(req, res)) return;
+  if (!(await requireRate(req, res, "storehub", 120, 60))) return;
   const user = process.env.STOREHUB_USER;
   const key = process.env.STOREHUB_KEY;
   const u = new URL(req.url, "https://local.host");
