@@ -1587,9 +1587,9 @@
   "id": "crispyboy",
   "name": "Crispy Boy Lager Can",
   "category": "Beer",
-  "type": "Hybrid",
+  "type": "Helles Lager",
   "thc": 0,
-  "thcLabel": "Craft beer",
+  "thcLabel": "5.0% ABV · 490ml",
   "cbd": 0,
   "stock": 94,
   "unit": "can",
@@ -1599,13 +1599,15 @@
   ],
   "flavors": [
    "Crisp",
-   "Malt"
+   "Malt",
+   "Hoppy"
   ],
-  "description": "Ice-cold local craft lager — the perfect session pairing. Non-infused.",
-  "image": "",
+  "description": "Crispy Boy by The Brewing Project — a 5.0% Helles lager in a 490ml can. Clean, crisp and malty. Contains alcohol, no cannabis. 20+ only.",
+  "image": "https://dank-medical-pos-app.vercel.app/assets/products/crispy-boy-lager.jpg",
   "price": 220,
   "member": 198,
-  "code": "BER-01"
+  "code": "BER-01",
+  "brand": "The Brewing Project"
  },
  {
   "id": "bong-session",
