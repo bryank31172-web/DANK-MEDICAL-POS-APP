@@ -89,15 +89,18 @@ for (const host of new Set(results.map((r) => hostOf(r.url)))) {
   const mine = results.filter((r) => hostOf(r.url) === host);
   const failed = mine.filter((r) => r.status >= 400);
   const statuses = new Set(failed.map((r) => r.status));
-  if (mine.length >= 5 && failed.length === mine.length && statuses.size === 1) {
+  if (mine.length >= 3 && failed.length === mine.length && statuses.size === 1) {
     blocked.push({ host, status: [...statuses][0], count: mine.length });
   }
 }
+/* And the plainest signal of all: if not one URL anywhere loaded, the machine
+ * has no working egress. Nothing in this run says anything about the files. */
+const noEgress = results.length > 0 && ok.length === 0 && wrongType.length === 0;
 const blockedHosts = new Set(blocked.map((b) => b.host));
 broken = broken.filter((r) => !blockedHosts.has(hostOf(r.url)));
 
 if (asJson) {
-  console.log(JSON.stringify({ missing, shared, ok: ok.length, wrongType, broken, unreachable, blocked }, null, 2));
+  console.log(JSON.stringify({ missing, shared, ok: ok.length, wrongType, broken, unreachable, blocked, noEgress }, null, 2));
 } else {
   const line = (s) => console.log(s);
   line(`\nproducts: ${products.length}   unique image urls: ${urls.length}\n`);
@@ -124,6 +127,11 @@ if (asJson) {
     line(`   or offline machine looks identical from here. Re-run on a normal`);
     line(`   connection before treating any of these as a missing photo.`);
   }
+  if (noEgress) {
+    line(`\n⚠ not one url loaded anywhere in this run — this machine has no working`);
+    line(`  outbound access (proxy, VPN, firewall or offline). Nothing below is a`);
+    line(`  verdict on the files. Re-run on a normal connection.`);
+  }
   if (blocked.length) {
     line(`\nnot verified — network blocked`);
     blocked.forEach((b) => line(`   ? ${b.host}: all ${b.count} urls returned HTTP ${b.status}, none succeeded`));
@@ -131,9 +139,9 @@ if (asJson) {
     line(`   proves nothing about those files — re-run on a normal connection.`);
   }
   const bad = missing.length + shared.length + wrongType.length + broken.length;
-  const sure = blocked.length === 0 && unreachable.length === 0;
+  const sure = blocked.length === 0 && unreachable.length === 0 && !noEgress;
   line(`\n${bad === 0 && sure ? "✅ nothing to fix" : `${bad} item(s) need attention${sure ? "" : " (plus unverified ones above)"}`}\n`);
 }
 
 // exit 1 only on things this run actually proved
-process.exit(broken.length || wrongType.length || missing.length ? 1 : 0);
+process.exit(!noEgress && (broken.length || wrongType.length || missing.length) ? 1 : 0);

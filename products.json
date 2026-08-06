@@ -813,7 +813,7 @@
    "Sweet"
   ],
   "description": "Ztupidly smooth — fruity Z-family topshelf at a friendly price.",
-  "image": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-5586.png?v=1780149518",
+  "image": "https://dank-medical-pos-app.vercel.app/assets/products/ztupid.jpg",
   "priceTiers": [
    {
     "label": "½g",
@@ -859,7 +859,7 @@
    "Gas"
   ],
   "description": "Creamy sherbet terps in a tank of a flower. Reliable topshelf pick.",
-  "image": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-5575.png?v=1780144807",
+  "image": "https://dank-medical-pos-app.vercel.app/assets/products/sherb-tank.jpg",
   "priceTiers": [
    {
     "label": "½g",
@@ -996,7 +996,7 @@
    "Candy"
   ],
   "description": "Taste the rainbow — award-winning candy strain at topshelf price.",
-  "image": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-5586.png?v=1780149518",
+  "image": "https://dank-medical-pos-app.vercel.app/assets/products/zkittles.jpg",
   "priceTiers": [
    {
     "label": "½g",
