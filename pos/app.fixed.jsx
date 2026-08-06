@@ -219,19 +219,25 @@ function GreenPOS() {
   // words via a dictionary. Switching back remounts the tree (key={lang} on the
   // app root), restoring the original bilingual text.
   useEffect(function(){
-    if(lang!=="en")return;
+    if(lang==="th")return;
     var TH=/[\u0E00-\u0E7F]/;
-    var DICT={"วันนี้":"Today","เมื่อวาน":"Yesterday","เดือนนี้":"This month","ไตรมาส":"Quarter","ปีนี้":"This year","ทั้งหมด":"All","เลือกวันที่":"Pick date","สาขา":"Branch","ช่วงเวลา":"Period","บิล":"bills","แตะดูรายละเอียด":"Tap for details","รายงาน":"Reports","งาน":"Tasks","กะ":"Shift","แนะนำขาย":"Upsell","ใบสั่งซื้อ":"Purchase","ขาย":"Sell","ล้าง":"Clear","ปิด":"Close","ยกเลิก":"Cancel","บันทึก":"Save","แก้":"Edit","ลบ":"Delete","เพิ่ม":"Add","ค้นหา":"Search","นาที":"min","ชิ้น":"items","ครัว":"Kitchen","สรุป":"Summary","พนักงาน":"Staff","ลูกค้า":"Customer","ราคา":"Price","จำนวน":"Qty","รวม":"Total","เงินสด":"Cash","โอน":"Transfer","คริปโต":"Crypto","เครดิต":"Credit","หน้าร้าน":"Front","หลังร้าน":"Back"};
+    var DICT={"วันนี้":"Today","เมื่อวาน":"Yesterday","เดือนนี้":"This month","ไตรมาส":"Quarter","ปีนี้":"This year","ทั้งหมด":"All","เลือกวันที่":"Pick date","สาขา":"Branch","ช่วงเวลา":"Period","บิล":"bills","แตะดูรายละเอียด":"Tap for details","รายงาน":"Reports","งาน":"Tasks","กะ":"Shift","แนะนำขาย":"Upsell","ใบสั่งซื้อ":"Purchase","ขาย":"Sell","ล้าง":"Clear","ปิด":"Close","ยกเลิก":"Cancel","บันทึก":"Save","แก้":"Edit","ลบ":"Delete","เพิ่ม":"Add","ค้นหา":"Search","นาที":"min","ชิ้น":"items","ครัว":"Kitchen","สรุป":"Summary","พนักงาน":"Staff","ลูกค้า":"Customer","ราคา":"Price","จำนวน":"Qty","รวม":"Total","เงินสด":"Cash","โอน":"Transfer","คริปโต":"Crypto","เครดิต":"Credit","หน้าร้าน":"Front","หลังร้าน":"Back","กำไรต่อสินค้า":"Product Profit","รายสาขา":"By Branch","กราฟ":"Charts","เปิดแชท":"Open chat","ไว้ก่อน":"Later","เหตุผล":"Reason","ยอดขาย":"Sales","กำไร":"Profit","ค่าใช้จ่าย":"Expenses","งบ":"Budget","ต้นทุน":"Cost","คงเหลือ":"Remaining","สัดส่วนรายได้รายสาขา":"Revenue by Branch","สัดส่วนรายได้ตามหมวด":"Revenue by Category","แนวโน้มยอดขายรายวัน":"Daily Sales Trend","สูงสุด":"max","วันที่":"Date","เวลา":"Time","สแกน":"Scan","พิมพ์":"Print","ดูทั้งหมด":"View all","เท่ากับ":"same as","เส้นทอง = ค่าเฉลี่ย 7 วัน":"gold = 7-day avg","ผู้ช่วยของคุณ ถามได้ทุกเรื่องในแอป — ยอดขาย สต๊อก วิธีใช้งาน ต้องการให้ช่วยอะไรไหมคะ":"Your assistant — ask anything: sales, stock, how-to. Need help"};
+    var DICTS={zh:{"วันนี้":"今天","เมื่อวาน":"昨天","เดือนนี้":"本月","ไตรมาส":"季度","ปีนี้":"今年","ทั้งหมด":"全部","เลือกวันที่":"选择日期","สาขา":"分店","ช่วงเวลา":"时段","บิล":"单","แตะดูรายละเอียด":"点击查看详情","รายงาน":"报表","งาน":"任务","กะ":"班次","แนะนำขาย":"推荐销售","ใบสั่งซื้อ":"采购单","ขาย":"销售","ล้าง":"清空","ปิด":"关闭","ยกเลิก":"取消","บันทึก":"保存","แก้":"编辑","ลบ":"删除","เพิ่ม":"添加","ค้นหา":"搜索","นาที":"分钟","ชิ้น":"件","ครัว":"厨房","สรุป":"汇总","พนักงาน":"员工","ลูกค้า":"客户","ราคา":"价格","จำนวน":"数量","รวม":"合计","เงินสด":"现金","โอน":"转账","คริปโต":"加密货币","เครดิต":"信用卡","หน้าร้าน":"前台","หลังร้าน":"后台","กำไรต่อสินค้า":"产品利润","รายสาขา":"按分店","กราฟ":"图表","เปิดแชท":"打开聊天","ไว้ก่อน":"稍后","เหตุผล":"原因","ยอดขาย":"销售额","กำไร":"利润","ค่าใช้จ่าย":"支出","งบ":"预算","ต้นทุน":"成本","คงเหลือ":"剩余","สัดส่วนรายได้รายสาขา":"分店收入占比","สัดส่วนรายได้ตามหมวด":"类别收入占比","แนวโน้มยอดขายรายวัน":"每日销售趋势","สูงสุด":"最高","วันที่":"日期","เวลา":"时间","สแกน":"扫描","พิมพ์":"打印","ดูทั้งหมด":"查看全部","ผู้ช่วยของคุณ ถามได้ทุกเรื่องในแอป — ยอดขาย สต๊อก วิธีใช้งาน ต้องการให้ช่วยอะไรไหมคะ":"您的助手 — 销售、库存、使用方法都可以问。需要帮忙吗"},ja:{"วันนี้":"今日","เมื่อวาน":"昨日","เดือนนี้":"今月","ไตรมาส":"四半期","ปีนี้":"今年","ทั้งหมด":"すべて","เลือกวันที่":"日付を選択","สาขา":"支店","ช่วงเวลา":"期間","บิล":"伝票","แตะดูรายละเอียด":"タップで詳細","รายงาน":"レポート","งาน":"タスク","กะ":"シフト","แนะนำขาย":"おすすめ販売","ใบสั่งซื้อ":"発注書","ขาย":"販売","ล้าง":"クリア","ปิด":"閉じる","ยกเลิก":"キャンセル","บันทึก":"保存","แก้":"編集","ลบ":"削除","เพิ่ม":"追加","ค้นหา":"検索","นาที":"分","ชิ้น":"点","ครัว":"キッチン","สรุป":"概要","พนักงาน":"スタッフ","ลูกค้า":"顧客","ราคา":"価格","จำนวน":"数量","รวม":"合計","เงินสด":"現金","โอน":"振込","คริปโต":"暗号資産","เครดิต":"クレジット","หน้าร้าน":"フロント","หลังร้าน":"バック","กำไรต่อสินค้า":"商品利益","รายสาขา":"支店別","กราฟ":"グラフ","เปิดแชท":"チャットを開く","ไว้ก่อน":"後で","เหตุผล":"理由","ยอดขาย":"売上","กำไร":"利益","ค่าใช้จ่าย":"経費","งบ":"予算","ต้นทุน":"原価","คงเหลือ":"残り","สัดส่วนรายได้รายสาขา":"支店別売上構成","สัดส่วนรายได้ตามหมวด":"カテゴリ別売上構成","แนวโน้มยอดขายรายวัน":"日別売上推移","สูงสุด":"最高","วันที่":"日付","เวลา":"時間","สแกน":"スキャン","พิมพ์":"印刷","ดูทั้งหมด":"すべて表示","ผู้ช่วยของคุณ ถามได้ทุกเรื่องในแอป — ยอดขาย สต๊อก วิธีใช้งาน ต้องการให้ช่วยอะไรไหมคะ":"アシスタントです — 売上・在庫・使い方など何でも聞いてください。お手伝いしましょうか"},my:{"วันนี้":"ဒီနေ့","เมื่อวาน":"မနေ့က","เดือนนี้":"ဒီလ","ไตรมาส":"သုံးလပတ်","ปีนี้":"ဒီနှစ်","ทั้งหมด":"အားလုံး","เลือกวันที่":"ရက်စွဲရွေးပါ","สาขา":"ဆိုင်ခွဲ","ช่วงเวลา":"ကာလ","บิล":"ဘောက်ချာ","แตะดูรายละเอียด":"အသေးစိတ်ကြည့်ရန် နှိပ်ပါ","รายงาน":"အစီရင်ခံစာ","งาน":"အလုပ်များ","กะ":"အလုပ်ဆိုင်း","แนะนำขาย":"ရောင်းအားမြှင့်","ใบสั่งซื้อ":"အဝယ်အမှာစာ","ขาย":"ရောင်းရန်","ล้าง":"ရှင်းရန်","ปิด":"ပိတ်ရန်","ยกเลิก":"ပယ်ဖျက်ရန်","บันทึก":"သိမ်းရန်","แก้":"ပြင်ရန်","ลบ":"ဖျက်ရန်","เพิ่ม":"ထည့်ရန်","ค้นหา":"ရှာရန်","นาที":"မိနစ်","ชิ้น":"ခု","ครัว":"မီးဖိုချောင်","สรุป":"အကျဉ်းချုပ်","พนักงาน":"ဝန်ထမ်း","ลูกค้า":"ဖောက်သည်","ราคา":"ဈေးနှုန်း","จำนวน":"အရေအတွက်","รวม":"စုစုပေါင်း","เงินสด":"ငွေသား","โอน":"ငွေလွှဲ","คริปโต":"Crypto","เครดิต":"အကြွေးကတ်","หน้าร้าน":"ရှေ့ဆိုင်","หลังร้าน":"နောက်ဆိုင်","กำไรต่อสินค้า":"ကုန်ပစ္စည်းအမြတ်","รายสาขา":"ဆိုင်ခွဲအလိုက်","กราฟ":"ဇယား","เปิดแชท":"ချက်တင်ဖွင့်ရန်","ไว้ก่อน":"နောက်မှ","เหตุผล":"အကြောင်းရင်း","ยอดขาย":"ရောင်းအား","กำไร":"အမြတ်","ค่าใช้จ่าย":"ကုန်ကျစရိတ်","งบ":"ဘတ်ဂျက်","ต้นทุน":"ကုန်ကျ","คงเหลือ":"ကျန်","สัดส่วนรายได้รายสาขา":"ဆိုင်ခွဲအလိုက် ဝင်ငွေ","สัดส่วนรายได้ตามหมวด":"အမျိုးအစားအလိုက် ဝင်ငွေ","แนวโน้มยอดขายรายวัน":"နေ့စဉ်ရောင်းအား","สูงสุด":"အမြင့်ဆုံး","วันที่":"ရက်စွဲ","เวลา":"အချိန်","สแกน":"စကင်န်","พิมพ์":"ပရင့်","ดูทั้งหมด":"အားလုံးကြည့်ရန်","ผู้ช่วยของคุณ ถามได้ทุกเรื่องในแอป — ยอดขาย สต๊อก วิธีใช้งาน ต้องการให้ช่วยอะไรไหมคะ":"သင့်လက်ထောက် — ရောင်းအား၊ ကုန်ပစ္စည်း၊ အသုံးပြုနည်း အားလုံးမေးနိုင်ပါတယ်။ ကူညီပေးရမလား"}};var D=DICTS[lang]||{};function lookup(s){if(Object.prototype.hasOwnProperty.call(D,s))return D[s];if(Object.prototype.hasOwnProperty.call(DICT,s))return DICT[s];return null;}
     function stripText(v){
       if(!v||!TH.test(v))return null;
       // "THai ส่วน / English part" | "English / ไทย" | separators · — |
       var parts=v.split(/\s*(?:\/|·|—)\s*/);
       if(parts.length>1){
+        // non-EN langs: translate the Thai half via the target dict when available
+        if(lang!=="en"){for(var pi=0;pi<parts.length;pi++){var mP=parts[pi].match(/^([^\u0E00-\u0E7F]*)([\u0E00-\u0E7F](?:[\s\S]*[\u0E00-\u0E7F])?)([^\u0E00-\u0E7F]*)$/);if(mP&&Object.prototype.hasOwnProperty.call(D,mP[2].trim()))return mP[1]+D[mP[2].trim()]+mP[3];}}
         var enParts=parts.filter(function(p2){return p2.trim()&&!TH.test(p2)&&/[A-Za-z0-9]/.test(p2);});
-        if(enParts.length)return enParts.join(" · ");
+        if(enParts.length){var _j=enParts.join(" · ");var _tj=lookup(_j.trim());return _tj!==null?_tj:_j;}
       }
-      var tr=DICT[v.trim()];
-      if(tr){var m=v.match(/^(\s*)([\s\S]*?)(\s*)$/);return m[1]+tr+m[3];}
+      var tr=lookup(v.trim());
+      if(tr!==null){var m=v.match(/^(\s*)([\s\S]*?)(\s*)$/);return m[1]+tr+m[3];}
+      // decorated Thai core ("📈 กราฟ", "แตะดูรายละเอียด ›"): translate core, keep decorations
+      var mC=v.match(/^([^\u0E00-\u0E7F]*)([\u0E00-\u0E7F](?:[\s\S]*[\u0E00-\u0E7F])?)([^\u0E00-\u0E7F]*)$/);
+      if(mC){var trc=lookup(mC[2].trim());if(trc!==null)return mC[1]+trc+mC[3];}
       // mixed string without separator: try removing pure-Thai runs if latin text remains
       var noTh=v.replace(/[\u0E00-\u0E7F]+[\u0E00-\u0E7F\s]*/g," ").replace(/\s{2,}/g," ");
       if(/[A-Za-z]{2,}/.test(noTh))return noTh.trim()?noTh:null;
@@ -4781,6 +4787,79 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               </div>
             ))}
           </div>
+          {(function(){
+            var PAL=["#4ade80","#38bdf8","#fbbf24","#f472b6","#a78bfa","#fb923c","#34d399","#f87171","#60a5fa","#facc15"];
+            function fm(v){return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1000?(v/1000).toFixed(0)+"K":v.toFixed(0);}
+            function Donut(props){
+              var data=props.data.filter(function(d){return d.v>0;});
+              var tot=data.reduce(function(s,d){return s+d.v;},0);
+              if(!tot)return <div style={{fontSize:10,color:C.muted,textAlign:"center",padding:"20px 0"}}>No data</div>;
+              var R=40,CI=2*Math.PI*R,acc=0;
+              return (
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <svg width={110} height={110} viewBox="0 0 110 110" style={{flexShrink:0}}>
+                    {data.map(function(d,i){var f=d.v/tot;var seg=(
+                      <circle key={i} cx={55} cy={55} r={R} fill="none" stroke={PAL[i%PAL.length]} strokeWidth={16} strokeDasharray={(f*CI)+" "+CI} strokeDashoffset={-acc*CI} transform="rotate(-90 55 55)"/>
+                    );acc+=f;return seg;})}
+                    <text x={55} y={53} textAnchor="middle" fill={C.text} fontSize={12} fontWeight={900}>{"\u0E3F"+fm(tot)}</text>
+                    <text x={55} y={66} textAnchor="middle" fill={C.muted} fontSize={7}>total</text>
+                  </svg>
+                  <div style={{flex:1,minWidth:0}}>
+                    {data.map(function(d,i){return (
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                        <span style={{width:9,height:9,borderRadius:3,background:PAL[i%PAL.length],flexShrink:0}}/>
+                        <span style={{fontSize:9.5,flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.l}</span>
+                        <span style={{fontSize:9.5,fontWeight:800}}>{((d.v/tot)*100).toFixed(0)}%</span>
+                        <span style={{fontSize:8.5,color:C.muted,minWidth:44,textAlign:"right"}}>{"\u0E3F"+fm(d.v)}</span>
+                      </div>
+                    );})}
+                  </div>
+                </div>
+              );
+            }
+            var brData=_branchDailyCompare.map(function(bc){return {l:bc.branch,v:bc.today};});
+            var catTop=_catRevEntries.slice(0,6).map(function(e){return {l:e[0],v:+e[1]};});
+            var catRest=_catRevEntries.slice(6).reduce(function(s,e){return s+(+e[1]);},0);
+            if(catRest>0)catTop.push({l:"Other",v:catRest});
+            var trend=_dashSales.slice(-30);
+            var W=300,H=90,mx=Math.max.apply(null,trend.map(function(d){return d.sales;}).concat([1]));
+            function px(i){return trend.length>1?(i/(trend.length-1))*W:W/2;}
+            function py(v){return H-(v/mx)*(H-8);}
+            var pts=trend.map(function(d,i){return px(i).toFixed(1)+","+py(d.sales).toFixed(1);}).join(" ");
+            var ma=trend.map(function(d,i){var a=trend.slice(Math.max(0,i-6),i+1);return a.reduce(function(s,x){return s+x.sales;},0)/a.length;});
+            var maPts=ma.map(function(v,i){return px(i).toFixed(1)+","+py(v).toFixed(1);}).join(" ");
+            return (
+              <div>
+                <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:mob?7:10,marginBottom:14}}>
+                  <div style={gs.card}>
+                    <div style={{fontSize:12,fontWeight:700,marginBottom:8}}>🥧 สัดส่วนรายได้รายสาขา · Revenue by Branch</div>
+                    <Donut data={brData}/>
+                  </div>
+                  <div style={gs.card}>
+                    <div style={{fontSize:12,fontWeight:700,marginBottom:8}}>🥧 สัดส่วนรายได้ตามหมวด · Revenue by Category</div>
+                    <Donut data={catTop}/>
+                  </div>
+                </div>
+                <div style={{...gs.card,marginBottom:14}}>
+                  <div style={{fontSize:12,fontWeight:700,marginBottom:8}}>📉 แนวโน้มยอดขายรายวัน · Daily Sales Trend <span style={{fontSize:8.5,color:C.muted,fontWeight:400}}>(30d · เส้นทอง = ค่าเฉลี่ย 7 วัน / gold = 7-day avg)</span></div>
+                  {trend.length===0?<div style={{fontSize:10,color:C.muted,textAlign:"center",padding:"16px 0"}}>No sales in this period</div>:(
+                    <div>
+                      <svg width="100%" height={mob?90:110} viewBox={"0 0 "+W+" "+H} preserveAspectRatio="none">
+                        <polygon points={"0,"+H+" "+pts+" "+W+","+H} fill="rgba(74,222,128,0.12)"/>
+                        <polyline points={pts} fill="none" stroke="#4ade80" strokeWidth="1.6"/>
+                        <polyline points={maPts} fill="none" stroke="#fbbf24" strokeWidth="1.3" strokeDasharray="4 3"/>
+                      </svg>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:8,color:C.muted,marginTop:2}}>
+                        <span>{trend[0].date.slice(5)}</span>
+                        <span>สูงสุด · max {"\u0E3F"+mx.toLocaleString()}</span>
+                        <span>{trend[trend.length-1].date.slice(5)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           </div>
           <div style={{display:dashView==="charts"?"block":"none"}}>
           <div style={{...gs.card,marginBottom:12}}>
