@@ -15,14 +15,18 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
 - ⚠ app.fixed.jsx has extremely long lines — the Read tool chokes on it. Use `grep -n`, `sed -n 'X,Yp'`,
   and python find-replace for edits (exact-string replace with assert count==1, like a surgeon).
 - Offline test harness: after build, `pos/testrun/test2.html` runs the app with stubbed StoreHub APIs
-  (stub.js provides 4 fake products + transactions). Login PIN **110114**. Test with Playwright/chromium,
-  crawl all tabs and assert zero pageerror. Master PIN 110114 = CEO role, unlocks everything.
+  (stub.js provides 4 fake products + transactions). Login PIN **110114** — seeded by `testrun/head17.txt` for the harness only; it is NOT in the
+  shipped bundle. Test with Playwright/chromium, crawl all tabs and assert zero pageerror.
 
 ## POS architecture notes
 - Data: products/transactions pulled live from StoreHub via `/api/storehub/*` proxy (`api/storehub/[...path].mjs`;
   env vars STOREHUB_USER + STOREHUB_KEY set in Vercel). All other state in localStorage
   (keys prefixed `dank_`: staff, backstock=inactive stock, expenses, expense_targets, audit, customers extras...).
-- `/api/storehub/sold` = per-SKU sales counter: ?q=name&from=&to=, default 90d, voids excluded.
+- `/api/storehub/*` requires same-origin or STAFF_KEY + rate limit. `/sold` = per-SKU sales counter:
+  ?q=name&from=&to=, default 90d, voids excluded.
+- `/api/grok` = AI for every 🤖 button: takes the Anthropic Messages shape the POS speaks, calls xAI
+  underneath (`XAI_API_KEY`, `GROK_MODEL`). Actions: chat, vision; video is env-gated on XAI_VIDEO_URL.
+- `/api/staff-auth` = server-side PIN check, used when a device has no local match.
 - Dashboard KPIs are period-scoped via `_inDashPeriod` (day/month/quarter/year/all/custom). Net Profit
   = ①gross (rev − COGS via `_cogsMap`, estimates for missing costs) ②after fixed cost (`expenseTargets`,
   editable in-app by master, ÷30/day, day-count clamped to elapsed days) ③by branch ④daily table.
@@ -46,11 +50,14 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
 2. Confirm fixed index.html (NaN fix) is live on dankbkk-site (manual check per above).
 3. Optional env: POS_FEED_PATHS on dankbkk-site (above).
 4. Petchaboon/Phuket fixed-cost budgets = 0; owner can set in-app (Finance → 💸 → ✏ แก้งบ).
-5. Security: master PIN is currently hard-coded in the client bundle (public repo) — consider moving
-   master-PIN checks server-side / env-based and rotating the PIN.
+5. ~~Master PIN hard-coded in the client bundle~~ — DONE. The roster ships with no PINs; logins fall
+   back to `/api/staff-auth` (env `MASTER_PIN` / `STAFF_PINS`, fails closed). Owner must set those
+   env vars and pick new PINs — the old ones were public and must be treated as burned.
 
 ## Conventions
 - Reply to owner in Thai (he writes Thai/English mix), keep technical terms in English.
 - Ship = rebuild (`bash pos/build.sh`) + Playwright zero-error sweep on pos/testrun/test2.html + commit `index.html`.
 - Built artifacts `pos/app.compiled.js` and `pos/testrun/test2.html` are generated — don't commit them.
-- Never commit secrets. StoreHub token + STAFF_KEY live only in Vercel env vars.
+- Never commit secrets. StoreHub token, STAFF_KEY, XAI_API_KEY and all staff PINs live only in Vercel
+  env vars — see `.env.example` for the full list. API tests live in `api/__tests__/*.test.mjs`
+  (`node api/__tests__/<name>.test.mjs`); they mock upstream so they cost nothing to run.

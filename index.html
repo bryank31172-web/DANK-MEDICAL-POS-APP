@@ -252,30 +252,30 @@ const INIT_CUSTOMERS = [
   { id: 7, name: "David L.", phone: "084-444-5555", birthday: "1990-02-17", points: 95, totalSpent: 2400, visits: 2, isMedical: true, prescriptionNo: "MED-5102", doctorName: "Dr. Anong", medCondition: "Insomnia", tags: "medical", pref: "Indica", joined: "2026-06-28" }
 ];
 const INIT_STAFF = [
-  { id: 1, name: "Bryan (CEO)", pin: "110114", role: "owner", branch: "Pattanakarn", payType: "monthly", wage: 6e4, sales: 0, kpi: 98, kpiScore: 98, clockIns: [], approved: true, email: "dankclubbkk@gmail.com", shiftId: 1 },
-  { id: 2, name: "Bank", pin: "999999", role: "manager", branch: "Pattanakarn", payType: "monthly", wage: 38e3, sales: 0, kpi: 92, kpiScore: 92, clockIns: [], approved: true, email: "", shiftId: null, customSchedule: "\u0E04\u0E32\u0E1A\u0E40\u0E01\u0E35\u0E48\u0E22\u0E27\u0E01\u0E30 Mid\u2013Night (\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07 17:00\u201310:00 \u0E42\u0E14\u0E22\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13 \u2014 \u0E23\u0E2D\u0E40\u0E27\u0E25\u0E32\u0E17\u0E35\u0E48\u0E41\u0E19\u0E48\u0E19\u0E2D\u0E19)" },
-  { id: 3, name: "Ken", pin: "700020", role: "shareholder", branch: "", payType: "profit_share", wage: 0, profitSharePct: 5, sales: 0, kpi: 0, kpiScore: 0, clockIns: [], approved: true, email: "", note: "Shareholder \xB7 5% of net profit after all expenses" }
+  { id: 1, name: "Bryan (CEO)", pin: "", role: "owner", branch: "Pattanakarn", payType: "monthly", wage: 6e4, sales: 0, kpi: 98, kpiScore: 98, clockIns: [], approved: true, email: "dankclubbkk@gmail.com", shiftId: 1 },
+  { id: 2, name: "Bank", pin: "", role: "manager", branch: "Pattanakarn", payType: "monthly", wage: 38e3, sales: 0, kpi: 92, kpiScore: 92, clockIns: [], approved: true, email: "", shiftId: null, customSchedule: "\u0E04\u0E32\u0E1A\u0E40\u0E01\u0E35\u0E48\u0E22\u0E27\u0E01\u0E30 Mid\u2013Night (\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07 17:00\u201310:00 \u0E42\u0E14\u0E22\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13 \u2014 \u0E23\u0E2D\u0E40\u0E27\u0E25\u0E32\u0E17\u0E35\u0E48\u0E41\u0E19\u0E48\u0E19\u0E2D\u0E19)" },
+  { id: 3, name: "Ken", pin: "", role: "shareholder", branch: "", payType: "profit_share", wage: 0, profitSharePct: 5, sales: 0, kpi: 0, kpiScore: 0, clockIns: [], approved: true, email: "", note: "Shareholder \xB7 5% of net profit after all expenses" }
 ];
 const CORE_STAFF = [
-  { id: 6, name: "Zoo", pin: "700016", role: "kitchen", branch: "Pattanakarn", payType: "monthly", wage: 16e3, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Mon", shiftId: 1, note: "\u0E04\u0E23\u0E31\u0E27 \xB7 \u0E2B\u0E22\u0E38\u0E14 1 \u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C (Kittisak \u0E41\u0E17\u0E19)" },
-  { id: 7, name: "Palm Kittisak", pin: "700017", role: "budtender", branch: "Pattanakarn", payType: "daily", wage: 600, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 1, note: "\u0E40\u0E0A\u0E49\u0E32 Morning (\u0E1A\u0E31\u0E14\u0E40\u0E17\u0E19\u0E40\u0E14\u0E2D\u0E23\u0E4C) \xB7 \u0E41\u0E17\u0E19\u0E04\u0E23\u0E31\u0E27 Zoo \u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E14\u0E49\u0E27\u0E22" },
-  { id: 8, name: "Zaw", pin: "700018", role: "rider", branch: "Pattanakarn", payType: "monthly", wage: 17e3, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Tue", shiftId: 1, note: "\u0E44\u0E23\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E01\u0E30\u0E40\u0E0A\u0E49\u0E32 \xB7 \u0E2B\u0E22\u0E38\u0E14 1 \u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C" },
-  { id: 9, name: "Got", pin: "700019", role: "rider", branch: "Pattanakarn", payType: "monthly", wage: 17e3, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Wed", shiftId: 3, note: "\u0E44\u0E23\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E01\u0E30\u0E14\u0E36\u0E01 \xB7 \u0E2B\u0E22\u0E38\u0E14 1 \u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C" },
-  { id: 10, name: "Nalek", pin: "700021", role: "accountant", branch: "Pattanakarn", payType: "monthly", wage: 28e3, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Sun", shiftId: null, customSchedule: "11:00\u201320:00 (9 \u0E0A\u0E21.) \xB7 \u0E44\u0E21\u0E48\u0E2D\u0E22\u0E39\u0E48\u0E01\u0E30\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19", note: "\u0E1A\u0E31\u0E0D\u0E0A\u0E35 \xB7 Accountant \u2014 not on the service floor shift, works 11:00\u201320:00 \xB7 \u0E2B\u0E22\u0E38\u0E14 1 \u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C (\u0E2D\u0E32\u0E17\u0E34\u0E15\u0E22\u0E4C)" },
-  { id: 11, name: "Meng", pin: "700022", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 1, note: "\u0E40\u0E0A\u0E49\u0E32 Morning \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Sathorn" },
-  { id: 12, name: "Ploy", pin: "700023", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 2, note: "\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19/\u0E40\u0E22\u0E47\u0E19 Mid \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Sathorn" },
-  { id: 13, name: "Pok", pin: "700024", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 2, note: "\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19/\u0E40\u0E22\u0E47\u0E19 Mid \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Sathorn" },
-  { id: 14, name: "Raizo", pin: "700025", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 3, note: "\u0E14\u0E36\u0E01 Night \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Sathorn" },
-  { id: 15, name: "Jack", pin: "700026", role: "budtender", branch: "Bars", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Mon", customSchedule: "\u0E2D\u0E31\u0E07\u0E04\u0E32\u0E23\u2013\u0E1E\u0E24\u0E2B\u0E31\u0E2A 20:00\u201305:00 (+9\u0E0A\u0E21.) \xB7 \u0E28\u0E38\u0E01\u0E23\u0E4C\u2013\u0E40\u0E2A\u0E32\u0E23\u0E4C\u2013\u0E2D\u0E32\u0E17\u0E34\u0E15\u0E22\u0E4C 21:00\u201306:00 (+9\u0E0A\u0E21.) \xB7 \u0E2B\u0E22\u0E38\u0E14\u0E08\u0E31\u0E19\u0E17\u0E23\u0E4C", note: "Bars \u2014 Tue\u2013Thu 8pm+9hrs \xB7 Fri/Sat/Sun 9pm+9hrs \xB7 off every Monday. \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" },
-  { id: 16, name: "Honey", pin: "700027", role: "budtender", branch: "Bars", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", customSchedule: "\u0E28\u0E38\u0E01\u0E23\u0E4C\u2013\u0E40\u0E2A\u0E32\u0E23\u0E4C\u2013\u0E2D\u0E32\u0E17\u0E34\u0E15\u0E22\u0E4C 17:00\u201302:00 (+9\u0E0A\u0E21.) \xB7 \u0E08\u0E31\u0E19\u0E17\u0E23\u0E4C 20:00\u201305:00 (+9\u0E0A\u0E21.)", note: "Bars \u2014 Fri/Sat/Sun 5pm+9hrs \xB7 Mon 8pm+9hrs. \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19/\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E17\u0E35\u0E48\u0E40\u0E2B\u0E25\u0E37\u0E2D" },
-  { id: 17, name: "Alexander Alexy", pin: "700028", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 2, note: "\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19/\u0E40\u0E22\u0E47\u0E19 Mid \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Pattanakarn (\u0E08\u0E32\u0E01 StoreHub)" },
-  { id: 18, name: "AMoe AMoe", pin: "700029", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 2, note: "\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19/\u0E40\u0E22\u0E47\u0E19 Mid \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Pattanakarn (\u0E08\u0E32\u0E01 StoreHub)" },
-  { id: 19, name: "bond sran", pin: "700030", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 3, note: "\u0E14\u0E36\u0E01 Night \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Pattanakarn (\u0E08\u0E32\u0E01 StoreHub)" },
-  { id: 20, name: "Rena marketing", pin: "700031", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 3, note: "\u0E14\u0E36\u0E01 Night \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Pattanakarn (\u0E08\u0E32\u0E01 StoreHub)" },
-  { id: 21, name: "Ca Mel", pin: "700032", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: null, note: "Sathorn \xB7 \u0E04\u0E19\u0E17\u0E35\u0E48 5 (\u0E2A\u0E33\u0E23\u0E2D\u0E07) \u2014 \u0E23\u0E2D\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E30/\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" },
-  { id: 22, name: "Archa Mon", pin: "700033", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: null, note: "\u0E1A\u0E31\u0E14\u0E40\u0E17\u0E19\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E2A\u0E23\u0E34\u0E21 Pattanakarn \u2014 \u0E23\u0E2D\u0E23\u0E30\u0E1A\u0E38\u0E01\u0E30/\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" },
-  { id: 23, name: "Dylan K pop", pin: "700034", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: null, note: "\u0E1A\u0E31\u0E14\u0E40\u0E17\u0E19\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E2A\u0E23\u0E34\u0E21 Pattanakarn \u2014 \u0E23\u0E2D\u0E23\u0E30\u0E1A\u0E38\u0E01\u0E30/\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" },
-  { id: 24, name: "Steve glizzy flock", pin: "700035", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: null, note: "\u0E1A\u0E31\u0E14\u0E40\u0E17\u0E19\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E2A\u0E23\u0E34\u0E21 Pattanakarn \u2014 \u0E23\u0E2D\u0E23\u0E30\u0E1A\u0E38\u0E01\u0E30/\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" }
+  { id: 6, name: "Zoo", pin: "", role: "kitchen", branch: "Pattanakarn", payType: "monthly", wage: 16e3, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Mon", shiftId: 1, note: "\u0E04\u0E23\u0E31\u0E27 \xB7 \u0E2B\u0E22\u0E38\u0E14 1 \u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C (Kittisak \u0E41\u0E17\u0E19)" },
+  { id: 7, name: "Palm Kittisak", pin: "", role: "budtender", branch: "Pattanakarn", payType: "daily", wage: 600, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 1, note: "\u0E40\u0E0A\u0E49\u0E32 Morning (\u0E1A\u0E31\u0E14\u0E40\u0E17\u0E19\u0E40\u0E14\u0E2D\u0E23\u0E4C) \xB7 \u0E41\u0E17\u0E19\u0E04\u0E23\u0E31\u0E27 Zoo \u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E14\u0E49\u0E27\u0E22" },
+  { id: 8, name: "Zaw", pin: "", role: "rider", branch: "Pattanakarn", payType: "monthly", wage: 17e3, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Tue", shiftId: 1, note: "\u0E44\u0E23\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E01\u0E30\u0E40\u0E0A\u0E49\u0E32 \xB7 \u0E2B\u0E22\u0E38\u0E14 1 \u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C" },
+  { id: 9, name: "Got", pin: "", role: "rider", branch: "Pattanakarn", payType: "monthly", wage: 17e3, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Wed", shiftId: 3, note: "\u0E44\u0E23\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E01\u0E30\u0E14\u0E36\u0E01 \xB7 \u0E2B\u0E22\u0E38\u0E14 1 \u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C" },
+  { id: 10, name: "Nalek", pin: "", role: "accountant", branch: "Pattanakarn", payType: "monthly", wage: 28e3, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Sun", shiftId: null, customSchedule: "11:00\u201320:00 (9 \u0E0A\u0E21.) \xB7 \u0E44\u0E21\u0E48\u0E2D\u0E22\u0E39\u0E48\u0E01\u0E30\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E49\u0E32\u0E19", note: "\u0E1A\u0E31\u0E0D\u0E0A\u0E35 \xB7 Accountant \u2014 not on the service floor shift, works 11:00\u201320:00 \xB7 \u0E2B\u0E22\u0E38\u0E14 1 \u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C (\u0E2D\u0E32\u0E17\u0E34\u0E15\u0E22\u0E4C)" },
+  { id: 11, name: "Meng", pin: "", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 1, note: "\u0E40\u0E0A\u0E49\u0E32 Morning \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Sathorn" },
+  { id: 12, name: "Ploy", pin: "", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 2, note: "\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19/\u0E40\u0E22\u0E47\u0E19 Mid \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Sathorn" },
+  { id: 13, name: "Pok", pin: "", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 2, note: "\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19/\u0E40\u0E22\u0E47\u0E19 Mid \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Sathorn" },
+  { id: 14, name: "Raizo", pin: "", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 3, note: "\u0E14\u0E36\u0E01 Night \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Sathorn" },
+  { id: 15, name: "Jack", pin: "", role: "budtender", branch: "Bars", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", dayOff: "Mon", customSchedule: "\u0E2D\u0E31\u0E07\u0E04\u0E32\u0E23\u2013\u0E1E\u0E24\u0E2B\u0E31\u0E2A 20:00\u201305:00 (+9\u0E0A\u0E21.) \xB7 \u0E28\u0E38\u0E01\u0E23\u0E4C\u2013\u0E40\u0E2A\u0E32\u0E23\u0E4C\u2013\u0E2D\u0E32\u0E17\u0E34\u0E15\u0E22\u0E4C 21:00\u201306:00 (+9\u0E0A\u0E21.) \xB7 \u0E2B\u0E22\u0E38\u0E14\u0E08\u0E31\u0E19\u0E17\u0E23\u0E4C", note: "Bars \u2014 Tue\u2013Thu 8pm+9hrs \xB7 Fri/Sat/Sun 9pm+9hrs \xB7 off every Monday. \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" },
+  { id: 16, name: "Honey", pin: "", role: "budtender", branch: "Bars", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", customSchedule: "\u0E28\u0E38\u0E01\u0E23\u0E4C\u2013\u0E40\u0E2A\u0E32\u0E23\u0E4C\u2013\u0E2D\u0E32\u0E17\u0E34\u0E15\u0E22\u0E4C 17:00\u201302:00 (+9\u0E0A\u0E21.) \xB7 \u0E08\u0E31\u0E19\u0E17\u0E23\u0E4C 20:00\u201305:00 (+9\u0E0A\u0E21.)", note: "Bars \u2014 Fri/Sat/Sun 5pm+9hrs \xB7 Mon 8pm+9hrs. \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19/\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E17\u0E35\u0E48\u0E40\u0E2B\u0E25\u0E37\u0E2D" },
+  { id: 17, name: "Alexander Alexy", pin: "", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 2, note: "\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19/\u0E40\u0E22\u0E47\u0E19 Mid \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Pattanakarn (\u0E08\u0E32\u0E01 StoreHub)" },
+  { id: 18, name: "AMoe AMoe", pin: "", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 2, note: "\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19/\u0E40\u0E22\u0E47\u0E19 Mid \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Pattanakarn (\u0E08\u0E32\u0E01 StoreHub)" },
+  { id: 19, name: "bond sran", pin: "", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 3, note: "\u0E14\u0E36\u0E01 Night \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Pattanakarn (\u0E08\u0E32\u0E01 StoreHub)" },
+  { id: 20, name: "Rena marketing", pin: "", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: 3, note: "\u0E14\u0E36\u0E01 Night \xB7 \u0E23\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 Pattanakarn (\u0E08\u0E32\u0E01 StoreHub)" },
+  { id: 21, name: "Ca Mel", pin: "", role: "budtender", branch: "Sathorn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: null, note: "Sathorn \xB7 \u0E04\u0E19\u0E17\u0E35\u0E48 5 (\u0E2A\u0E33\u0E23\u0E2D\u0E07) \u2014 \u0E23\u0E2D\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E30/\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" },
+  { id: 22, name: "Archa Mon", pin: "", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: null, note: "\u0E1A\u0E31\u0E14\u0E40\u0E17\u0E19\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E2A\u0E23\u0E34\u0E21 Pattanakarn \u2014 \u0E23\u0E2D\u0E23\u0E30\u0E1A\u0E38\u0E01\u0E30/\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" },
+  { id: 23, name: "Dylan K pop", pin: "", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: null, note: "\u0E1A\u0E31\u0E14\u0E40\u0E17\u0E19\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E2A\u0E23\u0E34\u0E21 Pattanakarn \u2014 \u0E23\u0E2D\u0E23\u0E30\u0E1A\u0E38\u0E01\u0E30/\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" },
+  { id: 24, name: "Steve glizzy flock", pin: "", role: "budtender", branch: "Pattanakarn", payType: "monthly", wage: 0, sales: 0, kpi: 80, kpiScore: 80, clockIns: [], approved: true, email: "", shiftId: null, note: "\u0E1A\u0E31\u0E14\u0E40\u0E17\u0E19\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E2A\u0E23\u0E34\u0E21 Pattanakarn \u2014 \u0E23\u0E2D\u0E23\u0E30\u0E1A\u0E38\u0E01\u0E30/\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19" }
 ];
 const INIT_EXPENSES = [
   { id: 1, cat: "rent", amount: 85e3, note: "Rent \u2014 Pattanakarn", date: "2026-07-01", branch: "Pattanakarn" },
@@ -4008,8 +4008,42 @@ function GreenPOS() {
     } catch (e) {
     }
   }, [pendingMemberScan, currentStaff, customers.length]);
-  const canEdit = (currentStaff == null ? void 0 : currentStaff.pin) === "110114" || (currentStaff == null ? void 0 : currentStaff.role) === "owner" || (currentStaff == null ? void 0 : currentStaff.role) === "manager";
-  const isMaster = (currentStaff == null ? void 0 : currentStaff.pin) === "110114";
+  const canEdit = (currentStaff == null ? void 0 : currentStaff.role) === "owner" || (currentStaff == null ? void 0 : currentStaff.role) === "manager";
+  const isMaster = (currentStaff == null ? void 0 : currentStaff.role) === "owner";
+  const staffByPin = function(list, typed) {
+    var tp = String(typed || "");
+    if (tp.length < 4) return null;
+    return (list || []).find(function(s) {
+      return s.pin && String(s.pin) === tp;
+    }) || null;
+  };
+  const attemptLogin = async function(typed) {
+    var found = staffByPin(staff, typed);
+    if (!found) {
+      try {
+        var r = await fetch("/api/staff-auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: typed }) });
+        var d = await r.json();
+        if (d && d.ok) {
+          found = staff.find(function(s) {
+            return d.id && s.id === d.id || d.name && String(s.name).toLowerCase() === String(d.name).toLowerCase();
+          });
+          found = found ? Object.assign({}, found, { role: d.role || found.role, approved: true }) : { id: d.id || 9001, name: d.name || "Master", role: d.role || "owner", branch: "", approved: true, clockIns: [], pin: "" };
+        }
+      } catch (e) {
+      }
+    }
+    if (found && found.approved) {
+      setCurrentStaff(found);
+      setScreen("main");
+      setPinInput("");
+      setLoginError("");
+      notify(t.welcome + ", " + found.name + " \u2705");
+      return true;
+    }
+    setLoginError(found ? "\u23F3 Awaiting approval" : "\u274C Invalid PIN");
+    setPinInput("");
+    return false;
+  };
   const isAccountant = (currentStaff == null ? void 0 : currentStaff.role) === "accountant";
   const canFinance = canEdit || isAccountant;
   const maskPin = function(p) {
@@ -4825,7 +4859,7 @@ function GreenPOS() {
       notify("\u0E15\u0E49\u0E2D\u0E07\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E1A\u0E34\u0E25 / Photo proof required before voiding", "error");
       return;
     }
-    const s = staff.find((s2) => s2.pin === voidPin && (s2.role === "manager" || s2.role === "owner" || s2.pin === "110114"));
+    const s = staff.find((s2) => s2.pin === voidPin && (s2.role === "manager" || s2.role === "owner"));
     if (!s) {
       notify("Manager PIN required!", "error");
       return;
@@ -6108,7 +6142,7 @@ function GreenPOS() {
     if (has("\u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07", "\u0E23\u0E31\u0E1A\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32", "receive", "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2A\u0E15\u0E47\u0E2D\u0E01", "add stock", "\u0E40\u0E15\u0E34\u0E21\u0E2A\u0E15\u0E47\u0E2D\u0E01"))
       return "\u{1F4E5} \u0E27\u0E34\u0E18\u0E35\u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07\u0E40\u0E02\u0E49\u0E32 (Receive):\n1. Stock \u2192 \u0E1B\u0E38\u0E48\u0E21 \u{1F4E5} Receive\n2. \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 + Supplier (\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E14 + \u0E40\u0E1E\u0E34\u0E48\u0E21 supplier)\n3. \u0E43\u0E2A\u0E48\u0E08\u0E33\u0E19\u0E27\u0E19 Active(\u0E02\u0E32\u0E22\u0E44\u0E14\u0E49)/Inactive(\u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19) \u2014 \u0E01\u0E23\u0E31\u0E21\u0E01\u0E14 \u2696 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E08\u0E32\u0E01\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\n4. \u0E14\u0E39\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19/\u0E02\u0E32\u0E22\u0E23\u0E27\u0E21 \u2192 \u{1F4BE} \u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32\n(\u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 supplier \u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48 Manager/CEO PIN)";
     if (has("supplier", "\u0E0B\u0E31\u0E1E\u0E1E\u0E25\u0E32\u0E22", "\u0E1C\u0E39\u0E49\u0E02\u0E32\u0E22"))
-      return "\u{1F3ED} Supplier:\n\u2022 \u0E14\u0E39/\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E48 Stock \u2192 Suppliers \u2192 + \u0E40\u0E1E\u0E34\u0E48\u0E21 Supplier (\u0E01\u0E23\u0E2D\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E23\u0E1A)\n\u2022 \u0E1C\u0E39\u0E49\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D/\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23 \u0E40\u0E2B\u0E47\u0E19\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E21\u0E32\u0E2A\u0E40\u0E15\u0E2D\u0E23\u0E4C (PIN 110114)\n\u2022 \u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07\u0E15\u0E49\u0E2D\u0E07\u0E1C\u0E39\u0E01 supplier \u0E17\u0E38\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07";
+      return "\u{1F3ED} Supplier:\n\u2022 \u0E14\u0E39/\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E48 Stock \u2192 Suppliers \u2192 + \u0E40\u0E1E\u0E34\u0E48\u0E21 Supplier (\u0E01\u0E23\u0E2D\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E23\u0E1A)\n\u2022 \u0E1C\u0E39\u0E49\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D/\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23 \u0E40\u0E2B\u0E47\u0E19\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E21\u0E32\u0E2A\u0E40\u0E15\u0E2D\u0E23\u0E4C (\u0E1A\u0E31\u0E0D\u0E0A\u0E35 owner)\n\u2022 \u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07\u0E15\u0E49\u0E2D\u0E07\u0E1C\u0E39\u0E01 supplier \u0E17\u0E38\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07";
     if (has("\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14", "discount", "\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01", "member", "crm", "\u0E41\u0E15\u0E49\u0E21", "points"))
       return "\u{1F48E} \u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01 & \u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14:\n\u2022 \u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01 CRM \u0E17\u0E38\u0E01\u0E04\u0E19\u0E44\u0E14\u0E49\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E43\u0E19 POS \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 \u{1F48E})\n\u2022 \u0E21\u0E35\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 " + customers.length + " \u0E04\u0E19\n\u2022 \u0E14\u0E39/\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A CRM";
     if (has("vat", "\u0E20\u0E32\u0E29\u0E35", "tax"))
@@ -6638,36 +6672,12 @@ function GreenPOS() {
       setPinInput(np);
       if (np.length === 6) {
         setTimeout(() => {
-          const found = staff.find((s) => s.pin === np);
-          if (found && found.approved) {
-            setCurrentStaff(found);
-            setScreen("main");
-            setPinInput("");
-            notify(`${t.welcome}, ${found.name} \u2705`);
-          } else {
-            setLoginError(found ? "\u23F3 Awaiting approval" : "\u274C Invalid PIN");
-            setPinInput("");
-          }
+          attemptLogin(np);
         }, 80);
       }
     }
   }, style: __spreadProps(__spreadValues({}, gs.btn(k === "\u232B" ? C.red : C.card3, "#fff")), { padding: mob ? "12px 8px" : "14px 8px", fontSize: mob ? 16 : 18, opacity: k === "" ? 0 : 1, pointerEvents: k === "" ? "none" : "auto", border: `1px solid ${C.border}` }) }, k))), /* @__PURE__ */ React.createElement("button", { onClick: () => {
-    const found = staff.find((s) => s.pin === pinInput);
-    if (!found) {
-      setLoginError("\u274C Invalid PIN");
-      setPinInput("");
-      return;
-    }
-    if (!found.approved) {
-      setLoginError("\u23F3 Awaiting approval");
-      setPinInput("");
-      return;
-    }
-    setCurrentStaff(found);
-    setScreen("main");
-    setPinInput("");
-    notify(`${t.welcome},
-            ${found.name} \u2705`);
+    attemptLogin(pinInput);
   }, style: __spreadProps(__spreadValues({}, gs.btnLg(C.green)), { marginBottom: 11 }) }, "\u{1F513} Login"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted, fontSize: 11 } }, "New staff? "), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRegister(true), style: { background: "none", border: "none", color: C.accent, cursor: "pointer", fontSize: 11, fontWeight: 700 } }, t.register))), showRegister && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 390, maxHeight: "88vh", overflowY: "auto" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 800, marginBottom: 9 } }, "\u{1F4DD} ", t.register), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 12 } }, [["new", "\u{1F195} \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E2B\u0E21\u0E48 New"], ["claim", "\u{1F511} \u0E15\u0E31\u0E49\u0E07 PIN (\u0E21\u0E35\u0E0A\u0E37\u0E48\u0E2D\u0E41\u0E25\u0E49\u0E27)"]].map(function(m) {
     var on = regMode === m[0];
     return /* @__PURE__ */ React.createElement("button", { key: m[0], onClick: function() {
@@ -7774,7 +7784,7 @@ function GreenPOS() {
   }))))), invTab === "suppliers" && !(isMaster || supUnlocked) && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { textAlign: "center", padding: "34px 20px" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 34, marginBottom: 8 } }, "\u{1F512}"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800, marginBottom: 4 } }, "\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E0B\u0E31\u0E1E\u0E1E\u0E25\u0E32\u0E22\u0E40\u0E2D\u0E2D\u0E23\u0E4C \u2014 \u0E40\u0E09\u0E1E\u0E32\u0E30 Master PIN \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 14 } }, "Supplier list & data are visible only with the master PIN."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, justifyContent: "center" } }, /* @__PURE__ */ React.createElement("input", { type: "password", inputMode: "numeric", maxLength: 6, placeholder: "Master PIN", value: supUnlockPin, onChange: function(e) {
     setSupUnlockPin(e.target.value.replace(/[^0-9]/g, ""));
   }, style: __spreadProps(__spreadValues({}, gs.input), { width: 150, textAlign: "center", letterSpacing: 3 }) }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
-    if (supUnlockPin === "110114") {
+    if ((staffByPin(staff, supUnlockPin) || {}).role === "owner") {
       setSupUnlocked(true);
       setSupUnlockPin("");
       addAudit("SUPPLIER_UNLOCK", "supplier list unlocked with master PIN", currentStaff && currentStaff.name);
@@ -7791,7 +7801,7 @@ function GreenPOS() {
     return /* @__PURE__ */ React.createElement("div", { key: s.id, onClick: function() {
       setSupInv({ no: "", date: "", amount: "" });
       setSupDetail(JSON.parse(JSON.stringify(s)));
-    }, style: { padding: "11px 13px", background: C.card2, borderRadius: 11, border: `1px solid ${C.border}`, marginBottom: 9, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700 } }, s.name || "(\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E31\u0E49\u0E07\u0E0A\u0E37\u0E48\u0E2D)"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, isMaster ? s.contact + " \xB7 " + s.phone : "\u{1F512} \u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D\u0E0B\u0E31\u0E1E\u0E1E\u0E25\u0E32\u0E22\u0E40\u0E2D\u0E2D\u0E23\u0E4C \u2014 \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E21\u0E32\u0E2A\u0E40\u0E15\u0E2D\u0E23\u0E4C/\u0E1A\u0E31\u0E0D\u0E0A\u0E35 (110114)"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.accent, marginTop: 3 } }, s.cat || "\u2014", " \xB7 ", s.leadDays || 0, "d lead \xB7 ", sp.length, " \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" } }, s.gacp === true && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(74,222,128,0.15)", "#4ade80")), { fontSize: 8.5 }) }, "\u2713 GACP"), s.gacp === false && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(244,63,94,0.15)", "#fda4af")), { fontSize: 8.5 }) }, "\u2717 GACP"), s.payTerm && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 8.5 }) }, payTermLabel(s)), li && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(56,189,248,0.12)", "#7dd3fc")), { fontSize: 8.5 }) }, "\u{1F9FE} ", li.date, " \u0E3F", (+li.amount || 0).toLocaleString()))));
+    }, style: { padding: "11px 13px", background: C.card2, borderRadius: 11, border: `1px solid ${C.border}`, marginBottom: 9, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700 } }, s.name || "(\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E31\u0E49\u0E07\u0E0A\u0E37\u0E48\u0E2D)"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, isMaster ? s.contact + " \xB7 " + s.phone : "\u{1F512} \u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D\u0E0B\u0E31\u0E1E\u0E1E\u0E25\u0E32\u0E22\u0E40\u0E2D\u0E2D\u0E23\u0E4C \u2014 \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35 owner"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.accent, marginTop: 3 } }, s.cat || "\u2014", " \xB7 ", s.leadDays || 0, "d lead \xB7 ", sp.length, " \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" } }, s.gacp === true && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(74,222,128,0.15)", "#4ade80")), { fontSize: 8.5 }) }, "\u2713 GACP"), s.gacp === false && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(244,63,94,0.15)", "#fda4af")), { fontSize: 8.5 }) }, "\u2717 GACP"), s.payTerm && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 8.5 }) }, payTermLabel(s)), li && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(56,189,248,0.12)", "#7dd3fc")), { fontSize: 8.5 }) }, "\u{1F9FE} ", li.date, " \u0E3F", (+li.amount || 0).toLocaleString()))));
   })), invTab === "batches" && /* @__PURE__ */ React.createElement("div", { style: gs.card }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 10 } }, "\u{1F3F7} Batch & Lot Tracking"), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: `1px solid ${C.border}` } }, ["Product", "Batch", "THC", "Stock", "Expiry", "Status"].map((h) => /* @__PURE__ */ React.createElement("th", { key: h, style: { padding: "6px 9px", textAlign: "left", color: C.muted, fontWeight: 600, fontSize: 9 } }, h)))), /* @__PURE__ */ React.createElement("tbody", null, products.filter((p) => p.batch).map((p) => {
     const dExp = Math.floor((new Date(p.expiry) - /* @__PURE__ */ new Date()) / 864e5);
     const ec = dExp < 30 ? C.gold : dExp < 0 ? C.red : C.green;
@@ -8718,7 +8728,7 @@ function GreenPOS() {
     var _rec = _wgh ? Math.round(qin * 0.4 * 100) / 100 : Math.floor(qin * 0.4);
     var ta = Math.max(0, +receiveForm.toActive || 0);
     var tb = Math.max(0, Math.round((qin - ta) * 100) / 100);
-    var _canMgr = currentStaff && (currentStaff.role === "manager" || currentStaff.role === "owner" || currentStaff.pin === "110114");
+    var _canMgr = currentStaff && (currentStaff.role === "manager" || currentStaff.role === "owner" || currentStaff.role === "owner");
     return /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { gridColumn: "1 / -1" } }, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E02\u0E49\u0E32\u0E08\u0E32\u0E01 supplier \xB7 Qty received (", _u, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5 } }, /* @__PURE__ */ React.createElement("input", { type: "number", step: _wgh ? "0.01" : "1", style: __spreadProps(__spreadValues({}, gs.input), { flex: 1 }), value: receiveForm.qtyIn || "", onChange: function(e) {
       var v = e.target.value;
       setReceiveForm(function(p) {
@@ -8776,18 +8786,18 @@ function GreenPOS() {
     }
     if (!receiveForm.sid) {
       var _mg = staff.find(function(x) {
-        return x.pin === receiveForm.mgrPin && (x.role === "manager" || x.role === "owner" || x.pin === "110114");
+        return x.pin === receiveForm.mgrPin && (x.role === "manager" || x.role === "owner");
       });
       if (!_mg) {
         notify("\u0E44\u0E21\u0E48\u0E21\u0E35 supplier \u2014 \u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48 Manager/CEO PIN \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34", "error");
         return;
       }
     }
-    var _canMgr = currentStaff && (currentStaff.role === "manager" || currentStaff.role === "owner" || currentStaff.pin === "110114");
+    var _canMgr = currentStaff && (currentStaff.role === "manager" || currentStaff.role === "owner" || currentStaff.role === "owner");
     var _mgActBy = null;
     if (ta > 0 && !_canMgr) {
       var _mg2 = staff.find(function(x) {
-        return x.pin === receiveForm.mgrPin2 && (x.role === "manager" || x.role === "owner" || x.pin === "110114");
+        return x.pin === receiveForm.mgrPin2 && (x.role === "manager" || x.role === "owner");
       });
       if (!_mg2) {
         notify("\u0E22\u0E49\u0E32\u0E22\u0E40\u0E02\u0E49\u0E32 Active \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23 \u2014 \u0E43\u0E2A\u0E48 Manager/CEO PIN \u0E2B\u0E23\u0E37\u0E2D\u0E15\u0E31\u0E49\u0E07\u0E40\u0E1B\u0E47\u0E19 0 (\u0E40\u0E01\u0E47\u0E1A\u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14)", "error");
@@ -9072,7 +9082,7 @@ function GreenPOS() {
     setSupDetail(function(p) {
       return Object.assign({}, p, { phone: v });
     });
-  } }) : /* @__PURE__ */ React.createElement("input", { readOnly: true, value: "\u{1F512} 110114", style: __spreadProps(__spreadValues({}, gs.input), { color: C.muted }) })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Email / LINE"), isMaster || supDetail._new ? /* @__PURE__ */ React.createElement("input", { style: gs.input, value: supDetail.email || "", onChange: function(e) {
+  } }) : /* @__PURE__ */ React.createElement("input", { readOnly: true, value: "\u{1F512} \u2022\u2022\u2022\u2022\u2022\u2022", style: __spreadProps(__spreadValues({}, gs.input), { color: C.muted }) })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Email / LINE"), isMaster || supDetail._new ? /* @__PURE__ */ React.createElement("input", { style: gs.input, value: supDetail.email || "", onChange: function(e) {
     var v = e.target.value;
     setSupDetail(function(p) {
       return Object.assign({}, p, { email: v });
@@ -10860,7 +10870,7 @@ function GreenPOS() {
     setPendingDiscType(null);
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     var auth = staff.find(function(s2) {
-      return s2.pin === discAuthPin && (s2.pin === "110114" || s2.role === "manager" || s2.role === "owner");
+      return s2.pin === discAuthPin && (s2.role === "manager" || s2.role === "owner");
     });
     if (!auth) {
       setDiscAuthErr("PIN \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07 \u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23/\u0E21\u0E32\u0E2A\u0E40\u0E15\u0E2D\u0E23\u0E4C");
