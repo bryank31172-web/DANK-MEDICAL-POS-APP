@@ -1017,6 +1017,11 @@ function GreenPOS() {
   useEffect(function(){prodMetaRef.current=prodMeta;try{localStorage.setItem("dank_prodmeta",JSON.stringify(prodMeta));}catch(e){}},[prodMeta]);
   const [searchP,setSearchP]=useState("");
   const [selCustomer,setSelCustomer]=useState(null);
+  // What each customer actually paid, per product, plus their whole last
+  // order — so a regular's negotiated price re-applies itself the moment
+  // they're selected instead of living in a budtender's head.
+  const [custMemory,setCustMemory]=useState(function(){try{return JSON.parse(localStorage.getItem("dank_cust_prices"))||{};}catch(e){return {};}});
+  useEffect(function(){try{localStorage.setItem("dank_cust_prices",JSON.stringify(custMemory));}catch(e){}},[custMemory]);
   const [isMedTx,setIsMedTx]=useState(false);
   const [usePoints,setUsePoints]=useState(0);
   const [discType,setDiscType]=useState("none");
@@ -2738,9 +2743,40 @@ function GreenPOS() {
 
   const addToCart=(p)=>{
     if(p.stock<=0){notify("Out of stock!","error");return;}
-    setCart(prev=>{const e=prev.find(i=>i.id===p.id);if(e)return prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i);return[...prev,{...p,qty:1,unitPrice:ePrice(p)}];});
+    setCart(prev=>{const e=prev.find(i=>i.id===p.id);if(e)return prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i);var _lp=ePrice(p);var _mem=selCustomer&&custMemory[String(selCustomer.id)];var _sv=_mem&&_mem.prices&&_mem.prices[String(p.id)];var _use=(_sv&&_sv.p<_lp)?_sv.p:_lp;return[...prev,{...p,qty:1,unitPrice:_use,custPrice:!!(_sv&&_sv.p<_lp)}];});
   };
   const updateQty=(id,d)=>setCart(prev=>prev.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+d)}:i).filter(i=>i.qty>0));
+  useEffect(function(){
+    setCart(function(prev){if(!prev.length)return prev;return prev.map(function(i){
+      var pd=products.find(function(x){return x.id===i.id;})||i;
+      var lp=(selCustomer&&memberPricing)?Math.round((+pd.price||0)*(1-memberDiscountFor(selCustomer))):(+pd.price||0);
+      var mem=selCustomer&&custMemory[String(selCustomer.id)];
+      var sv=mem&&mem.prices&&mem.prices[String(i.id)];
+      var use=(sv&&sv.p<lp)?sv.p:lp;
+      return Object.assign({},i,{unitPrice:use,custPrice:!!(sv&&sv.p<lp)});
+    });});
+  },[selCustomer]);
+  const addLastOrder=function(){
+    var mem=selCustomer&&custMemory[String(selCustomer.id)];
+    if(!mem||!mem.last)return;
+    var added=0,missing=[];
+    setCart(function(prev){
+      var next=prev.slice();
+      mem.last.items.forEach(function(li){
+        var p=products.find(function(x){return String(x.id)===String(li.id);});
+        if(!p||p.stock<=0){missing.push(li.name);return;}
+        var lp=memberPricing?Math.round((+p.price||0)*(1-memberDiscountFor(selCustomer))):(+p.price||0);
+        var use=(+li.price<lp)?+li.price:lp;
+        var e=next.find(function(i){return i.id===p.id;});
+        if(e){next=next.map(function(i){return i.id===p.id?Object.assign({},i,{qty:i.qty+li.qty}):i;});}
+        else{next.push(Object.assign({},p,{qty:li.qty,unitPrice:use,custPrice:+li.price<lp}));}
+        added++;
+      });
+      return next;
+    });
+    addAudit("REORDER",(selCustomer&&selCustomer.name)+" สั่งเหมือนเดิม "+added+" รายการ",currentStaff&&currentStaff.name);
+    notify("🔁 เพิ่มจากออเดอร์เดิม "+added+" รายการ"+(missing.length?(" · หมด/ไม่พบ: "+missing.slice(0,3).join(", ")):""));
+  };
   const removeFromCart=(id)=>setCart(prev=>prev.filter(i=>i.id!==id));
 
   const cartSub=cart.reduce((s,i)=>s+(i.unitPrice||i.price)*i.qty,0);
@@ -2862,6 +2898,17 @@ function GreenPOS() {
     setStaff(prev=>prev.map(s=>s.id===currentStaff.id?{...s,sales:s.sales+finalTotal}:s));
     const receipt={id:`DCK-${Date.now()}`,date:new Date().toLocaleString(),items:[...cart],customer:selCustomer?.name||t.walkin,customerId:selCustomer?.id||null,staff:currentStaff.name,staffId:currentStaff.id,subtotal:cartSub,discAmt,ptDisc,discType:discType,discVal:discVal,memberPricing:memberPricing,total:finalTotal,payment:payMethod,cashGiven:payMethod==="cash"?cash:finalTotal,
         change:payMethod==="cash"?cash-finalTotal:0,earnedPts,usedPts:ptDisc,isMedical:isMedTx,tableId:selTable,isVoid:false,proofImage:paymentProof||null};
+    if(selCustomer){
+      setCustMemory(function(prev){
+        var m=Object.assign({},prev);var k=String(selCustomer.id);
+        var entry=Object.assign({prices:{}},m[k]);
+        entry.last={date:receipt.date,rid:receipt.id,total:finalTotal,
+          items:cart.map(function(i){return {id:i.id,name:cleanName(i).short||i.name,qty:i.qty,price:+(i.unitPrice!=null?i.unitPrice:i.price)||0};})};
+        var pr=Object.assign({},entry.prices);
+        cart.forEach(function(i){pr[String(i.id)]={p:+(i.unitPrice!=null?i.unitPrice:i.price)||0,d:Date.now()};});
+        entry.prices=pr;m[k]=entry;return m;
+      });
+    }
     setTransactions(prev=>[receipt,...prev]);
     setShowReceipt(receipt);
     setCart([]);setSelCustomer(null);setUsePoints(0);setCashGiven("");setDiscType("none");setDiscVal(0);setSelTable(null);setIsMedTx(false);setMemberPricing(false);setDiscAuthorizedBy(null);
@@ -4487,6 +4534,25 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                       <button onClick={()=>setIsMedTx(p=>!p)} style={{...gs.btn(isMedTx?C.blue:C.card3,isMedTx?"#fff":"#9ca3af"),padding:"3px 7px",fontSize:10,border:`1px solid ${C.border}`}}>🏥</button>
                       <button onClick={()=>{setSelCustomer(null);setUsePoints(0);setIsMedTx(false);setDiscType("none");setDiscAuthorizedBy(null);}} style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:15,padding:2}}>✕</button>
                     </div>
+                  {(function(){
+                    var _cm=custMemory[String(selCustomer.id)];
+                    if(!_cm||!_cm.last)return null;
+                    var L=_cm.last;
+                    return (
+                    <div style={{marginTop:7,padding:"7px 9px",background:C.card2,border:"1px solid rgba(74,222,128,0.3)",borderRadius:9}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                        <span style={{fontSize:10,fontWeight:800,color:C.green}}>🕘 ออเดอร์ล่าสุด / Last order · ฿{Math.round(+L.total||0).toLocaleString()}</span>
+                        <span style={{fontSize:8.5,color:C.muted}}>{String(L.date||"").split(",")[0]}</span>
+                      </div>
+                      <div style={{fontSize:9.5,color:C.muted,lineHeight:1.55}}>
+                        {L.items.slice(0,4).map(function(li){return li.name+" ×"+li.qty+" @฿"+(+li.price).toLocaleString();}).join(" · ")}{L.items.length>4?(" · +"+(L.items.length-4)+" more"):""}
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5}}>
+                        <button onClick={addLastOrder} style={{...gs.btn("rgba(74,222,128,0.15)",C.green),fontSize:9.5,padding:"4px 9px",border:"1px solid rgba(74,222,128,0.35)"}}>🔁 สั่งเหมือนเดิม / Same again</button>
+                        <span style={{fontSize:8,color:C.muted}}>ราคาเดิมของลูกค้าใช้เองอัตโนมัติ / their prices auto-apply</span>
+                      </div>
+                    </div>);
+                  })()}
                   </div>
                 ):(
                   <div>
@@ -4513,7 +4579,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                     <span style={{fontSize:17}}>{item.img}</span>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:11,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cleanName(item).short}</div>
-                      <div style={{fontSize:10,color:C.green,fontWeight:700}}>฿{((item.unitPrice||item.price)*item.qty).toLocaleString()}</div>
+                      <div style={{fontSize:10,color:C.green,fontWeight:700}}>฿{((item.unitPrice||item.price)*item.qty).toLocaleString()}{item.custPrice&&<span title="ราคาที่ลูกค้าเคยจ่าย / price this customer paid last time" style={{...gs.badge("rgba(56,189,248,0.18)","#38bdf8"),fontSize:7.5,marginLeft:5}}>🕘 ราคาเดิม</span>}</div>
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:4}}>
                       <button onClick={()=>updateQty(item.id,-1)} style={{background:C.border,border:"none",borderRadius:5,width:22,height:22,color:C.text,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
