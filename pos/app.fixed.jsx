@@ -650,7 +650,7 @@ function GreenPOS() {
     if(mode==="out"&&!openShiftOf(s.id)){notify(s.name+" is not clocked in","error");return;}
     var rows=checkSKUs().map(function(p){return {id:p.id,name:cleanName(p).short,cat:p.cat||"",unit:p.unit||"pc",expected:Math.round((+p.stock||0)*100)/100,measured:"",cost:+p.cost||0,price:+p.price||0,reason:"",note:""};});
     if(rows.length===0){ (mode==="in"?directClockIn(s,[]):setShiftCheck({mode:"out",staffId:s.id,staffName:s.name,rows:[],step:"report",cash:"",notes:"",issues:"",sigOut:"",mgrPin:"",reasonsOk:true,proofPhoto:null,byCat:true})); if(mode==="in")return; }
-    else setShiftCheck({mode:mode,staffId:s.id,staffName:s.name,rows:rows,step:"weigh",cash:"",notes:"",issues:"",sigOut:"",mgrPin:"",proofPhoto:null,byCat:true});
+    else setShiftCheck({mode:mode,staffId:s.id,staffName:s.name,rows:rows,step:(rows.some(function(r){return (r.unit||"g")==="g";})?"scale":"weigh"),cash:"",notes:"",issues:"",sigOut:"",mgrPin:"",proofPhoto:null,byCat:true});
   };
   const clockIn=function(s){beginClock(s,"in");};
   const clockOut=function(s){beginClock(s,"out");};
@@ -8018,7 +8018,29 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <div style={{fontWeight:900,fontSize:14,marginBottom:2}}>{shiftCheck.mode==="in"?"⚖ เช็คสต็อกก่อนเข้างาน · Clock-In Inventory Check":"⚖ เช็คสต็อกก่อนออกงาน · Clock-Out Inventory Check"}</div>
             <div style={{fontSize:9,color:C.muted,marginBottom:10}}>{shiftCheck.staffName} · {currentShiftSlot().name} · นับ/ชั่งทุก SKU ก่อน{shiftCheck.mode==="in"?"เริ่มงาน":"ออกงาน"} — ใช้เครื่องชั่ง (แท็บ Scale) หรือพิมพ์เอง</div>
 
+            {shiftCheck.step==="scale"&&(function(){
+              var live=Math.round((+scaleReading||0)*100)/100;
+              return (<span style={{display:"contents"}}>
+              <div style={{background:C.card2,border:"1px solid "+(scaleConnected?"rgba(74,222,128,0.35)":C.border),borderRadius:12,textAlign:"center",padding:"16px 12px",marginBottom:10}}>
+                <div style={{...gs.eyebrow,marginBottom:6}}>ขั้นแรก: เช็คเครื่องชั่งก่อนนับ / Scale check first</div>
+                <div style={{fontSize:46,fontWeight:800,fontFamily:"monospace",letterSpacing:"-0.02em",color:scaleConnected?C.green:C.muted}}>{live.toFixed(2)}<span style={{fontSize:18}}>g</span></div>
+                <div style={{fontSize:10,color:scaleConnected?C.green:C.muted,margin:"2px 0 10px"}}>{scaleConnected?("\u25cf เชื่อมต่อแล้ว"+(scaleSrcUnit?" · เครื่องส่งหน่วย "+scaleSrcUnit:"")):"\u25cb ยังไม่ได้เชื่อมต่อ / not connected"}</div>
+                {!scaleConnected
+                  ?<button onClick={connectScale} style={{...gs.btnLg(C.blue)}}>🔌 ต่อเครื่องชั่ง / Connect scale</button>
+                  :<button onClick={disconnectScale} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:11}}>ตัดการเชื่อมต่อ / Disconnect</button>}
+              </div>
+              <div style={{fontSize:10.5,color:C.muted,lineHeight:1.7,background:C.card2,border:"1px solid "+C.border,borderRadius:9,padding:"9px 12px",marginBottom:10}}>
+                วิธีเช็ค: 1) เอาของออกจากถาดให้หมด — ต้องขึ้น 0.00&nbsp;&nbsp;2) วางของที่รู้น้ำหนัก (เช่น ตุ้มเทียบ หรือไฟแช็ก ~20g)&nbsp;&nbsp;3) ตัวเลขบนจอนี้ต้อง<b style={{color:C.text}}>ตรงกับหน้าจอเครื่องชั่ง</b> — ถ้าน้อยกว่า 1000 เท่า เครื่องส่งเป็น kg ให้ตั้งหน่วยที่หน้า ⚖ ตั้งค่า
+              </div>
+              <div style={{display:"flex",gap:7}}>
+                <button onClick={function(){setShiftCheck(null);}} style={{...gs.btn(C.card3,"#9ca3af"),flex:"0 0 auto",fontSize:11}}>ยกเลิก</button>
+                <button onClick={function(){setShiftCheck(function(p){return Object.assign({},p,{step:"weigh"});});}} style={{...gs.btn(C.card2,"#9ca3af"),flex:"0 0 auto",fontSize:11,border:"1px solid "+C.border}}>พิมพ์เอง / no scale</button>
+                <button disabled={!scaleConnected} onClick={function(){setShiftCheck(function(p){return Object.assign({},p,{step:"weigh"});});}} style={{...gs.btnLg(C.green),flex:1,opacity:scaleConnected?1:0.45,cursor:scaleConnected?"pointer":"not-allowed"}}>✅ ตัวเลขตรงแล้ว — เริ่มนับ / Start</button>
+              </div>
+              </span>);
+            })()}
             {shiftCheck.step==="weigh"&&<button onClick={scaleConnected?disconnectScale:connectScale} style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.blue,scaleConnected?C.green:"#000"),fontSize:10,padding:"6px 11px",marginBottom:9}}>{scaleConnected?("⚖ เครื่องชั่งพร้อม · "+(+scaleReading||0).toFixed(2)+"g — กด ⚖ ข้างแต่ละรายการ"):"⚖ เชื่อมต่อเครื่องชั่ง / Connect scale"}</button>}
+            {shiftCheck.step==="weigh"&&<button onClick={function(){setShiftCheck(function(p){return Object.assign({},p,{step:"scale"});});}} style={{...gs.btn(C.card2,"#9ca3af"),fontSize:10,padding:"6px 11px",marginBottom:9,marginLeft:6,border:"1px solid "+C.border}}>🧪 เช็คเครื่องชั่ง / Test scale</button>}
             {shiftCheck.step==="weigh"&&<span style={{display:"contents"}}>
               <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
                 <button onClick={function(){setShiftCheck(function(p){return Object.assign({},p,{byCat:!p.byCat});});}} style={{...gs.btn(shiftCheck.byCat?"rgba(74,222,128,0.15)":C.card2,shiftCheck.byCat?C.green:"#9ca3af"),fontSize:10,padding:"6px 11px",border:"1px solid "+C.border}}>🗂 แยกตามหมวด / Divide by categories {shiftCheck.byCat?"ON":"OFF"}</button>
