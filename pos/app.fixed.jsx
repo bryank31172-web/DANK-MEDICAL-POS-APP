@@ -1072,6 +1072,7 @@ function GreenPOS() {
   const [aiExpMsg,setAiExpMsg]=useState("");
   const chatRef=useRef(null);
 
+  const [weighFocus,setWeighFocus]=useState(null);
   const [scaleConnected,setScaleConnected]=useState(false);
   const [printerConnected,setPrinterConnected]=useState(false);
   const [scaleReading,setScaleReading]=useState(0.0);
@@ -7990,8 +7991,8 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 var st=m===null?"—":(d>=-0.05?"✅ OK":"⚠ Short "+Math.abs(d).toFixed(2)+(r.unit||"g"));
                 return (
                 <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 9px",background:C.card2,borderRadius:9,border:"1px solid "+(m===null?C.border:(d>=-0.05?"rgba(74,222,128,0.4)":"rgba(245,158,11,0.5)")),marginBottom:6,flexWrap:"wrap"}}>
-                  <div style={{flex:"1 1 140px",minWidth:0}}>
-                    <div style={{fontSize:10.5,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</div>
+                  <div onClick={function(){setWeighFocus(idx);}} title="แตะเพื่อชั่ง / tap to weigh" style={{flex:"1 1 140px",minWidth:0,cursor:"pointer"}}>
+                    <div style={{fontSize:10.5,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name} <span style={{color:C.blue,fontWeight:400}}>›</span></div>
                     <div style={{fontSize:8.5,color:C.muted}}>Expected {r.expected}{r.unit||"g"}</div>
                   </div>
                   <input type="number" step={wgh?"0.01":"1"} placeholder={r.unit||"g"} value={r.measured} onChange={function(e){var v=e.target.value;setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{measured:v}):x;});return n;});}} style={{...gs.input,width:86,textAlign:"center"}}/>
@@ -8006,6 +8007,71 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 </div>
               );})}
                 </span>);});
+              })()}
+              {weighFocus!==null&&shiftCheck.rows[weighFocus]&&(function(){
+                var i=weighFocus, r=shiftCheck.rows[i];
+                var isW=(r.unit||"g")==="g";
+                var live=Math.round((+scaleReading||0)*100)/100;
+                var mv=r.measured===""?null:(+r.measured||0);
+                var dv=mv===null?null:Math.round((mv-r.expected)*100)/100;
+                var setM=function(v){setShiftCheck(function(p){var n=Object.assign({},p);
+                  n.rows=p.rows.map(function(x,k){return k===i?Object.assign({},x,{measured:v}):x;});return n;});};
+                var go=function(step){
+                  var k=i+step;
+                  if(k<0||k>=shiftCheck.rows.length){setWeighFocus(null);return;}
+                  setWeighFocus(k);
+                };
+                return (
+                <div onClick={function(){setWeighFocus(null);}} style={{position:"fixed",inset:0,zIndex:9000,
+                  background:"rgba(0,0,0,0.72)",backdropFilter:"blur(3px)",display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
+                  <div onClick={function(e){e.stopPropagation();}} style={{...gs.card,width:"100%",maxWidth:420,boxShadow:C.shadowLg}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:800,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</div>
+                        <div style={{fontSize:10,color:C.muted}}>{i+1}/{shiftCheck.rows.length} · ระบบว่ามี / system {r.expected}{r.unit||"g"}</div>
+                      </div>
+                      <button onClick={function(){setWeighFocus(null);}} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:12,padding:"5px 11px"}}>✕</button>
+                    </div>
+
+                    {isW&&<div style={{background:C.card2,border:"1px solid "+(scaleConnected?"rgba(74,222,128,0.35)":C.border),borderRadius:12,padding:"14px 12px",textAlign:"center",marginBottom:10}}>
+                      <div style={{...gs.eyebrow,marginBottom:4}}>{scaleConnected?"น้ำหนักจริงบนเครื่องชั่ง / live scale":"ยังไม่ได้ต่อเครื่องชั่ง / scale not connected"}</div>
+                      <div style={{fontSize:40,fontWeight:800,fontFamily:"monospace",letterSpacing:"-0.02em",color:scaleConnected?C.green:C.muted}}>{live.toFixed(2)}<span style={{fontSize:16}}>g</span></div>
+                      {scaleConnected
+                        ?<button onClick={function(){setM(live.toFixed(2));}} style={{...gs.btnLg(C.green),marginTop:9,fontSize:14}}>⚖ ใช้ค่านี้ / Use this weight</button>
+                        :<button onClick={connectScale} style={{...gs.btnLg(C.blue),marginTop:9,fontSize:14}}>🔌 ต่อเครื่องชั่ง / Connect scale</button>}
+                    </div>}
+
+                    <label style={gs.label}>{isW?"หรือพิมพ์เอง / or type it":"จำนวนที่นับได้ / counted"}</label>
+                    <div style={{display:"flex",gap:7,alignItems:"center",marginBottom:8}}>
+                      <input type="number" step={isW?"0.01":"1"} inputMode="decimal" autoFocus value={r.measured}
+                        onChange={function(e){setM(e.target.value);}}
+                        placeholder={r.unit||"g"} style={{...gs.input,fontSize:20,fontWeight:800,textAlign:"center",fontFamily:"monospace"}}/>
+                      <button onClick={function(){setM(String(r.expected));}} title="ตรงกับระบบ / matches system" style={{...gs.btn(C.card3,"#9ca3af"),fontSize:11,whiteSpace:"nowrap"}}>= {r.expected}</button>
+                    </div>
+
+                    <div style={{textAlign:"center",fontSize:13,fontWeight:800,minHeight:22,marginBottom:10,
+                      color:dv===null?C.muted:(dv>=-0.05?C.green:C.gold)}}>
+                      {dv===null?"— ยังไม่ได้ใส่ค่า —":(dv>=-0.05
+                        ?("✅ ตรง / OK"+(dv>0.05?(" (เกิน +"+dv.toFixed(2)+(r.unit||"g")+")"):""))
+                        :("⚠ ขาด / short "+Math.abs(dv).toFixed(2)+(r.unit||"g")))}
+                    </div>
+
+                    {shiftCheck.mode==="out"&&dv!==null&&dv< -0.05&&<div style={{marginBottom:10}}>
+                      <label style={gs.label}>เหตุผลของส่วนที่หาย (จำเป็น)</label>
+                      <select value={r.reason} onChange={function(e){var v=e.target.value;setShiftCheck(function(p){var n=Object.assign({},p);
+                        n.rows=p.rows.map(function(x,k){return k===i?Object.assign({},x,{reason:v}):x;});return n;});}} style={gs.input}>
+                        <option value="">— เลือกเหตุผล —</option>
+                        {["Customer sample","Trim loss","Flower dried","Packaging mistake","Human counting error","Manager adjustment","Unknown"].map(function(rz){return <option key={rz} value={rz}>{rz}</option>;})}
+                      </select>
+                    </div>}
+
+                    <div style={{display:"flex",gap:7}}>
+                      <button onClick={function(){go(-1);}} disabled={i===0} style={{...gs.btn(C.card3,"#9ca3af"),flex:"0 0 auto",opacity:i===0?0.4:1}}>‹ ก่อนหน้า</button>
+                      <button onClick={function(){go(1);}} style={{...gs.btnLg(C.green),flex:1}}>{i+1===shiftCheck.rows.length?"เสร็จ / Done":"ถัดไป › / Next"}</button>
+                    </div>
+                  </div>
+                </div>
+                );
               })()}
               {(function(){
                 var filled=shiftCheck.rows.every(function(r){return r.measured!=="";});

@@ -2068,6 +2068,7 @@ function GreenPOS() {
   const [aiTargetLoading, setAiTargetLoading] = useState(false);
   const [aiExpMsg, setAiExpMsg] = useState("");
   const chatRef = useRef(null);
+  const [weighFocus, setWeighFocus] = useState(null);
   const [scaleConnected, setScaleConnected] = useState(false);
   const [printerConnected, setPrinterConnected] = useState(false);
   const [scaleReading, setScaleReading] = useState(0);
@@ -10448,7 +10449,9 @@ function GreenPOS() {
         var wgh = r.unit === "g" || r.unit === "ml" || !r.unit;
         var d = m === null ? null : Math.round((m - r.expected) * 100) / 100;
         var st = m === null ? "\u2014" : d >= -0.05 ? "\u2705 OK" : "\u26A0 Short " + Math.abs(d).toFixed(2) + (r.unit || "g");
-        return /* @__PURE__ */ React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", background: C.card2, borderRadius: 9, border: "1px solid " + (m === null ? C.border : d >= -0.05 ? "rgba(74,222,128,0.4)" : "rgba(245,158,11,0.5)"), marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 140px", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, "Expected ", r.expected, r.unit || "g")), /* @__PURE__ */ React.createElement("input", { type: "number", step: wgh ? "0.01" : "1", placeholder: r.unit || "g", value: r.measured, onChange: function(e) {
+        return /* @__PURE__ */ React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", background: C.card2, borderRadius: 9, border: "1px solid " + (m === null ? C.border : d >= -0.05 ? "rgba(74,222,128,0.4)" : "rgba(245,158,11,0.5)"), marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { onClick: function() {
+          setWeighFocus(idx);
+        }, title: "\u0E41\u0E15\u0E30\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E0A\u0E31\u0E48\u0E07 / tap to weigh", style: { flex: "1 1 140px", minWidth: 0, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name, " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.blue, fontWeight: 400 } }, "\u203A")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, "Expected ", r.expected, r.unit || "g")), /* @__PURE__ */ React.createElement("input", { type: "number", step: wgh ? "0.01" : "1", placeholder: r.unit || "g", value: r.measured, onChange: function(e) {
           var v = e.target.value;
           setShiftCheck(function(p) {
             var n = Object.assign({}, p);
@@ -10488,6 +10491,86 @@ function GreenPOS() {
         })));
       }));
     });
+  })(), weighFocus !== null && shiftCheck.rows[weighFocus] && (function() {
+    var i = weighFocus, r = shiftCheck.rows[i];
+    var isW = (r.unit || "g") === "g";
+    var live = Math.round((+scaleReading || 0) * 100) / 100;
+    var mv = r.measured === "" ? null : +r.measured || 0;
+    var dv = mv === null ? null : Math.round((mv - r.expected) * 100) / 100;
+    var setM = function(v) {
+      setShiftCheck(function(p) {
+        var n = Object.assign({}, p);
+        n.rows = p.rows.map(function(x, k) {
+          return k === i ? Object.assign({}, x, { measured: v }) : x;
+        });
+        return n;
+      });
+    };
+    var go = function(step) {
+      var k = i + step;
+      if (k < 0 || k >= shiftCheck.rows.length) {
+        setWeighFocus(null);
+        return;
+      }
+      setWeighFocus(k);
+    };
+    return /* @__PURE__ */ React.createElement("div", { onClick: function() {
+      setWeighFocus(null);
+    }, style: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 9e3,
+      background: "rgba(0,0,0,0.72)",
+      backdropFilter: "blur(3px)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 14
+    } }, /* @__PURE__ */ React.createElement("div", { onClick: function(e) {
+      e.stopPropagation();
+    }, style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 420, boxShadow: C.shadowLg }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, i + 1, "/", shiftCheck.rows.length, " \xB7 \u0E23\u0E30\u0E1A\u0E1A\u0E27\u0E48\u0E32\u0E21\u0E35 / system ", r.expected, r.unit || "g")), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setWeighFocus(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 12, padding: "5px 11px" }) }, "\u2715")), isW && /* @__PURE__ */ React.createElement("div", { style: { background: C.card2, border: "1px solid " + (scaleConnected ? "rgba(74,222,128,0.35)" : C.border), borderRadius: 12, padding: "14px 12px", textAlign: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.eyebrow), { marginBottom: 4 }) }, scaleConnected ? "\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01\u0E08\u0E23\u0E34\u0E07\u0E1A\u0E19\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 / live scale" : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 / scale not connected"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 40, fontWeight: 800, fontFamily: "monospace", letterSpacing: "-0.02em", color: scaleConnected ? C.green : C.muted } }, live.toFixed(2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 16 } }, "g")), scaleConnected ? /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setM(live.toFixed(2));
+    }, style: __spreadProps(__spreadValues({}, gs.btnLg(C.green)), { marginTop: 9, fontSize: 14 }) }, "\u2696 \u0E43\u0E0A\u0E49\u0E04\u0E48\u0E32\u0E19\u0E35\u0E49 / Use this weight") : /* @__PURE__ */ React.createElement("button", { onClick: connectScale, style: __spreadProps(__spreadValues({}, gs.btnLg(C.blue)), { marginTop: 9, fontSize: 14 }) }, "\u{1F50C} \u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 / Connect scale")), /* @__PURE__ */ React.createElement("label", { style: gs.label }, isW ? "\u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E2D\u0E07 / or type it" : "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E19\u0E31\u0E1A\u0E44\u0E14\u0E49 / counted"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "number",
+        step: isW ? "0.01" : "1",
+        inputMode: "decimal",
+        autoFocus: true,
+        value: r.measured,
+        onChange: function(e) {
+          setM(e.target.value);
+        },
+        placeholder: r.unit || "g",
+        style: __spreadProps(__spreadValues({}, gs.input), { fontSize: 20, fontWeight: 800, textAlign: "center", fontFamily: "monospace" })
+      }
+    ), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setM(String(r.expected));
+    }, title: "\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E30\u0E1A\u0E1A / matches system", style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 11, whiteSpace: "nowrap" }) }, "= ", r.expected)), /* @__PURE__ */ React.createElement("div", { style: {
+      textAlign: "center",
+      fontSize: 13,
+      fontWeight: 800,
+      minHeight: 22,
+      marginBottom: 10,
+      color: dv === null ? C.muted : dv >= -0.05 ? C.green : C.gold
+    } }, dv === null ? "\u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E43\u0E2A\u0E48\u0E04\u0E48\u0E32 \u2014" : dv >= -0.05 ? "\u2705 \u0E15\u0E23\u0E07 / OK" + (dv > 0.05 ? " (\u0E40\u0E01\u0E34\u0E19 +" + dv.toFixed(2) + (r.unit || "g") + ")" : "") : "\u26A0 \u0E02\u0E32\u0E14 / short " + Math.abs(dv).toFixed(2) + (r.unit || "g")), shiftCheck.mode === "out" && dv !== null && dv < -0.05 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E02\u0E2D\u0E07\u0E2A\u0E48\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E22 (\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19)"), /* @__PURE__ */ React.createElement("select", { value: r.reason, onChange: function(e) {
+      var v = e.target.value;
+      setShiftCheck(function(p) {
+        var n = Object.assign({}, p);
+        n.rows = p.rows.map(function(x, k) {
+          return k === i ? Object.assign({}, x, { reason: v }) : x;
+        });
+        return n;
+      });
+    }, style: gs.input }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25 \u2014"), ["Customer sample", "Trim loss", "Flower dried", "Packaging mistake", "Human counting error", "Manager adjustment", "Unknown"].map(function(rz) {
+      return /* @__PURE__ */ React.createElement("option", { key: rz, value: rz }, rz);
+    }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      go(-1);
+    }, disabled: i === 0, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { flex: "0 0 auto", opacity: i === 0 ? 0.4 : 1 }) }, "\u2039 \u0E01\u0E48\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      go(1);
+    }, style: __spreadProps(__spreadValues({}, gs.btnLg(C.green)), { flex: 1 }) }, i + 1 === shiftCheck.rows.length ? "\u0E40\u0E2A\u0E23\u0E47\u0E08 / Done" : "\u0E16\u0E31\u0E14\u0E44\u0E1B \u203A / Next"))));
   })(), (function() {
     var filled = shiftCheck.rows.every(function(r) {
       return r.measured !== "";
