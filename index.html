@@ -1410,6 +1410,19 @@ function GreenPOS() {
     if (!issuesAll.length && (rep.totals.missG || 0) <= 0.05) lines.push("\u2022 \u0E27\u0E31\u0E19\u0E19\u0E35\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E14\u0E35\u0E17\u0E38\u0E01\u0E01\u0E30 \u2014 \u0E23\u0E31\u0E01\u0E29\u0E32\u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19\u0E19\u0E35\u0E49\u0E44\u0E27\u0E49 \u0E0A\u0E21\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E23\u0E31\u0E01\u0E29\u0E32\u0E41\u0E23\u0E07\u0E08\u0E39\u0E07\u0E43\u0E08");
     return lines.join("\n");
   };
+  const SCALE_TO_G = { g: 1, kg: 1e3, lb: 453.59237, oz: 28.349523125 };
+  function parseScaleLine(buf, pref) {
+    var s = String(buf || "").replace(/\s+/g, " ");
+    var m = s.match(/-?\d+(?:\.\d+)?\s*(kg|lb|oz|g)?/gi);
+    if (!m || !m.length) return null;
+    var last = m[m.length - 1];
+    var num = parseFloat(last);
+    if (!isFinite(num)) return null;
+    var u = (last.match(/(kg|lb|oz|g)\s*$/i) || [])[1];
+    u = u ? u.toLowerCase() : "";
+    var use = u || (pref !== "auto" ? pref : "g");
+    return { grams: Math.round(num * (SCALE_TO_G[use] || 1) * 100) / 100, unit: u || (pref !== "auto" ? pref + " (set)" : "g (assumed)") };
+  }
   const scaleStopRef = useRef({ stop: false });
   const connectScale = async function() {
     if (!("serial" in navigator)) {
@@ -1434,9 +1447,10 @@ function GreenPOS() {
             const r = await reader.read();
             if (r.done) break;
             buf += dec.decode(r.value);
-            const m = buf.match(/-?\d+(?:\.\d+)?/g);
-            if (m && m.length) {
-              setScaleReading(parseFloat(m[m.length - 1]));
+            var parsed = parseScaleLine(buf, scaleUnit);
+            if (parsed) {
+              setScaleReading(parsed.grams);
+              setScaleSrcUnit(parsed.unit);
             }
             if (buf.length > 400) buf = buf.slice(-80);
           }
@@ -2074,6 +2088,20 @@ function GreenPOS() {
   const [scaleReading, setScaleReading] = useState(0);
   const [scalePort, setScalePort] = useState("USB-Serial");
   const [scaleBaud, setScaleBaud] = useState("9600");
+  const [scaleUnit, setScaleUnit] = useState(function() {
+    try {
+      return localStorage.getItem("dank_scale_unit") || "auto";
+    } catch (e) {
+      return "auto";
+    }
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_scale_unit", scaleUnit);
+    } catch (e) {
+    }
+  }, [scaleUnit]);
+  const [scaleSrcUnit, setScaleSrcUnit] = useState("");
   const [printerConn, setPrinterConn] = useState("USB");
   const [scaleChecklist, setScaleChecklist] = useState([]);
   const [scaleInterval, setScaleInterval] = useState(null);
@@ -8556,13 +8584,15 @@ function GreenPOS() {
         notify("Removed " + s.name);
       }
     }, style: __spreadProps(__spreadValues({}, gs.btn("rgba(244,63,94,0.12)", "#f43f5e")), { fontSize: 10, border: "1px solid rgba(244,63,94,0.25)" }) }, "\u{1F5D1}")));
-  }))), activeTab === "scale" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900, marginBottom: 12 } }, "\u2696 Scale & Print"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 11 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadValues({}, gs.card) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 9 } }, "\u2696 Digital Scale"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "10px 0 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 44, fontWeight: 900, color: scaleConnected ? C.green : C.muted, fontFamily: "monospace" } }, (+scaleReading || 0).toFixed(2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 16, color: C.muted } }, " g")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, scaleConnected ? "\u25CF live" : "not connected")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Baud"), /* @__PURE__ */ React.createElement("select", { style: gs.input, value: scaleBaud, onChange: function(e) {
+  }))), activeTab === "scale" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900, marginBottom: 12 } }, "\u2696 Scale & Print"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 11 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadValues({}, gs.card) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 9 } }, "\u2696 Digital Scale"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "10px 0 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 44, fontWeight: 900, color: scaleConnected ? C.green : C.muted, fontFamily: "monospace" } }, (+scaleReading || 0).toFixed(2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 16, color: C.muted } }, " g")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, scaleConnected ? "\u25CF live" + (scaleSrcUnit ? " \xB7 scale sends " + scaleSrcUnit : "") : "not connected")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 8, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Baud"), /* @__PURE__ */ React.createElement("select", { style: gs.input, value: scaleBaud, onChange: function(e) {
     setScaleBaud(e.target.value);
   } }, ["9600", "19200", "38400", "115200"].map(function(b) {
     return /* @__PURE__ */ React.createElement("option", { key: b, value: b }, b);
-  }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Manual weight (g)"), /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.01", style: gs.input, value: scaleReading, onChange: function(e) {
+  }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E02\u0E2D\u0E07\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 / Scale unit"), /* @__PURE__ */ React.createElement("select", { style: gs.input, value: scaleUnit, onChange: function(e) {
+    setScaleUnit(e.target.value);
+  } }, /* @__PURE__ */ React.createElement("option", { value: "auto" }, "Auto \u2014 read from scale"), /* @__PURE__ */ React.createElement("option", { value: "g" }, "g \u2014 grams"), /* @__PURE__ */ React.createElement("option", { value: "kg" }, "kg \u2014 kilograms"), /* @__PURE__ */ React.createElement("option", { value: "lb" }, "lb \u2014 pounds"), /* @__PURE__ */ React.createElement("option", { value: "oz" }, "oz \u2014 ounces"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Manual weight (g)"), /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.01", style: gs.input, value: scaleReading, onChange: function(e) {
     setScaleReading(parseFloat(e.target.value) || 0);
-  } }))), !scaleConnected ? /* @__PURE__ */ React.createElement("button", { onClick: connectScale, style: __spreadValues({}, gs.btnLg(C.green)) }, "\u{1F50C} Connect Scale") : /* @__PURE__ */ React.createElement("button", { onClick: disconnectScale, style: __spreadValues({}, gs.btnLg(C.card3)) }, "Disconnect"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 7 } }, "USB serial scales via Chrome/Edge. No scale? Type the weight manually \u2014 everything else works the same.")), /* @__PURE__ */ React.createElement("div", { style: __spreadValues({}, gs.card) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 9 } }, "\u{1F33F} Weigh \u2192 Sell (per-gram items)"), products.filter(function(p) {
+  } }))), !scaleConnected ? /* @__PURE__ */ React.createElement("button", { onClick: connectScale, style: __spreadValues({}, gs.btnLg(C.green)) }, "\u{1F50C} Connect Scale") : /* @__PURE__ */ React.createElement("button", { onClick: disconnectScale, style: __spreadValues({}, gs.btnLg(C.card3)) }, "Disconnect"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 7 } }, "USB serial scales via Chrome/Edge. No scale? Type the weight manually \u2014 everything else works the same.", /* @__PURE__ */ React.createElement("br", null), "\u0E16\u0E49\u0E32\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E17\u0E35\u0E48\u0E2B\u0E19\u0E49\u0E32\u0E08\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 1000 \u0E40\u0E17\u0E48\u0E32 \u0E41\u0E1B\u0E25\u0E27\u0E48\u0E32\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E2A\u0E48\u0E07\u0E21\u0E32\u0E40\u0E1B\u0E47\u0E19 kg \u2014 \u0E15\u0E31\u0E49\u0E07\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E40\u0E1B\u0E47\u0E19 kg")), /* @__PURE__ */ React.createElement("div", { style: __spreadValues({}, gs.card) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 9 } }, "\u{1F33F} Weigh \u2192 Sell (per-gram items)"), products.filter(function(p) {
     return p.unit === "g" && p.stock > 0;
   }).length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, 'No in-stock per-gram products (unit "g").'), products.filter(function(p) {
     return p.unit === "g" && p.stock > 0;
