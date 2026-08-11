@@ -784,8 +784,7 @@ function GreenPOS() {
   const scaleStopRef=useRef({stop:false});
   const connectScale=async function(){
     if(!("serial" in navigator)){
-      setScaleConnected(true);setScaleReading(3.5);
-      notify("⚖ Web Serial not supported — Demo scale on (type weight manually)");return;
+      notify("เบราว์เซอร์นี้ต่อเครื่องชั่งไม่ได้ — ใช้ Chrome/Edge บนคอม หรือพิมพ์น้ำหนักเอง","error");return;
     }
     try{
       const port=await navigator.serial.requestPort();
@@ -809,7 +808,7 @@ function GreenPOS() {
       })();
     }catch(e){
       if(e.name==="NotFoundError"){notify("No scale selected","error");}
-      else{setScaleConnected(true);setScaleReading(3.5);notify("⚖ Demo scale on ("+ (e.message||"serial unavailable") +")");}
+      else{notify("ต่อเครื่องชั่งไม่สำเร็จ: "+(e.message||"serial unavailable")+" — พิมพ์น้ำหนักเองได้","error");}
     }
   };
   const disconnectScale=function(){
