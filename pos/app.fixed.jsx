@@ -732,6 +732,24 @@ function GreenPOS() {
     if(!issuesAll.length&&(rep.totals.missG||0)<=0.05)lines.push("• วันนี้เรียบร้อยดีทุกกะ — รักษามาตรฐานนี้ไว้ ชมพนักงานเพื่อรักษาแรงจูงใจ");
     return lines.join("\n");
   };
+  // Serial scales send things like "ST,GS,+  0.132 kg" or "  132.0 g" or, on the
+  // cheaper ones, just "0.132". Take the last number AND the unit written next
+  // to it; fall back to what the operator picked when the scale says nothing.
+  const SCALE_TO_G={g:1,kg:1000,lb:453.59237,oz:28.349523125};
+  function parseScaleLine(buf,pref){
+    var s=String(buf||"").replace(/\s+/g," ");
+    var m=s.match(/-?\d+(?:\.\d+)?\s*(kg|lb|oz|g)?/gi);
+    if(!m||!m.length)return null;
+    var last=m[m.length-1];
+    var num=parseFloat(last);
+    if(!isFinite(num))return null;
+    var u=(last.match(/(kg|lb|oz|g)\s*$/i)||[])[1];
+    u=u?u.toLowerCase():"";
+    // no unit on the wire: trust the operator's choice, and only guess when
+    // they left it on auto
+    var use=u||(pref!=="auto"?pref:"g");
+    return {grams:Math.round(num*(SCALE_TO_G[use]||1)*100)/100,unit:u||(pref!=="auto"?pref+" (set)":"g (assumed)")};
+  }
   const scaleStopRef=useRef({stop:false});
   const connectScale=async function(){
     if(!("serial" in navigator)){
@@ -752,8 +770,8 @@ function GreenPOS() {
             const r=await reader.read();
             if(r.done)break;
             buf+=dec.decode(r.value);
-            const m=buf.match(/-?\d+(?:\.\d+)?/g);
-            if(m&&m.length){setScaleReading(parseFloat(m[m.length-1]));}
+            var parsed=parseScaleLine(buf,scaleUnit);
+            if(parsed){setScaleReading(parsed.grams);setScaleSrcUnit(parsed.unit);}
             if(buf.length>400)buf=buf.slice(-80);
           }
         }catch(_e){}
@@ -1078,6 +1096,11 @@ function GreenPOS() {
   const [scaleReading,setScaleReading]=useState(0.0);
   const [scalePort,setScalePort]=useState("USB-Serial");
   const [scaleBaud,setScaleBaud]=useState("9600");
+  // What the scale speaks. "auto" reads the unit off the line it sends; the
+  // explicit settings are for scales that transmit a bare number.
+  const [scaleUnit,setScaleUnit]=useState(function(){try{return localStorage.getItem("dank_scale_unit")||"auto";}catch(e){return "auto";}});
+  useEffect(function(){try{localStorage.setItem("dank_scale_unit",scaleUnit);}catch(e){}},[scaleUnit]);
+  const [scaleSrcUnit,setScaleSrcUnit]=useState("");
   const [printerConn,setPrinterConn]=useState("USB");
   const [scaleChecklist,setScaleChecklist]=useState([]);
   const [scaleInterval,setScaleInterval]=useState(null);
@@ -6332,17 +6355,25 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{fontSize:12,fontWeight:800,marginBottom:9}}>⚖ Digital Scale</div>
               <div style={{textAlign:"center",padding:"10px 0 14px"}}>
                 <div style={{fontSize:44,fontWeight:900,color:scaleConnected?C.green:C.muted,fontFamily:"monospace"}}>{(+scaleReading||0).toFixed(2)}<span style={{fontSize:16,color:C.muted}}> g</span></div>
-                <div style={{fontSize:9,color:C.muted}}>{scaleConnected?"● live":"not connected"}</div>
+                <div style={{fontSize:9,color:C.muted}}>{scaleConnected?("● live"+(scaleSrcUnit?" · scale sends "+scaleSrcUnit:"")):"not connected"}</div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:9}}>
+              <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:9}}>
                 <div><label style={gs.label}>Baud</label>
                   <select style={gs.input} value={scaleBaud} onChange={function(e){setScaleBaud(e.target.value);}}>{["9600","19200","38400","115200"].map(function(b){return <option key={b} value={b}>{b}</option>;})}</select></div>
+                <div><label style={gs.label}>หน่วยของเครื่องชั่ง / Scale unit</label>
+                  <select style={gs.input} value={scaleUnit} onChange={function(e){setScaleUnit(e.target.value);}}>
+                    <option value="auto">Auto — read from scale</option>
+                    <option value="g">g — grams</option>
+                    <option value="kg">kg — kilograms</option>
+                    <option value="lb">lb — pounds</option>
+                    <option value="oz">oz — ounces</option>
+                  </select></div>
                 <div><label style={gs.label}>Manual weight (g)</label>
                   <input type="number" step="0.01" style={gs.input} value={scaleReading} onChange={function(e){setScaleReading(parseFloat(e.target.value)||0);}}/></div>
               </div>
               {!scaleConnected?<button onClick={connectScale} style={{...gs.btnLg(C.green)}}>🔌 Connect Scale</button>
                 :<button onClick={disconnectScale} style={{...gs.btnLg(C.card3)}}>Disconnect</button>}
-              <div style={{fontSize:9,color:C.muted,marginTop:7}}>USB serial scales via Chrome/Edge. No scale? Type the weight manually — everything else works the same.</div>
+              <div style={{fontSize:9,color:C.muted,marginTop:7}}>USB serial scales via Chrome/Edge. No scale? Type the weight manually — everything else works the same.<br/>ถ้าตัวเลขน้อยกว่าที่หน้าจอเครื่องชั่ง 1000 เท่า แปลว่าเครื่องส่งมาเป็น kg — ตั้งหน่วยเป็น kg</div>
             </div>
             <div style={{...gs.card}}>
               <div style={{fontSize:12,fontWeight:800,marginBottom:9}}>🌿 Weigh → Sell (per-gram items)</div>
