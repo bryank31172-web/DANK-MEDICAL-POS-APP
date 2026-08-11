@@ -1451,9 +1451,7 @@ function GreenPOS() {
   const scaleStopRef = useRef({ stop: false });
   const connectScale = async function() {
     if (!("serial" in navigator)) {
-      setScaleConnected(true);
-      setScaleReading(3.5);
-      notify("\u2696 Web Serial not supported \u2014 Demo scale on (type weight manually)");
+      notify("\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C\u0E19\u0E35\u0E49\u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2014 \u0E43\u0E0A\u0E49 Chrome/Edge \u0E1A\u0E19\u0E04\u0E2D\u0E21 \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01\u0E40\u0E2D\u0E07", "error");
       return;
     }
     try {
@@ -1486,9 +1484,7 @@ function GreenPOS() {
       if (e.name === "NotFoundError") {
         notify("No scale selected", "error");
       } else {
-        setScaleConnected(true);
-        setScaleReading(3.5);
-        notify("\u2696 Demo scale on (" + (e.message || "serial unavailable") + ")");
+        notify("\u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: " + (e.message || "serial unavailable") + " \u2014 \u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01\u0E40\u0E2D\u0E07\u0E44\u0E14\u0E49", "error");
       }
     }
   };
