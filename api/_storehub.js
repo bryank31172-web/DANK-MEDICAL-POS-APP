@@ -16,7 +16,11 @@
 
 const BASE  = process.env.STOREHUB_API_BASE || "https://api.storehubhq.com";
 const USER  = process.env.STOREHUB_STORE || process.env.STOREHUB_USER || "";
-const TOKEN = process.env.STOREHUB_TOKEN || "";
+// STOREHUB_KEY is what api/storehub/[...path].mjs and .env.example call this
+// same credential. Reading only STOREHUB_TOKEN meant shConfigured() stayed false
+// on a deployment that had set STOREHUB_KEY, and the menu quietly fell through
+// to the bundled products.json instead of live stock.
+const TOKEN = process.env.STOREHUB_TOKEN || process.env.STOREHUB_KEY || "";
 const STORE_ID_ENV = process.env.STOREHUB_STORE_ID || "";
 
 export function shConfigured() { return Boolean(USER && TOKEN); }
@@ -110,7 +114,7 @@ function mapCategory(p) {
   return (p.category || "Exotics");
 }
 
-function normalize(p, stock) {
+export function normalize(p, stock) {
   const nm = p.name || p.title; if (!nm) return null;
   const category = mapCategory(p);
   const flower = ["Exotics","Topshelf","Midgrade","Premium"].includes(category);
@@ -140,7 +144,7 @@ function normalize(p, stock) {
 }
 
 /* group weight variants of the same strain into one card with price tiers */
-function groupTiers(list) {
+export function groupTiers(list) {
   const order = ["½g","1 joint","1g","3.5g · 3+1 FREE","7g","28g"];
   const groups = {};
   const singles = [];

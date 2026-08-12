@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 328 226" role="img" aria-label="ClinicWorks Cannabis">
+  <defs>
+    <linearGradient id="cwC" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#31603C"/>
+      <stop offset="50%" stop-color="#1E4029"/>
+      <stop offset="100%" stop-color="#14301D"/>
+    </linearGradient>
+    <linearGradient id="cwWg" x1="0" y1="0.2" x2="1" y2="0.8">
+      <stop offset="0%" stop-color="#14301D"/>
+      <stop offset="55%" stop-color="#244E30"/>
+      <stop offset="100%" stop-color="#31603C"/>
+    </linearGradient>
+  </defs>
+  <path class="cw-c" d="M200 22 H97 A81 81 0 1 0 143.5 169.4"
+        fill="none" stroke="url(#cwC)" stroke-width="30" stroke-linecap="butt"/>
+  <path class="cw-cross" d="M100 53 h24 v23 h23 v24 h-23 v23 h-24 v-23 h-23 v-24 h23 z"
+        fill="#3F8A3F"/>
+  <path class="cw-w" d="M105 152 L137 204 L190 108 L226 199 L313 85"
+        fill="none" stroke="url(#cwWg)" stroke-width="25" stroke-linejoin="miter" stroke-linecap="butt"/>
+</svg>
