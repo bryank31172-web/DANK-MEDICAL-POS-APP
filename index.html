@@ -6996,6 +6996,53 @@ function GreenPOS() {
       syncStorehub();
     }
   }, [screen]);
+  const SYNC_SHARED_KEY = "dank-pos-sync-v1";
+  const cloudPush = function() {
+    try {
+      var branch = _branchKey || "unassigned";
+      var did = localStorage.getItem("dank_deviceid");
+      if (!did) {
+        did = "dev-" + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem("dank_deviceid", did);
+      }
+      var now2 = (/* @__PURE__ */ new Date()).toISOString();
+      var sets = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (!k || k.indexOf("dank_") !== 0) continue;
+        var raw = localStorage.getItem(k);
+        var val;
+        try {
+          val = JSON.parse(raw);
+        } catch (e) {
+          val = raw;
+        }
+        sets.push({ key: k, value: val, updatedAt: now2 });
+      }
+      if (!sets.length) return;
+      fetch("/api/sync", {
+        method: "POST",
+        keepalive: true,
+        headers: { "Content-Type": "application/json", "X-Sync-Key": SYNC_SHARED_KEY },
+        body: JSON.stringify({ branch, device: did, sets })
+      }).catch(function() {
+      });
+    } catch (e) {
+    }
+  };
+  useEffect(function() {
+    if (screen !== "main") return;
+    cloudPush();
+    var iv = setInterval(cloudPush, 45e3);
+    var onHide = function() {
+      if (document.visibilityState === "hidden") cloudPush();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return function() {
+      clearInterval(iv);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [screen, _branchKey]);
   if (screen === "login") return /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.app), { display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", minHeight: "100vh", padding: mob ? "14px" : "24px", background: `radial-gradient(ellipse at 50% 0%,rgba(201,168,76,0.06) 0%,${C.bg} 70%)` }) }, notif && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", top: 16, right: 16, background: notif.type === "error" ? C.red : C.accent, color: "#000", padding: "11px 18px", borderRadius: 11, fontWeight: 700, zIndex: 9999, fontSize: 13, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" } }, notif.msg), /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", top: 14, right: 14, display: "flex", gap: 5 } }, [["en", "\u{1F1EC}\u{1F1E7}", "EN"], ["th", "\u{1F1F9}\u{1F1ED}", "\u0E44\u0E17\u0E22"], ["my", "\u{1F1F2}\u{1F1F2}", "\u1019\u103C\u1014\u103A\u1019\u102C"], ["zh", "\u{1F1E8}\u{1F1F3}", "\u4E2D\u6587"], ["ja", "\u{1F1EF}\u{1F1F5}", "\u65E5\u672C"]].map(function(lf) {
     var l = lf[0];
     var f = lf[1];
