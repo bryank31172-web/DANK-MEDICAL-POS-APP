@@ -147,6 +147,10 @@ const TAB_GUIDE=[
   {id:"aisum",name:"🧠 AI Summary — สรุปภาพรวม",kw:["ai summary","ภาพรวม","overview","สรุปร้าน"],
    steps:"• AI สรุปทั้งร้านในหน้าเดียว: ยอดขาย สต๊อก ครัว พนักงาน + คำแนะนำว่าควรทำอะไรก่อน"},
 ];
+// Weights display exactly what the scale said - "0.039" stays 0.039, not
+// 0.04, and "39" stays 39, not 39.00. Four decimals is beyond any retail
+// scale's resolution, so nothing real is ever lost.
+function fmtW(v){return String(Math.round((+v||0)*10000)/10000);}
 function asstTabName(id){var g=TAB_GUIDE.find(function(x){return x.id===id;});return g?g.name.split(" — ")[0]:id;}
 // canned answers carry a leading emoji — map it to the page they talk about
 function asstGotoFor(t){
@@ -840,7 +844,7 @@ function GreenPOS() {
     // no unit on the wire: trust the operator's choice, and only guess when
     // they left it on auto
     var use=u||(pref!=="auto"?pref:"g");
-    return {grams:Math.round(num*(SCALE_TO_G[use]||1)*100)/100,unit:u||(pref!=="auto"?pref+" (set)":"g (assumed)")};
+    return {grams:Math.round(num*(SCALE_TO_G[use]||1)*10000)/10000,unit:u||(pref!=="auto"?pref+" (set)":"g (assumed)")};
   }
   const scaleStopRef=useRef({stop:false});
   const connectScale=async function(){
@@ -877,7 +881,7 @@ function GreenPOS() {
     setScaleConnected(false);setScaleReading(0);notify("Scale disconnected");
   };
   const weighToCart=function(p){
-    var g=Math.round((+scaleReading||0)*100)/100;
+    var g=Math.round((+scaleReading||0)*10000)/10000;
     if(g<=0){notify("น้ำหนักเป็น 0 — วางของบนเครื่องชั่งหรือพิมพ์น้ำหนักก่อน","error");return;}
     if(p.stock<g){notify("สต็อกไม่พอ ("+p.stock+p.unit+" เหลือ)","error");return;}
     setCart(function(prev){var e=prev.find(function(i){return i.id===p.id;});if(e)return prev.map(function(i){return i.id===p.id?Object.assign({},i,{qty:Math.round((i.qty+g)*100)/100}):i;});return prev.concat([Object.assign({},p,{qty:g,unitPrice:ePrice(p)})]);});
@@ -6534,7 +6538,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <div style={{...gs.card}}>
               <div style={{fontSize:12,fontWeight:800,marginBottom:9}}>⚖ Digital Scale</div>
               <div style={{textAlign:"center",padding:"10px 0 14px"}}>
-                <div style={{fontSize:44,fontWeight:900,color:scaleConnected?C.green:C.muted,fontFamily:"monospace"}}>{(+scaleReading||0).toFixed(2)}<span style={{fontSize:16,color:C.muted}}> g</span></div>
+                <div style={{fontSize:44,fontWeight:900,color:scaleConnected?C.green:C.muted,fontFamily:"monospace"}}>{fmtW(scaleReading)}<span style={{fontSize:16,color:C.muted}}> g</span></div>
                 <div style={{fontSize:9,color:C.muted}}>{scaleConnected?("● live"+(scaleSrcUnit?" · scale sends "+scaleSrcUnit:"")):"not connected"}</div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:9}}>
@@ -6565,7 +6569,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                     <div style={{fontSize:10.5,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
                     <div style={{fontSize:8.5,color:C.muted}}>฿{(+p.price||0).toLocaleString()}/g · {p.stock}g left · ≈฿{Math.round((+scaleReading||0)*(+p.price||0)).toLocaleString()}</div>
                   </div>
-                  <button onClick={function(){weighToCart(p);}} style={{...gs.btn(C.green),fontSize:9,padding:"4px 9px",flexShrink:0}}>⚖ Add {(+scaleReading||0).toFixed(2)}g</button>
+                  <button onClick={function(){weighToCart(p);}} style={{...gs.btn(C.green),fontSize:9,padding:"4px 9px",flexShrink:0}}>⚖ Add {fmtW(scaleReading)}g</button>
                 </div>
               );})}
             </div>
@@ -6743,7 +6747,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{gridColumn:"1 / -1"}}><label style={gs.label}>จำนวนรับเข้าจาก supplier · Qty received ({_u})</label>
                 <div style={{display:"flex",gap:5}}>
                   <input type="number" step={_wgh?"0.01":"1"} style={{...gs.input,flex:1}} value={receiveForm.qtyIn||""} onChange={function(e){var v=e.target.value;setReceiveForm(function(p){return Object.assign({},p,{qtyIn:v,toActive:""});});}}/>
-                  {_wgh&&<button onClick={function(){var v=(+scaleReading||0).toFixed(2);setReceiveForm(function(p){return Object.assign({},p,{qtyIn:v,toActive:""});});}} title="ชั่งจำนวนรับเข้า" style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.card3,scaleConnected?C.green:"#9ca3af"),fontSize:9,padding:"0 8px",border:"1px solid "+C.border,whiteSpace:"nowrap"}}>⚖ {(+scaleReading||0).toFixed(1)}</button>}
+                  {_wgh&&<button onClick={function(){var v=fmtW(scaleReading);setReceiveForm(function(p){return Object.assign({},p,{qtyIn:v,toActive:""});});}} title="ชั่งจำนวนรับเข้า" style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.card3,scaleConnected?C.green:"#9ca3af"),fontSize:9,padding:"0 8px",border:"1px solid "+C.border,whiteSpace:"nowrap"}}>⚖ {fmtW(scaleReading)}</button>}
                 </div>
                 <div style={{fontSize:8.5,color:C.blue,marginTop:3}}>🏬 ทั้งหมดเข้าหลังร้าน (Inactive) ก่อนโดยอัตโนมัติ / everything lands in Inactive first</div></div>
               <div><label style={gs.label}>Batch (optional)</label>
@@ -6751,7 +6755,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div><label style={gs.label}>Expiry (optional)</label>
                 <input type="date" style={gs.input} value={receiveForm.expiry} onChange={function(e){var v=e.target.value;setReceiveForm(function(p){return Object.assign({},p,{expiry:v});});}}/></div>
             </div>
-            {_wgh&&<button onClick={scaleConnected?disconnectScale:connectScale} style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.blue,scaleConnected?C.green:"#000"),fontSize:9.5,padding:"5px 10px",marginBottom:8}}>{scaleConnected?("⚖ เครื่องชั่งพร้อม "+(+scaleReading||0).toFixed(2)+"g — กด ⚖ เพื่อยืนยันน้ำหนัก"):"⚖ เชื่อมต่อเครื่องชั่ง / Connect scale"}</button>}
+            {_wgh&&<button onClick={scaleConnected?disconnectScale:connectScale} style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.blue,scaleConnected?C.green:"#000"),fontSize:9.5,padding:"5px 10px",marginBottom:8}}>{scaleConnected?("⚖ เครื่องชั่งพร้อม "+fmtW(scaleReading)+"g — กด ⚖ เพื่อยืนยันน้ำหนัก"):"⚖ เชื่อมต่อเครื่องชั่ง / Connect scale"}</button>}
             <div style={{background:"rgba(56,189,248,0.06)",border:"1px solid rgba(56,189,248,0.25)",borderRadius:9,padding:"9px 11px",marginBottom:8}}>
               <div style={{fontSize:10.5,fontWeight:800,marginBottom:4}}>👔 ผู้จัดการ: ย้ายเข้าหน้าร้าน (Active) ตอนนี้ · Manager: move to Active now</div>
               <div style={{fontSize:9,color:C.muted,marginBottom:6}}>ค่าเริ่มต้น: ของที่รับเข้าจะเก็บเป็น <b style={{color:C.blue}}>Inactive (หลังร้าน) ทั้งหมดก่อน</b> — จะขายจริงต่อเมื่อกดย้ายเข้า Active ทีหลัง (ในตาราง Stock ▶ ย้ายเข้าขาย) · ใส่จำนวนตรงนี้เฉพาะถ้าต้องการเปิดขายบางส่วนทันที / By default all received goes to Inactive first; activate later. Set a number here only to sell part right away.</div>
@@ -8171,11 +8175,11 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <div style={{fontSize:9,color:C.muted,marginBottom:10}}>{shiftCheck.staffName} · {currentShiftSlot().name} · นับ/ชั่งทุก SKU ก่อน{shiftCheck.mode==="in"?"เริ่มงาน":"ออกงาน"} — ใช้เครื่องชั่ง (แท็บ Scale) หรือพิมพ์เอง</div>
 
             {shiftCheck.step==="scale"&&(function(){
-              var live=Math.round((+scaleReading||0)*100)/100;
+              var live=Math.round((+scaleReading||0)*10000)/10000;
               return (<span style={{display:"contents"}}>
               <div style={{background:C.card2,border:"1px solid "+(scaleConnected?"rgba(74,222,128,0.35)":C.border),borderRadius:12,textAlign:"center",padding:"16px 12px",marginBottom:10}}>
                 <div style={{...gs.eyebrow,marginBottom:6}}>ขั้นแรก: เช็คเครื่องชั่งก่อนนับ / Scale check first</div>
-                <div style={{fontSize:46,fontWeight:800,fontFamily:"monospace",letterSpacing:"-0.02em",color:scaleConnected?C.green:C.muted}}>{live.toFixed(2)}<span style={{fontSize:18}}>g</span></div>
+                <div style={{fontSize:46,fontWeight:800,fontFamily:"monospace",letterSpacing:"-0.02em",color:scaleConnected?C.green:C.muted}}>{fmtW(live)}<span style={{fontSize:18}}>g</span></div>
                 <div style={{fontSize:10,color:scaleConnected?C.green:C.muted,margin:"2px 0 10px"}}>{scaleConnected?("\u25cf เชื่อมต่อแล้ว"+(scaleSrcUnit?" · เครื่องส่งหน่วย "+scaleSrcUnit:"")):"\u25cb ยังไม่ได้เชื่อมต่อ / not connected"}</div>
                 {!scaleConnected
                   ?<button onClick={connectScale} style={{...gs.btnLg(C.blue)}}>🔌 ต่อเครื่องชั่ง / Connect scale</button>
@@ -8191,7 +8195,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               </div>
               </span>);
             })()}
-            {shiftCheck.step==="weigh"&&<button onClick={scaleConnected?disconnectScale:connectScale} style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.blue,scaleConnected?C.green:"#000"),fontSize:10,padding:"6px 11px",marginBottom:9}}>{scaleConnected?("⚖ เครื่องชั่งพร้อม · "+(+scaleReading||0).toFixed(2)+"g — กด ⚖ ข้างแต่ละรายการ"):"⚖ เชื่อมต่อเครื่องชั่ง / Connect scale"}</button>}
+            {shiftCheck.step==="weigh"&&<button onClick={scaleConnected?disconnectScale:connectScale} style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.blue,scaleConnected?C.green:"#000"),fontSize:10,padding:"6px 11px",marginBottom:9}}>{scaleConnected?("⚖ เครื่องชั่งพร้อม · "+fmtW(scaleReading)+"g — กด ⚖ ข้างแต่ละรายการ"):"⚖ เชื่อมต่อเครื่องชั่ง / Connect scale"}</button>}
             {shiftCheck.step==="weigh"&&<button onClick={function(){setShiftCheck(function(p){return Object.assign({},p,{step:"scale"});});}} style={{...gs.btn(C.card2,"#9ca3af"),fontSize:10,padding:"6px 11px",marginBottom:9,marginLeft:6,border:"1px solid "+C.border}}>🧪 เช็คเครื่องชั่ง / Test scale</button>}
             {shiftCheck.step==="weigh"&&<span style={{display:"contents"}}>
               <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
@@ -8232,7 +8236,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   </div>
                   <input type="number" step={wgh?"0.01":"1"} placeholder={r.unit||"g"} value={r.measured} onChange={function(e){var v=e.target.value;setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{measured:v}):x;});return n;});}} style={{...gs.input,width:86,textAlign:"center"}}/>
                   {wgh
-                    ?<button onClick={function(){var v=(+scaleReading||0).toFixed(2);setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{measured:v}):x;});return n;});}} title="ใช้ค่าจากเครื่องชั่ง" style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.card3,scaleConnected?C.green:"#9ca3af"),fontSize:9,padding:"5px 8px",border:"1px solid "+C.border}}>⚖ {(+scaleReading||0).toFixed(1)}g</button>
+                    ?<button onClick={function(){var v=fmtW(scaleReading);setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{measured:v}):x;});return n;});}} title="ใช้ค่าจากเครื่องชั่ง" style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.card3,scaleConnected?C.green:"#9ca3af"),fontSize:9,padding:"5px 8px",border:"1px solid "+C.border}}>⚖ {fmtW(scaleReading)}g</button>
                     :<button onClick={function(){setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{measured:String((+x.measured||0)+1)}):x;});return n;});}} title="+1 ชิ้น / count one" style={{...gs.btn(C.card3,"#9ca3af"),fontSize:11,padding:"5px 11px",border:"1px solid "+C.border,fontWeight:900}}>＋1</button>}
                   <span style={{fontSize:9,fontWeight:800,minWidth:76,textAlign:"right",color:m===null?C.muted:(Math.abs(d)<=0.05?C.green:(d>0?"#38bdf8":C.gold))}}>{st}</span>
                   {shiftCheck.mode==="out"&&m!==null&&Math.abs(d)>0.05&&<select value={r.reason} onChange={function(e){var v=e.target.value;setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{reason:v}):x;});return n;});}} style={{...gs.input,width:"100%",fontSize:10}}>
@@ -8246,7 +8250,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               {weighFocus!==null&&shiftCheck.rows[weighFocus]&&(function(){
                 var i=weighFocus, r=shiftCheck.rows[i];
                 var isW=(r.unit||"g")==="g";
-                var live=Math.round((+scaleReading||0)*100)/100;
+                var live=Math.round((+scaleReading||0)*10000)/10000;
                 var mv=r.measured===""?null:(+r.measured||0);
                 var dv=mv===null?null:Math.round((mv-r.expected)*100)/100;
                 var setM=function(v){setShiftCheck(function(p){var n=Object.assign({},p);
@@ -8270,9 +8274,9 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
 
                     {isW&&<div style={{background:C.card2,border:"1px solid "+(scaleConnected?"rgba(74,222,128,0.35)":C.border),borderRadius:12,padding:"14px 12px",textAlign:"center",marginBottom:10}}>
                       <div style={{...gs.eyebrow,marginBottom:4}}>{scaleConnected?"น้ำหนักจริงบนเครื่องชั่ง / live scale":"ยังไม่ได้ต่อเครื่องชั่ง / scale not connected"}</div>
-                      <div style={{fontSize:40,fontWeight:800,fontFamily:"monospace",letterSpacing:"-0.02em",color:scaleConnected?C.green:C.muted}}>{live.toFixed(2)}<span style={{fontSize:16}}>g</span></div>
+                      <div style={{fontSize:40,fontWeight:800,fontFamily:"monospace",letterSpacing:"-0.02em",color:scaleConnected?C.green:C.muted}}>{fmtW(live)}<span style={{fontSize:16}}>g</span></div>
                       {scaleConnected
-                        ?<button onClick={function(){setM(live.toFixed(2));}} style={{...gs.btnLg(C.green),marginTop:9,fontSize:14}}>⚖ ใช้ค่านี้ / Use this weight</button>
+                        ?<button onClick={function(){setM(fmtW(live));}} style={{...gs.btnLg(C.green),marginTop:9,fontSize:14}}>⚖ ใช้ค่านี้ / Use this weight</button>
                         :<button onClick={connectScale} style={{...gs.btnLg(C.blue),marginTop:9,fontSize:14}}>🔌 ต่อเครื่องชั่ง / Connect scale</button>}
                     </div>}
 
