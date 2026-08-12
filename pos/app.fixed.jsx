@@ -140,8 +140,8 @@ const TAB_GUIDE=[
    steps:"• (เฉพาะ CEO) เชื่อม StoreHub + เว็บไซต์ลูกค้า และตรวจสถานะ API"},
   {id:"work",name:"📋 Work — งานมอบหมาย",kw:["งานมอบหมาย","task","checklist","เช็คลิสต์","งานประจำวัน"],
    steps:"• งานที่ได้รับมอบหมาย/เช็คลิสต์ประจำวัน — เสร็จแล้วติ๊ก · ขอเลื่อน deadline ได้ (ผู้จัดการอนุมัติ)"},
-  {id:"scale",name:"⚖ Scale & Print — เครื่องชั่ง/ปริ้น",kw:["เครื่องชั่ง","ชั่ง","scale","น้ำหนัก","weight","ปริ้น","printer","พิมพ์ใบเสร็จ","หน่วย","kg"],
-   steps:"• ต่อเครื่องชั่ง USB: กด 🔌 Connect (ใช้ Chrome/Edge) · ตั้งหน่วย Auto/g/kg — ถ้าตัวเลขน้อยกว่าหน้าจอเครื่อง 1000 เท่า ให้ตั้งเป็น kg\n• 🧪 Test scale เช็คก่อนใช้ทุกครั้ง · ตั้งค่าเครื่องพิมพ์ใบเสร็จที่หน้านี้"},
+  {id:"scale",name:"⚖ Scale & Print — เครื่องชั่ง/ปริ้น",kw:["เครื่องชั่ง","ชั่ง","scale","น้ำหนัก","weight","ปริ้น","printer","พิมพ์ใบเสร็จ","หน่วย","kg","จอลูกค้า","customer display","cds","จอที่สอง"],
+   steps:"• ต่อเครื่องชั่ง USB: กด 🔌 Connect (ใช้ Chrome/Edge) · ตั้งหน่วย Auto/g/kg — ถ้าตัวเลขน้อยกว่าหน้าจอเครื่อง 1000 เท่า ให้ตั้งเป็น kg\n• 🧪 Test scale เช็คก่อนใช้ทุกครั้ง · ตั้งค่าเครื่องพิมพ์ใบเสร็จที่หน้านี้\n• 🖥 จอลูกค้า (CDS): กด เปิดจอลูกค้า → ลากไปจอที่สอง กด F11 — ลูกค้าเห็นตะกร้า ราคา ยอดรวม และ QR โอนเงินสด ๆ"},
   {id:"marketing",name:"📣 Marketing — การตลาด",kw:["การตลาด","marketing","โพสต์","content","แคปชั่น","โฆษณา"],
    steps:"• ทีม AI การตลาด (คอนเทนต์/แคปชั่น/แผนโปร) — เลือก agent แล้วพิมพ์คุยได้เลย"},
   {id:"aisum",name:"🧠 AI Summary — สรุปภาพรวม",kw:["ai summary","ภาพรวม","overview","สรุปร้าน"],
@@ -333,7 +333,90 @@ const ONLINE_ORDERS_INIT=[
 ];
 
     const { useState, useEffect, useRef, useCallback } = React;
+// ── CUSTOMER DISPLAY (CDS) ────────────────────────────────────────────────
+// The same bundle opened with ?cds=1 becomes the customer-facing screen: no
+// login, no controls, just a live mirror of the till. The till broadcasts on
+// a BroadcastChannel and also writes dank_cds_state to localStorage; the
+// display listens to both and polls the key once a second as a last resort,
+// so it keeps working across window types and with no network at all.
+const CDS_MODE=(function(){try{return /[?&]cds=1/.test(window.location.search);}catch(e){return false;}})();
+function CDSView(){
+  const [st,setSt]=useState(function(){try{return JSON.parse(localStorage.getItem("dank_cds_state"))||{stage:"idle"};}catch(e){return {stage:"idle"};}});
+  useEffect(function(){
+    var bc=null;
+    try{bc=new BroadcastChannel("dank_cds");bc.onmessage=function(e){if(e&&e.data)setSt(e.data);};}catch(e){}
+    var onStorage=function(e){if(e.key==="dank_cds_state"&&e.newValue){try{setSt(JSON.parse(e.newValue));}catch(err){}}};
+    window.addEventListener("storage",onStorage);
+    var iv=setInterval(function(){try{var s=JSON.parse(localStorage.getItem("dank_cds_state"));if(s&&s.ts)setSt(function(prev){return s.ts!==prev.ts?s:prev;});}catch(e){}},1000);
+    return function(){try{bc&&bc.close();}catch(e){}window.removeEventListener("storage",onStorage);clearInterval(iv);};
+  },[]);
+  var items=st.items||[];
+  var money=function(v){return "฿"+Math.round(+v||0).toLocaleString();};
+  var showQR=st.stage!=="paid"&&items.length>0&&st.pay==="bank";
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,color:C.text,display:"flex",flexDirection:"column",fontFamily:"'Inter','Noto Sans Thai',system-ui,sans-serif"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,padding:"16px 26px",borderBottom:"1px solid "+C.border,background:C.card}}>
+        <span style={{fontSize:28}}>🌿</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:20,fontWeight:900,letterSpacing:"-0.01em"}}>{st.shop||"ClinicWorks Cannabis"}</div>
+          {st.branch?<div style={{fontSize:12,color:C.muted}}>{st.branch}</div>:null}
+        </div>
+        {st.cust&&<div style={{textAlign:"right"}}>
+          <div style={{fontSize:15,fontWeight:800,color:C.green}}>💎 {st.cust.name}</div>
+          <div style={{fontSize:11,color:C.muted}}>แต้มสะสม / points: {(+st.cust.points||0).toLocaleString()}</div>
+        </div>}
+      </div>
+      {st.stage==="paid"?(
+        <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:13,padding:30,textAlign:"center"}}>
+          <div style={{fontSize:74}}>🙏</div>
+          <div style={{fontSize:34,fontWeight:900}}>ขอบคุณค่ะ / Thank you!</div>
+          <div style={{fontSize:28,fontWeight:800,color:C.green,fontFamily:"monospace"}}>{money(st.total)}</div>
+          {(+st.change||0)>0&&<div style={{fontSize:18,color:C.muted}}>เงินทอน / Change {money(st.change)}</div>}
+          <div style={{fontSize:13,color:C.muted}}>แล้วพบกันใหม่ / See you again 🌿</div>
+        </div>
+      ):(items.length===0?(
+        <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:30,textAlign:"center"}}>
+          <div style={{fontSize:84}}>🌿</div>
+          <div style={{fontSize:34,fontWeight:900}}>ยินดีต้อนรับ / Welcome</div>
+          <div style={{fontSize:15,color:C.muted}}>Dank Cannabis Clinic · Bangkok</div>
+        </div>
+      ):(
+        <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            <div style={{flex:1,overflowY:"auto",padding:"14px 26px"}}>
+              {items.map(function(it,i){return (
+                <div key={i} style={{display:"flex",alignItems:"baseline",gap:12,padding:"12px 0",borderBottom:"1px solid "+C.border}}>
+                  <div style={{flex:1,fontSize:20,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.n}{it.cp?<span style={{fontSize:11,color:C.blue,marginLeft:8}}>🕘 ราคาสมาชิก</span>:null}</div>
+                  <div style={{fontSize:15,color:C.muted,whiteSpace:"nowrap"}}>{it.q} × {money(it.p)}</div>
+                  <div style={{fontSize:20,fontWeight:800,minWidth:105,textAlign:"right"}}>{money(it.q*it.p)}</div>
+                </div>);})}
+            </div>
+            <div style={{padding:"14px 26px 20px",borderTop:"1px solid "+C.border,background:C.card}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.muted,marginBottom:4}}><span>รวม / Subtotal</span><span>{money(st.sub)}</span></div>
+              {(+st.disc||0)>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.green,marginBottom:4}}><span>ส่วนลด / Discount</span><span>-{money(st.disc)}</span></div>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:6}}>
+                <span style={{fontSize:20,fontWeight:800}}>ยอดชำระ / Total</span>
+                <span style={{fontSize:46,fontWeight:900,color:C.green,fontFamily:"monospace",letterSpacing:"-0.02em"}}>{money(st.total)}</span>
+              </div>
+            </div>
+          </div>
+          {showQR&&<div style={{width:300,borderLeft:"1px solid "+C.border,background:C.card,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,padding:18,textAlign:"center"}}>
+            <div style={{fontSize:14,fontWeight:800}}>สแกนจ่าย / Scan to pay</div>
+            <img src={PROMPTPAY_QR_IMG} alt="PromptPay QR" style={{width:230,maxWidth:"90%",borderRadius:12,background:"#fff",padding:6}}/>
+            <div style={{fontSize:11,color:C.muted,lineHeight:1.6}}>{PROMPTPAY_INFO.name}<br/>{PROMPTPAY_INFO.acct}</div>
+            <div style={{fontSize:18,fontWeight:900,color:C.green,fontFamily:"monospace"}}>{money(st.total)}</div>
+          </div>}
+        </div>
+      ))}
+      <div style={{padding:"7px 26px",fontSize:10,color:C.muted,borderTop:"1px solid "+C.border,display:"flex",justifyContent:"space-between"}}>
+        <span>Customer Display · ClinicWorks POS</span><span>{st.ts?new Date(st.ts).toLocaleTimeString():""}</span>
+      </div>
+    </div>
+  );
+}
+
 function GreenPOS() {
+  if(CDS_MODE) return <CDSView/>;
   const [lang,setLang]=useState(function(){try{var v=localStorage.getItem("dank_lang");if(v&&T[v])return v;}catch(e){}return "th";}); const t=T[lang];
   useEffect(function(){try{localStorage.setItem("dank_lang",lang);}catch(e){}},[lang]);
   // ── English display mode ─────────────────────────────────────────────
@@ -2851,6 +2934,41 @@ function GreenPOS() {
   const finalTotal=afterDisc-ptDisc;
   const earnedPts=Math.floor(finalTotal/100)*100;
 
+  // Mirror the till onto any open customer display. Broadcast + localStorage
+  // (the display also polls the key), so it works with zero network. The hold
+  // keeps the thank-you screen up while the cart resets after checkout.
+  const cdsChanRef=useRef(null);
+  const cdsHoldRef=useRef(0);
+  useEffect(function(){
+    try{cdsChanRef.current=new BroadcastChannel("dank_cds");}catch(e){}
+    return function(){try{cdsChanRef.current&&cdsChanRef.current.close();}catch(e){}};
+  },[]);
+  const cdsSend=function(payload){
+    try{localStorage.setItem("dank_cds_state",JSON.stringify(payload));}catch(e){}
+    try{cdsChanRef.current&&cdsChanRef.current.postMessage(payload);}catch(e){}
+  };
+  useEffect(function(){
+    if(screen!=="main")return;
+    if(Date.now()<cdsHoldRef.current)return;
+    cdsSend({
+      stage:cart.length?"cart":"idle",ts:Date.now(),
+      shop:"ClinicWorks Cannabis",
+      branch:((stores.find(function(s){return s.id===activeBranch;})||{}).name)||"",
+      pay:payMethod,
+      items:cart.map(function(i){return {n:cleanName(i).short||i.name,q:i.qty,p:+(i.unitPrice!=null?i.unitPrice:i.price)||0,cp:!!i.custPrice};}),
+      sub:cartSub,disc:discAmt+ptDisc,total:finalTotal,
+      cust:selCustomer?{name:selCustomer.name,points:+selCustomer.points||0}:null
+    });
+  },[cart,selCustomer,screen,discType,discVal,usePoints,payMethod,activeBranch]);
+  const openCDS=function(){
+    try{
+      var w=window.open(window.location.pathname+"?cds=1","dank_cds_win","width=1100,height=740");
+      if(!w){notify("เบราว์เซอร์บล็อกป๊อปอัพ — อนุญาต popup ให้เว็บนี้แล้วลองใหม่","error");return;}
+      addAudit("CDS_OPEN","เปิดจอลูกค้า",currentStaff&&currentStaff.name);
+      notify("🖥 เปิดจอลูกค้าแล้ว — ลากไปจอที่สอง แล้วกด F11 ให้เต็มจอ");
+    }catch(e){notify("เปิดจอลูกค้าไม่ได้: "+(e&&e.message),"error");}
+  };
+
   const now=new Date();
   // isHH replaced by schedule-based isHHActive
   const isHH=isHHActive;
@@ -2974,6 +3092,9 @@ function GreenPOS() {
         entry.prices=pr;m[k]=entry;return m;
       });
     }
+    cdsHoldRef.current=Date.now()+6000;
+    cdsSend({stage:"paid",ts:Date.now(),shop:"ClinicWorks Cannabis",total:finalTotal,change:payMethod==="cash"?Math.max(0,cash-finalTotal):0,cust:selCustomer?{name:selCustomer.name,points:+selCustomer.points||0}:null});
+    setTimeout(function(){cdsHoldRef.current=0;cdsSend({stage:"idle",ts:Date.now(),shop:"ClinicWorks Cannabis"});},6000);
     setTransactions(prev=>[receipt,...prev]);
     setShowReceipt(receipt);
     setCart([]);setSelCustomer(null);setUsePoints(0);setCashGiven("");setDiscType("none");setDiscVal(0);setSelTable(null);setIsMedTx(false);setMemberPricing(false);setDiscAuthorizedBy(null);
@@ -6590,6 +6711,11 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               </div>
               {!scaleConnected?<button onClick={connectScale} style={{...gs.btnLg(C.green)}}>🔌 Connect Scale</button>
                 :<button onClick={disconnectScale} style={{...gs.btnLg(C.card3)}}>Disconnect</button>}
+              <div style={{marginTop:10,padding:"10px 12px",background:C.card2,border:"1px solid "+C.border,borderRadius:10}}>
+                <div style={{fontSize:11,fontWeight:800,marginBottom:3}}>🖥 จอลูกค้า / Customer Display (CDS)</div>
+                <div style={{fontSize:9,color:C.muted,lineHeight:1.6,marginBottom:8}}>เปิดหน้าต่างที่สองโชว์ตะกร้า ราคา ส่วนลด ยอดรวม และ QR โอนเงิน ให้ลูกค้าเห็นสด ๆ — ลากไปจอลูกค้า แล้วกด F11 ให้เต็มจอ (อัปเดตเองอัตโนมัติ ใช้ได้แม้ไม่มีเน็ต · จ่ายเสร็จขึ้นหน้าขอบคุณ)</div>
+                <button onClick={openCDS} style={{...gs.btn(C.green),fontSize:11,padding:"7px 14px"}}>🖥 เปิดจอลูกค้า / Open customer display</button>
+              </div>
               <div style={{fontSize:9,color:C.muted,marginTop:7}}>USB serial scales via Chrome/Edge. No scale? Type the weight manually — everything else works the same.<br/>ถ้าตัวเลขน้อยกว่าที่หน้าจอเครื่องชั่ง 1000 เท่า แปลว่าเครื่องส่งมาเป็น kg — ตั้งหน่วยเป็น kg</div>
             </div>
             <div style={{...gs.card}}>
