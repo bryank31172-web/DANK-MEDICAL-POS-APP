@@ -8115,7 +8115,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               {(function(){
                 var _total=shiftCheck.rows.length;
                 var _filled=shiftCheck.rows.filter(function(r){return r.measured!=="";}).length;
-                var _okN=shiftCheck.rows.filter(function(r){if(r.measured==="")return false;var d=Math.round(((+r.measured||0)-r.expected)*100)/100;return d>=-0.05;}).length;
+                var _okN=shiftCheck.rows.filter(function(r){if(r.measured==="")return false;var d=Math.round(((+r.measured||0)-r.expected)*100)/100;return Math.abs(d)<=0.05;}).length;
                 var _pct=_total?Math.round(_filled*100/_total):0;
                 var _all=_total>0&&_okN===_total;
                 return (<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:9}}>
@@ -8132,14 +8132,14 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 if(!shiftCheck.byCat){_groups=[{cat:null,items:_wi}];}
                 else{var _gm={},_go=[];_wi.forEach(function(x){var c=x.r.cat||"Other";if(!_gm[c]){_gm[c]=[];_go.push(c);}_gm[c].push(x);});_go.sort(catCmp);_groups=_go.map(function(c){return {cat:c,items:_gm[c]};});}
                 return _groups.map(function(_g){return (<span key={_g.cat||"__all"} style={{display:"contents"}}>
-                {_g.cat&&(function(){var _ok=_g.items.filter(function(x){var r2=x.r;if(r2.measured==="")return false;var d2=Math.round(((+r2.measured||0)-r2.expected)*100)/100;return d2>=-0.05;}).length;return (<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"8px 0 6px",padding:"5px 10px",background:C.card3,borderRadius:8,border:"1px solid "+C.border}}><span style={{fontSize:10,fontWeight:900}}>🗂 {_g.cat}</span><span style={{fontSize:9,fontWeight:800,color:_ok===_g.items.length?C.green:C.muted}}>{_ok}/{_g.items.length}</span></div>);})()}
+                {_g.cat&&(function(){var _ok=_g.items.filter(function(x){var r2=x.r;if(r2.measured==="")return false;var d2=Math.round(((+r2.measured||0)-r2.expected)*100)/100;return Math.abs(d2)<=0.05;}).length;return (<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"8px 0 6px",padding:"5px 10px",background:C.card3,borderRadius:8,border:"1px solid "+C.border}}><span style={{fontSize:10,fontWeight:900}}>🗂 {_g.cat}</span><span style={{fontSize:9,fontWeight:800,color:_ok===_g.items.length?C.green:C.muted}}>{_ok}/{_g.items.length}</span></div>);})()}
                 {_g.items.map(function(_x){var r=_x.r,idx=_x.idx;
                 var m=r.measured===""?null:+r.measured;
                 var wgh=(r.unit==="g"||r.unit==="ml"||!r.unit);
                 var d=m===null?null:Math.round((m-r.expected)*100)/100;
-                var st=m===null?"—":(d>=-0.05?"✅ OK":"⚠ Short "+Math.abs(d).toFixed(2)+(r.unit||"g"));
+                var st=m===null?"—":(Math.abs(d)<=0.05?"✅ OK":(d>0?"➕ Over +"+d.toFixed(2)+(r.unit||"g"):"⚠ Short "+Math.abs(d).toFixed(2)+(r.unit||"g")));
                 return (
-                <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 9px",background:C.card2,borderRadius:9,border:"1px solid "+(m===null?C.border:(d>=-0.05?"rgba(74,222,128,0.4)":"rgba(245,158,11,0.5)")),marginBottom:6,flexWrap:"wrap"}}>
+                <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 9px",background:C.card2,borderRadius:9,border:"1px solid "+(m===null?C.border:(Math.abs(d)<=0.05?"rgba(74,222,128,0.4)":(d>0?"rgba(56,189,248,0.55)":"rgba(245,158,11,0.5)"))),marginBottom:6,flexWrap:"wrap"}}>
                   <div onClick={function(){setWeighFocus(idx);}} title="แตะเพื่อชั่ง / tap to weigh" style={{flex:"1 1 140px",minWidth:0,cursor:"pointer"}}>
                     <div style={{fontSize:10.5,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name} <span style={{color:C.blue,fontWeight:400}}>›</span></div>
                     <div style={{fontSize:8.5,color:C.muted}}>Expected {r.expected}{r.unit||"g"}</div>
@@ -8148,9 +8148,9 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   {wgh
                     ?<button onClick={function(){var v=(+scaleReading||0).toFixed(2);setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{measured:v}):x;});return n;});}} title="ใช้ค่าจากเครื่องชั่ง" style={{...gs.btn(scaleConnected?"rgba(74,222,128,0.15)":C.card3,scaleConnected?C.green:"#9ca3af"),fontSize:9,padding:"5px 8px",border:"1px solid "+C.border}}>⚖ {(+scaleReading||0).toFixed(1)}g</button>
                     :<button onClick={function(){setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{measured:String((+x.measured||0)+1)}):x;});return n;});}} title="+1 ชิ้น / count one" style={{...gs.btn(C.card3,"#9ca3af"),fontSize:11,padding:"5px 11px",border:"1px solid "+C.border,fontWeight:900}}>＋1</button>}
-                  <span style={{fontSize:9,fontWeight:800,minWidth:76,textAlign:"right",color:m===null?C.muted:(d>=-0.05?C.green:C.gold)}}>{st}</span>
-                  {shiftCheck.mode==="out"&&m!==null&&d< -0.05&&<select value={r.reason} onChange={function(e){var v=e.target.value;setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{reason:v}):x;});return n;});}} style={{...gs.input,width:"100%",fontSize:10}}>
-                    <option value="">— เหตุผลของส่วนที่หาย (จำเป็น) —</option>
+                  <span style={{fontSize:9,fontWeight:800,minWidth:76,textAlign:"right",color:m===null?C.muted:(Math.abs(d)<=0.05?C.green:(d>0?"#38bdf8":C.gold))}}>{st}</span>
+                  {shiftCheck.mode==="out"&&m!==null&&Math.abs(d)>0.05&&<select value={r.reason} onChange={function(e){var v=e.target.value;setShiftCheck(function(p){var n=Object.assign({},p);n.rows=p.rows.map(function(x,i){return i===idx?Object.assign({},x,{reason:v}):x;});return n;});}} style={{...gs.input,width:"100%",fontSize:10}}>
+                    <option value="">— เหตุผลที่ไม่ตรง ขาด/เกิน (จำเป็น) —</option>
                     {["Customer sample","Trim loss","Flower dried","Packaging mistake","Human counting error","Manager adjustment","Unknown"].map(function(rz){return <option key={rz} value={rz}>{rz}</option>;})}
                   </select>}
                 </div>
@@ -8199,14 +8199,15 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                     </div>
 
                     <div style={{textAlign:"center",fontSize:13,fontWeight:800,minHeight:22,marginBottom:10,
-                      color:dv===null?C.muted:(dv>=-0.05?C.green:C.gold)}}>
-                      {dv===null?"— ยังไม่ได้ใส่ค่า —":(dv>=-0.05
-                        ?("✅ ตรง / OK"+(dv>0.05?(" (เกิน +"+dv.toFixed(2)+(r.unit||"g")+")"):""))
-                        :("⚠ ขาด / short "+Math.abs(dv).toFixed(2)+(r.unit||"g")))}
+                      color:dv===null?C.muted:(Math.abs(dv)<=0.05?C.green:(dv>0?"#38bdf8":C.gold))}}>
+                      {dv===null?"— ยังไม่ได้ใส่ค่า —":(Math.abs(dv)<=0.05
+                        ?"✅ ตรง / OK"
+                        :(dv>0?("➕ เกิน / over +"+dv.toFixed(2)+(r.unit||"g"))
+                        :("⚠ ขาด / short "+Math.abs(dv).toFixed(2)+(r.unit||"g"))))}
                     </div>
 
-                    {shiftCheck.mode==="out"&&dv!==null&&dv< -0.05&&<div style={{marginBottom:10}}>
-                      <label style={gs.label}>เหตุผลของส่วนที่หาย (จำเป็น)</label>
+                    {shiftCheck.mode==="out"&&dv!==null&&Math.abs(dv)>0.05&&<div style={{marginBottom:10}}>
+                      <label style={gs.label}>เหตุผลที่ไม่ตรง ขาด/เกิน (จำเป็น)</label>
                       <select value={r.reason} onChange={function(e){var v=e.target.value;setShiftCheck(function(p){var n=Object.assign({},p);
                         n.rows=p.rows.map(function(x,k){return k===i?Object.assign({},x,{reason:v}):x;});return n;});}} style={gs.input}>
                         <option value="">— เลือกเหตุผล —</option>
@@ -8226,7 +8227,8 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 var filled=shiftCheck.rows.every(function(r){return r.measured!=="";});
                 var shorts=shortagesOf(shiftCheck.rows);
                 var missG=shorts.reduce(function(a2,x){return a2+x.miss;},0);
-                var reasonsOk=shorts.every(function(x){return x.r.reason;});
+                var overs=shiftCheck.rows.filter(function(r){if(r.measured==="")return false;return Math.round(((+r.measured||0)-r.expected)*100)/100>0.05;});
+                var reasonsOk=shorts.every(function(x){return x.r.reason;})&&overs.every(function(r){return r.reason;});
                 var needMgr=shiftCheck.mode==="out"&&missG>SHRINK_THRESHOLD_G;
                 return (<span style={{display:"contents"}}>
                 {shiftCheck.mode==="out"&&shorts.length>0&&<div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:9,padding:"8px 11px",marginBottom:9,fontSize:10}}>
@@ -8241,7 +8243,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   <button disabled={!filled} onClick={function(){
                     if(!filled){notify("ชั่งให้ครบทุก SKU ก่อน","error");return;}
                     if(shiftCheck.mode==="in"){var s2=staff.find(function(x){return x.id===shiftCheck.staffId;});directClockIn(s2||{id:shiftCheck.staffId,name:shiftCheck.staffName},shiftCheck.rows);setShiftCheck(null);return;}
-                    if(!reasonsOk){notify("ใส่เหตุผลทุกรายการที่ขาด","error");return;}
+                    if(!reasonsOk){notify("ใส่เหตุผลทุกรายการที่ไม่ตรง (ขาด/เกิน)","error");return;}
                     if(needMgr){var mg=staff.find(function(x){return x.pin===shiftCheck.mgrPin&&(x.role==="manager"||x.role==="owner");});if(!mg){notify("Manager PIN ไม่ถูกต้อง","error");return;}}
                     setShiftCheck(function(p){return Object.assign({},p,{step:"report"});});
                   }} style={{...gs.btn(filled?C.green:C.card3,filled?"#000":"#666"),flex:2}}>{shiftCheck.mode==="in"?"✅ Complete Check → Clock In":"ต่อไป → Shift Report"}</button>
