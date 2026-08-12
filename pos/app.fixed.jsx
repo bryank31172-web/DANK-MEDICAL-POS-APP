@@ -3605,6 +3605,39 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     if(screen==="main"&&!autoSyncTried){ setAutoSyncTried(true); syncStorehub(); }
   },[screen]);
 
+  // ── Cloud mirror: push dank_* localStorage keys to Supabase (via /api/sync) every
+  // ~45s while a shift is open, so the owner dashboard can read live data from any
+  // device. localStorage stays the source of truth for the POS itself — this is a
+  // one-way, best-effort mirror, not a restore/sync-down path.
+  const SYNC_SHARED_KEY="dank-pos-sync-v1";
+  const cloudPush=function(){
+    try{
+      var branch=_branchKey||"unassigned";
+      var did=localStorage.getItem("dank_deviceid");
+      if(!did){ did="dev-"+Math.random().toString(36).slice(2,10); localStorage.setItem("dank_deviceid",did); }
+      var now=new Date().toISOString();
+      var sets=[];
+      for(var i=0;i<localStorage.length;i++){
+        var k=localStorage.key(i);
+        if(!k||k.indexOf("dank_")!==0)continue;
+        var raw=localStorage.getItem(k); var val;
+        try{val=JSON.parse(raw);}catch(e){val=raw;}
+        sets.push({key:k,value:val,updatedAt:now});
+      }
+      if(!sets.length)return;
+      fetch("/api/sync",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json","X-Sync-Key":SYNC_SHARED_KEY},
+        body:JSON.stringify({branch:branch,device:did,sets:sets})}).catch(function(){});
+    }catch(e){}
+  };
+  useEffect(function(){
+    if(screen!=="main")return;
+    cloudPush();
+    var iv=setInterval(cloudPush,45000);
+    var onHide=function(){ if(document.visibilityState==="hidden")cloudPush(); };
+    document.addEventListener("visibilitychange",onHide);
+    return function(){ clearInterval(iv); document.removeEventListener("visibilitychange",onHide); };
+  },[screen,_branchKey]);
+
   // LOGIN SCREEN
   if(screen==="login") return (
     <div style={{...gs.app,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",minHeight:"100vh",padding:mob?"14px":"24px",background:`radial-gradient(ellipse at 50% 0%,rgba(201,168,76,0.06) 0%,${C.bg} 70%)`}}>
