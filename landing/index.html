@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ClinicWorks POS — เคาน์เตอร์ร้านคุณ บนระบบเดียว</title>
+<meta name="description" content="ระบบขายหน้าร้านสำหรับคลินิกกัญชา — จอลูกค้า เครื่องชั่งสด ราคาสมาชิก นับสต๊อกทุกกะ และผู้ช่วย AI ในระบบเดียว ใช้ได้แม้เน็ตหลุด"/>
+<meta name="theme-color" content="#090f0b"/>
+<meta property="og:title" content="ClinicWorks POS — เคาน์เตอร์ร้านคุณ บนระบบเดียว"/>
+<meta property="og:description" content="จอลูกค้า · เครื่องชั่งสด · ราคาสมาชิก · นับสต๊อกทุกกะ · ผู้ช่วย AI"/>
+<meta property="og:type" content="website"/>
+<link rel="icon" href="/clinicworks/logo.svg"/>
+<style>
+/* ── tokens: the same forest-green system the POS itself runs on ───────── */
+:root{
+  --bg:#090f0b; --bg2:#0b120d; --card:#0f1611; --card2:#151f18; --card3:#1d2a20;
+  --line:#26362b; --line-soft:#1b2620;
+  --text:#f2f5f3; --muted:#94a29a;
+  --mint:#4ade80; --mint-dim:#3fb96b; --gold:#c9a84c; --sky:#38bdf8;
+  --r-pill:999px; --r-card:18px; --r-lg:26px;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px -6px rgba(0,0,0,.6);
+  --maxw:1160px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,"Noto Sans Thai",system-ui,sans-serif;
+  font-size:16px; line-height:1.6; letter-spacing:-.011em;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+:focus-visible{outline:2px solid var(--mint);outline-offset:3px;border-radius:6px}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.disp{font-weight:800;letter-spacing:-.032em;line-height:1.04;text-wrap:balance}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--mint)}
+.lede{color:var(--muted);font-size:clamp(15px,1.5vw,19px);line-height:1.65;max-width:56ch}
+
+/* ── pills & buttons ───────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:var(--r-pill);padding:13px 26px;font-weight:700;font-size:15px;
+  letter-spacing:-.015em;min-height:48px;
+  transition:transform .16s cubic-bezier(.2,.7,.3,1),filter .16s,box-shadow .16s;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:translateY(0) scale(.985)}
+.btn-primary{
+  background:var(--mint);color:#052e16;
+  background-image:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 55%);
+  box-shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px -8px rgba(74,222,128,.55);
+}
+.btn-primary:hover{filter:brightness(1.06)}
+.btn-ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+.btn-ghost:hover{border-color:var(--mint);color:var(--mint)}
+.btn-sm{padding:9px 18px;font-size:13.5px;min-height:40px}
+.chip{
+  display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);
+  padding:9px 17px;font-size:13.5px;font-weight:600;min-height:40px;
+  background:var(--card2);color:var(--muted);border:1px solid var(--line);
+  transition:all .18s;
+}
+.chip:hover{color:var(--text);border-color:#38503f}
+.chip[aria-selected="true"]{background:rgba(74,222,128,.14);color:var(--mint);border-color:rgba(74,222,128,.5)}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.55}
+.chip[aria-selected="true"] .dot{opacity:1}
+.badge{display:inline-block;border-radius:var(--r-pill);padding:3px 10px;font-size:10.5px;font-weight:700;letter-spacing:.03em}
+
+/* ── nav ───────────────────────────────────────────────────────────────── */
+.nav{position:sticky;top:0;z-index:50;background:rgba(9,15,11,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line-soft)}
+.nav .wrap{display:flex;align-items:center;gap:14px;height:66px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.02em}
+.brand svg{width:30px;height:22px;flex-shrink:0}
+.brand .sub{display:block;font-size:8.5px;font-weight:600;letter-spacing:.22em;color:var(--muted);text-transform:uppercase;margin-top:1px}
+.nav-links{display:flex;gap:4px;margin-left:auto}
+.nav-links a{padding:8px 13px;border-radius:var(--r-pill);font-size:14px;color:var(--muted);transition:color .16s,background .16s}
+.nav-links a:hover{color:var(--text);background:var(--card2)}
+@media(max-width:860px){.nav-links{display:none}}
+
+/* ── hero ──────────────────────────────────────────────────────────────── */
+.hero{position:relative;padding:clamp(44px,7vw,86px) 0 clamp(40px,6vw,70px);overflow:hidden}
+.hero::before{
+  content:"";position:absolute;inset:-20% -10% auto -10%;height:70%;
+  background:radial-gradient(50% 60% at 50% 0%,rgba(74,222,128,.13),transparent 70%);
+  pointer-events:none;
+}
+.hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:clamp(26px,4vw,54px);align-items:center;position:relative}
+@media(max-width:940px){.hero-grid{grid-template-columns:1fr;gap:34px}}
+.hero h1{font-size:clamp(34px,5.6vw,62px);margin:16px 0 18px}
+.hero h1 .accent{color:var(--mint)}
+.hero-cta{display:flex;flex-wrap:wrap;gap:11px;margin:26px 0 22px}
+.trust{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.trust-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}
+.trust-row span{background:var(--card2);border:1px solid var(--line-soft);border-radius:var(--r-pill);padding:5px 13px;font-size:12.5px;color:var(--muted)}
+
+/* ── dual-screen mockup ────────────────────────────────────────────────── */
+.rig{position:relative;display:grid;gap:12px}
+.screen{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow);overflow:hidden;
+}
+.screen-top{
+  display:flex;align-items:center;gap:6px;padding:9px 13px;
+  background:var(--card2);border-bottom:1px solid var(--line-soft);
+}
+.screen-top i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}
+.screen-top .who{margin-left:6px;font-size:10.5px;color:var(--muted);font-weight:600;letter-spacing:.05em}
+.screen-body{padding:13px}
+.till-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.pcard{background:var(--card2);border:1px solid var(--line-soft);border-radius:13px;overflow:hidden}
+.pcard .ph{height:62px;background:linear-gradient(145deg,rgba(74,222,128,.18),rgba(255,255,255,.015));display:flex;align-items:center;justify-content:center;font-size:24px;position:relative}
+.pcard .ph img{width:100%;height:100%;object-fit:cover}
+.pcard .pb{padding:7px 9px}
+.pcard .pn{font-size:10.5px;font-weight:650;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcard .pp{font-size:13px;font-weight:800;color:var(--mint);margin-top:3px;letter-spacing:-.02em}
+.weigh{background:var(--card2);border:1px solid rgba(74,222,128,.34);border-radius:15px;padding:13px;text-align:center;margin-top:10px}
+.weigh .lbl{font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.weigh .val{font-size:clamp(28px,4.6vw,42px);font-weight:800;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.03em;color:var(--mint);line-height:1.15}
+.weigh .val em{font-size:.42em;font-style:normal;color:var(--muted);margin-left:3px}
+.weigh .tiers{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:9px}
+.weigh .tiers b{background:var(--card3);border:1px solid var(--line);border-radius:var(--r-pill);padding:4px 11px;font-size:10.5px;font-weight:600;color:var(--muted)}
+.weigh .tiers b.on{background:rgba(74,222,128,.15);border-color:rgba(74,222,128,.45);color:var(--mint)}
+.line{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:12.5px}
+.line:last-of-type{border-bottom:none}
+.line .q{color:var(--muted);font-size:11.5px}
+.total{display:flex;justify-content:space-between;align-items:baseline;margin-top:9px;padding-top:11px;border-top:1px solid var(--line)}
+.total .t{font-size:13px;font-weight:700}
+.total .v{font-size:26px;font-weight:800;color:var(--mint);letter-spacing:-.03em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.cds-tag{margin-left:auto;background:rgba(74,222,128,.14);border:1px solid rgba(74,222,128,.4);border-radius:var(--r-pill);padding:3px 11px;font-size:10px;font-weight:700;color:var(--mint);letter-spacing:.04em}
+.pane[hidden]{display:none}
+
+/* ── sections ──────────────────────────────────────────────────────────── */
+.sec{padding:clamp(48px,7vw,92px) 0;border-top:1px solid var(--line-soft)}
+.sec h2{font-size:clamp(26px,3.9vw,42px);margin:13px 0 14px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:14px;margin-top:34px}
+.feat{background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r-card);padding:22px;
+  background-image:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0));transition:border-color .2s,transform .2s}
+.feat:hover{border-color:#31463a;transform:translateY(-2px)}
+.feat .ic{width:42px;height:42px;border-radius:13px;background:rgba(74,222,128,.13);display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:13px}
+.feat h3{font-size:16.5px;font-weight:750;letter-spacing:-.018em;margin-bottom:7px}
+.feat p{font-size:13.5px;color:var(--muted);line-height:1.68}
+
+/* ── product showcase ──────────────────────────────────────────────────── */
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:14px;margin-top:32px}
+.sh{background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r-card);overflow:hidden;transition:transform .2s,border-color .2s}
+.sh:hover{transform:translateY(-3px);border-color:#31463a}
+.sh .pic{aspect-ratio:4/3;background:var(--card2);position:relative;overflow:hidden}
+.sh .pic img{width:100%;height:100%;object-fit:cover;transition:transform .4s cubic-bezier(.2,.7,.3,1)}
+.sh:hover .pic img{transform:scale(1.05)}
+.sh .pic .tag{position:absolute;top:9px;left:9px;background:rgba(9,15,11,.78);backdrop-filter:blur(6px);color:var(--mint);border:1px solid rgba(74,222,128,.34)}
+.sh .meta{padding:13px 14px 15px}
+.sh .nm{font-size:14.5px;font-weight:700;letter-spacing:-.015em}
+.sh .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.sh .pr{font-size:18px;font-weight:800;color:var(--mint);margin-top:9px;letter-spacing:-.025em}
+
+/* ── stats ─────────────────────────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:13px;margin-top:30px}
+.stat{background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r-card);padding:20px}
+.stat .v{font-size:clamp(26px,3.6vw,38px);font-weight:800;color:var(--mint);letter-spacing:-.032em;line-height:1.1}
+.stat .k{font-size:12.5px;color:var(--muted);margin-top:5px}
+
+/* ── cta band ──────────────────────────────────────────────────────────── */
+.band{background:linear-gradient(160deg,rgba(74,222,128,.1),rgba(74,222,128,.02));border:1px solid rgba(74,222,128,.24);
+  border-radius:var(--r-lg);padding:clamp(28px,4.6vw,52px);text-align:center}
+.band h2{margin-bottom:12px}
+.band .lede{margin:0 auto}
+footer{border-top:1px solid var(--line-soft);padding:32px 0 44px;color:var(--muted);font-size:13px}
+.foot{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+
+/* motion honours the system preference */
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s cubic-bezier(.2,.7,.3,1),transform .6s cubic-bezier(.2,.7,.3,1)}
+.reveal.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  .reveal{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="ClinicWorks POS">
+      <svg viewBox="0 0 328 226" aria-hidden="true">
+        <path d="M200 22 H97 A81 81 0 1 0 143.5 169.4" fill="none" stroke="#4ade80" stroke-width="30"/>
+        <path d="M100 53 h24 v23 h23 v24 h-23 v23 h-24 v-23 h-23 v-24 h23 z" fill="#4ade80"/>
+        <path d="M105 152 L137 204 L190 108 L226 199 L313 85" fill="none" stroke="#2E5B39" stroke-width="25" stroke-linejoin="miter"/>
+      </svg>
+      <span>ClinicWorks<span class="sub">Cannabis POS</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="#features" data-i18n="nav_f">ฟีเจอร์</a>
+      <a href="#shelf" data-i18n="nav_s">สินค้า</a>
+      <a href="#counter" data-i18n="nav_c">หน้าเคาน์เตอร์</a>
+    </div>
+    <button class="chip btn-sm" id="langBtn" type="button" aria-label="Switch language">🇹🇭 <span id="langLbl">TH</span></button>
+    <a class="btn btn-primary btn-sm" href="/" data-i18n="nav_cta">เปิดระบบ</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow" data-i18n="h_eye">ระบบขายหน้าร้าน · คลินิกกัญชา</span>
+      <h1 class="disp" data-i18n="h_h1">นี่คือเคาน์เตอร์ของคุณ<br/><span class="accent">บน ClinicWorks</span></h1>
+      <p class="lede" data-i18n="h_lede">จอลูกค้า เครื่องชั่งสด ราคาสมาชิก นับสต๊อกทุกกะ และผู้ช่วย AI — ระบบเดียวคุมทั้งร้าน ออนไลน์หรือเน็ตหลุดก็ขายต่อได้</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="/" data-i18n="h_cta1">เปิดระบบขาย →</a>
+        <a class="btn btn-ghost" href="/?cds=1" target="_blank" rel="noopener" data-i18n="h_cta2">🖥 ดูจอลูกค้า</a>
+      </div>
+      <div class="trust" data-i18n="h_trust">ใช้งานจริงทุกวันที่</div>
+      <div class="trust-row">
+        <span>Pattanakarn</span><span>Sathorn</span><span>Petchaboon</span><span>Phuket</span><span data-i18n="h_bars">Bars</span>
+      </div>
+    </div>
+
+    <!-- dual screen: the till on top, the customer display below -->
+    <div class="rig">
+      <div class="screen" role="img" aria-label="ClinicWorks POS till screen">
+        <div class="screen-top"><i></i><i></i><i></i><span class="who" data-i18n="s_till">หน้าขาย · BUDTENDER</span></div>
+        <div class="screen-body">
+          <div class="pane" id="pane-bar">
+            <div class="till-grid">
+              <div class="pcard"><div class="ph"><img src="/assets/products/zkittles.jpg" alt="" loading="lazy"/></div><div class="pb"><div class="pn">Zkittles</div><div class="pp num">฿428</div></div></div>
+              <div class="pcard"><div class="ph"><img src="/assets/products/sherb-tank.jpg" alt="" loading="lazy"/></div><div class="pb"><div class="pn">Sherb Tank</div><div class="pp num">฿450</div></div></div>
+              <div class="pcard"><div class="ph"><img src="/assets/products/baby-cake.jpg" alt="" loading="lazy"/></div><div class="pb"><div class="pn">Baby Cake</div><div class="pp num">฿400</div></div></div>
+            </div>
+            <div class="weigh">
+              <div class="lbl" data-i18n="s_w1">แตะสินค้า → ชั่งได้เลย</div>
+              <div class="val num">1.18<em>g</em></div>
+              <div class="tiers"><b>1g · 428</b><b class="on">3.5g · 1,400</b><b>7g · 2,700</b></div>
+            </div>
+          </div>
+          <div class="pane" id="pane-counter" hidden>
+            <div class="line"><span>Zkittles <span class="q">1g</span></span><b class="num">฿428</b></div>
+            <div class="line"><span>Sherb Tank <span class="q">3.5g</span></span><b class="num">฿1,400</b></div>
+            <div class="line"><span class="q" data-i18n="s_memb">💎 สมาชิก · ราคาเดิมของลูกค้า</span><b class="num" style="color:var(--sky)">-฿120</b></div>
+            <div class="total"><span class="t" data-i18n="s_total">ยอดชำระ</span><span class="v num">฿1,708</span></div>
+          </div>
+          <div class="pane" id="pane-weigh" hidden>
+            <div class="weigh" style="margin-top:0">
+              <div class="lbl" data-i18n="s_w2">น้ำหนักจริงจากเครื่องชั่ง</div>
+              <div class="val num">39<em>g</em></div>
+              <div class="tiers"><b data-i18n="s_exp">ระบบว่ามี 39g</b><b class="on">✅ ตรง / OK</b></div>
+            </div>
+            <div class="line" style="margin-top:10px"><span data-i18n="s_r1">Gem Snow Pineapple</span><b class="num" style="color:var(--gold)">➕ Over +2g</b></div>
+            <div class="line"><span data-i18n="s_r2">Black Cherry</span><b class="num" style="color:var(--mint)">✅ OK</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen">
+        <div class="screen-top"><i></i><i></i><i></i><span class="who" data-i18n="s_cds">ฝั่งลูกค้า · CUSTOMER DISPLAY</span><span class="cds-tag" data-i18n="s_cdstag">จอลูกค้า / CDS</span></div>
+        <div class="screen-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 15px">
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600" data-i18n="s_thanks">💎 คุณสมชาย · แต้ม 1,240</div>
+            <div style="font-size:13px;font-weight:700;margin-top:3px" data-i18n="s_items">Zkittles 1g · Sherb Tank 3.5g</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase" data-i18n="s_pay">ยอดชำระ</div>
+            <div class="num" style="font-size:30px;font-weight:800;color:var(--mint);letter-spacing:-.03em;font-family:ui-monospace,Menlo,monospace">฿1,708</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" role="tablist" aria-label="Screen views">
+        <button class="chip" role="tab" aria-selected="true" data-pane="pane-bar"><span class="dot"></span><span data-i18n="t1">หลังบาร์</span></button>
+        <button class="chip" role="tab" aria-selected="false" data-pane="pane-counter"><span class="dot"></span><span data-i18n="t2">หน้าเคาน์เตอร์</span></button>
+        <button class="chip" role="tab" aria-selected="false" data-pane="pane-weigh"><span class="dot"></span><span data-i18n="t3">ชั่ง &amp; นับสต๊อก</span></button>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:2px" id="paneNote" data-i18n="t1_note">สิ่งที่พนักงานเห็น: แตะสายพันธุ์ เครื่องชั่งเติมน้ำหนักให้เอง แล้วบิลคิดยอดเอง</p>
+      <template id="thNotes"
+        data-t2_note="สิ่งที่ลูกค้าจ่าย: ราคาสมาชิกและราคาเดิมของลูกค้าถูกใส่ให้ก่อนเก็บเงินเสมอ"
+        data-t3_note="ตอนนับสต๊อก: เห็นน้ำหนักสดจากเครื่องชั่งเทียบกับที่ระบบมี — ตรงเป๊ะเท่านั้นถึงขึ้น OK"></template>
+    </div>
+  </div>
+</header>
+
+<section class="sec" id="features">
+  <div class="wrap">
+    <span class="eyebrow" data-i18n="f_eye">ทำไมต้อง ClinicWorks</span>
+    <h2 class="disp" data-i18n="f_h2">ทุกอย่างที่เคาน์เตอร์ต้องใช้ อยู่ในระบบเดียว</h2>
+    <p class="lede" data-i18n="f_lede">สร้างจากหน้างานจริงของคลินิกกัญชาในกรุงเทพ ไม่ใช่ POS ทั่วไปที่เอามาดัดแปลง</p>
+    <div class="grid3">
+      <div class="feat reveal"><div class="ic">⚖</div><h3 data-i18n="f1h">เครื่องชั่งต่อตรง อ่านค่าเป๊ะ</h3><p data-i18n="f1p">ต่อเครื่องชั่ง USB อ่านหน่วยเองทั้ง g / kg / lb / oz แสดงเลขตรงกับหน้าจอเครื่องไม่ปัดทิ้ง — 0.039 ก็คือ 0.039</p></div>
+      <div class="feat reveal"><div class="ic">🖥</div><h3 data-i18n="f2h">จอลูกค้า (CDS) ในคลิกเดียว</h3><p data-i18n="f2p">เปิดจอที่สองให้ลูกค้าเห็นตะกร้า ราคา ส่วนลด และ QR โอนเงินสด ๆ จบด้วยหน้าขอบคุณ — ไม่ต้องมีเน็ต</p></div>
+      <div class="feat reveal"><div class="ic">💎</div><h3 data-i18n="f3h">ระบบจำราคาลูกค้าแต่ละคน</h3><p data-i18n="f3p">สแกนบัตรสมาชิกหรือพิมพ์เบอร์ ระบบดึงราคาที่ลูกค้าเคยจ่าย ออเดอร์ล่าสุด และปุ่มสั่งเหมือนเดิมให้ทันที</p></div>
+      <div class="feat reveal"><div class="ic">🕐</div><h3 data-i18n="f4h">นับสต๊อกทุกกะ ตรงคือตรง</h3><p data-i18n="f4p">เข้า-ออกกะต้องชั่งทุก SKU ขาดหรือเกินขึ้นเป็น mismatch ทั้งคู่และต้องระบุเหตุผล ของหายเกินกำหนดต้องใช้ PIN ผู้จัดการ</p></div>
+      <div class="feat reveal"><div class="ic">🤖</div><h3 data-i18n="f5h">ผู้ช่วย AI สอนงานพนักงาน</h3><p data-i18n="f5p">พนักงานใหม่ถามได้ทุกเรื่อง บอทสอนทีละขั้นและมีปุ่มพาไปหน้านั้นให้เลย ไม่ต้องรอผู้จัดการ</p></div>
+      <div class="feat reveal"><div class="ic">📊</div><h3 data-i18n="f6h">กำไรจริง ไม่ใช่แค่ยอดขาย</h3><p data-i18n="f6p">แดชบอร์ดคิดกำไรขั้นต้น หักค่าใช้จ่ายคงที่ แยกรายสาขาและรายวัน พร้อม VAT ที่ต้องนำส่ง</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="shelf">
+  <div class="wrap">
+    <span class="eyebrow" data-i18n="sh_eye">เมนูหน้าร้าน</span>
+    <h2 class="disp" data-i18n="sh_h2">สินค้าขึ้นจอสวยเหมือนหน้าร้านจริง</h2>
+    <p class="lede" data-i18n="sh_lede">รูปเต็มการ์ด ราคาสมาชิกอัตโนมัติ สต๊อกอัปเดตสด — ลูกค้าเลือกง่าย พนักงานขายเร็ว</p>
+    <div class="shelf">
+      <article class="sh reveal"><div class="pic"><span class="badge tag">Exotics</span><img src="/assets/products/zkittles.jpg" alt="Zkittles cannabis flower" loading="lazy"/></div>
+        <div class="meta"><div class="nm">Zkittles</div><div class="sub">Hybrid · THC 29%</div><div class="pr num">฿428<span style="font-size:11px;color:var(--muted);font-weight:600">/g</span></div></div></article>
+      <article class="sh reveal"><div class="pic"><span class="badge tag">Exotics</span><img src="/assets/products/sherb-tank.jpg" alt="Sherb Tank cannabis flower" loading="lazy"/></div>
+        <div class="meta"><div class="nm">Sherb Tank</div><div class="sub">Indica · THC 30%</div><div class="pr num">฿450<span style="font-size:11px;color:var(--muted);font-weight:600">/g</span></div></div></article>
+      <article class="sh reveal"><div class="pic"><span class="badge tag">Exotics</span><img src="/assets/products/baby-cake.jpg" alt="Baby Cake cannabis flower" loading="lazy"/></div>
+        <div class="meta"><div class="nm">Baby Cake</div><div class="sub">Hybrid · THC 28%</div><div class="pr num">฿400<span style="font-size:11px;color:var(--muted);font-weight:600">/g</span></div></div></article>
+      <article class="sh reveal"><div class="pic"><span class="badge tag">Exotics</span><img src="/assets/products/ztupid.jpg" alt="Ztupid cannabis flower" loading="lazy"/></div>
+        <div class="meta"><div class="nm">Ztupid</div><div class="sub">Sativa · THC 31%</div><div class="pr num">฿428<span style="font-size:11px;color:var(--muted);font-weight:600">/g</span></div></div></article>
+      <article class="sh reveal"><div class="pic"><span class="badge tag">Beer</span><img src="/assets/products/crispy-boy-lager.jpg" alt="Crispy Boy lager can" loading="lazy"/></div>
+        <div class="meta"><div class="nm">Crispy Boy Lager</div><div class="sub" data-i18n="sh_can">กระป๋อง 330ml</div><div class="pr num">฿220</div></div></article>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="counter">
+  <div class="wrap">
+    <span class="eyebrow" data-i18n="c_eye">หน้างานจริง</span>
+    <h2 class="disp" data-i18n="c_h2">สร้างจากร้านที่เปิดขายอยู่ทุกวัน</h2>
+    <div class="stats">
+      <div class="stat"><div class="v num">5</div><div class="k" data-i18n="c_s1">สาขาที่ใช้งานอยู่</div></div>
+      <div class="stat"><div class="v num">21</div><div class="k" data-i18n="c_s2">หน้าจอในระบบ</div></div>
+      <div class="stat"><div class="v num">5</div><div class="k" data-i18n="c_s3">ภาษาในแอป</div></div>
+      <div class="stat"><div class="v num">100%</div><div class="k" data-i18n="c_s4">ทำงานต่อได้เมื่อเน็ตหลุด</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="wrap">
+    <div class="band">
+      <h2 class="disp" data-i18n="b_h2">พร้อมเปิดเคาน์เตอร์แล้วใช่ไหม</h2>
+      <p class="lede" data-i18n="b_lede">เปิดในเบราว์เซอร์ได้เลย ไม่ต้องติดตั้ง — พนักงานล็อกอินด้วย PIN แล้วเริ่มขายได้ทันที</p>
+      <div class="hero-cta" style="justify-content:center;margin-bottom:0">
+        <a class="btn btn-primary" href="/" data-i18n="b_cta1">เปิดระบบขาย →</a>
+        <a class="btn btn-ghost" href="/clinicworks/" data-i18n="b_cta2">เกี่ยวกับ ClinicWorks</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div>© <span id="yr">2026</span> ClinicWorks Cannabis · Dank Cannabis Clinic Bangkok</div>
+    <div style="display:flex;gap:16px"><a href="/">POS</a><a href="/?cds=1" target="_blank" rel="noopener">Customer display</a><a href="/clinicworks/">ClinicWorks</a></div>
+  </div>
+</footer>
+
+<script>
+document.getElementById('yr').textContent=new Date().getFullYear();
+
+/* ── screen tabs ─────────────────────────────────────────────────────── */
+var NOTE={'pane-bar':'t1_note','pane-counter':'t2_note','pane-weigh':'t3_note'};
+var tabs=[].slice.call(document.querySelectorAll('[role="tab"]'));
+tabs.forEach(function(tab){
+  tab.addEventListener('click',function(){
+    tabs.forEach(function(x){x.setAttribute('aria-selected',String(x===tab));});
+    ['pane-bar','pane-counter','pane-weigh'].forEach(function(id){
+      document.getElementById(id).hidden=(id!==tab.dataset.pane);
+    });
+    var n=document.getElementById('paneNote');
+    n.setAttribute('data-i18n',NOTE[tab.dataset.pane]);
+    n.textContent=DICT[LANG][NOTE[tab.dataset.pane]];
+  });
+});
+
+/* ── reveal on scroll (skipped entirely when reduced motion is on) ─────── */
+if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&'IntersectionObserver' in window){
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  },{rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.reveal').forEach(function(el,i){ el.style.transitionDelay=(i%3*60)+'ms'; io.observe(el); });
+}else{
+  document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('in');});
+}
+
+/* ── bilingual: every string that appears on screen has both halves ────── */
+var DICT={
+th:{},
+en:{
+ nav_f:'Features', nav_s:'Products', nav_c:'The counter', nav_cta:'Open POS',
+ h_eye:'POINT OF SALE · CANNABIS CLINIC',
+ h_h1:'This is your counter<br/><span class="accent">on ClinicWorks</span>',
+ h_lede:'Customer display, live scale, member pricing, shift stock counts and an AI assistant — one system runs the whole shop, online or off.',
+ h_cta1:'Open the POS →', h_cta2:'🖥 See the customer display',
+ h_trust:'RUNNING EVERY DAY AT', h_bars:'Bars',
+ s_till:'TILL · BUDTENDER', s_w1:'TAP A STRAIN → WEIGH IT',
+ s_memb:'💎 Member · their usual price', s_total:'Total',
+ s_w2:'LIVE WEIGHT FROM THE SCALE', s_exp:'System says 39g',
+ s_r1:'Gem Snow Pineapple', s_r2:'Black Cherry',
+ s_cds:'CUSTOMER SIDE · DISPLAY', s_cdstag:'Customer display / CDS',
+ s_thanks:'💎 Somchai · 1,240 points', s_items:'Zkittles 1g · Sherb Tank 3.5g', s_pay:'TOTAL',
+ t1:'Behind the bar', t2:'The counter', t3:'Weigh & count',
+ t1_note:'What the budtender sees: tap the strain, the scale fills in the weight, and the bill totals itself.',
+ t2_note:'What the customer is charged: member pricing and their remembered price apply before you ask for money.',
+ t3_note:'Shift counts: the live scale reading, what the system expected, and OK only when they match exactly.',
+ f_eye:'WHY CLINICWORKS', f_h2:'Everything the counter needs, in one system',
+ f_lede:'Built from the floor of a Bangkok cannabis clinic — not a general POS bent into shape.',
+ f1h:'A scale that reads exactly', f1p:'Plug in a USB scale; it reads g / kg / lb / oz on its own and shows the number the scale shows — 0.039 stays 0.039, never rounded.',
+ f2h:'Customer display in one click', f2p:'Open a second screen showing the live cart, prices, discounts and the transfer QR, ending in a thank-you screen — and it needs no network.',
+ f3h:'It remembers each customer’s price', f3p:'Scan the member card or type a phone number: their usual price, their last order and a one-tap reorder are waiting.',
+ f4h:'Shift counts where OK means OK', f4p:'Clock in and out by weighing every SKU. Short and over both read as a mismatch and both need a reason; big shrinkage needs a manager PIN.',
+ f5h:'An AI that trains your staff', f5p:'New staff can ask anything. The assistant answers step by step and gives them a button straight to the right page.',
+ f6h:'Real profit, not just revenue', f6p:'Gross margin, profit after fixed costs, by branch and by day, with the VAT you actually owe.',
+ sh_eye:'THE MENU', sh_h2:'Products that look like your shop, not a spreadsheet',
+ sh_lede:'Full-width photos, automatic member pricing and live stock — easy to choose, fast to sell.',
+ sh_can:'330ml can',
+ c_eye:'FROM THE FLOOR', c_h2:'Built in a shop that opens every day',
+ c_s1:'branches running it', c_s2:'screens in the system', c_s3:'languages in the app', c_s4:'keeps working offline',
+ b_h2:'Ready to open the counter?', b_lede:'Runs in the browser — nothing to install. Staff log in with a PIN and start selling.',
+ b_cta1:'Open the POS →', b_cta2:'About ClinicWorks'
+}};
+/* Thai is what the markup already says, so capture it once on load. The two
+   notes that only appear after a tab click live on a <template> instead. */
+document.querySelectorAll('[data-i18n]').forEach(function(el){ DICT.th[el.getAttribute('data-i18n')]=el.innerHTML; });
+(function(){var d=document.getElementById('thNotes').dataset;for(var k in d)DICT.th[k]=d[k];})();
+
+var LANG='th';
+function applyLang(l){
+  LANG=l;
+  document.documentElement.lang=(l==='th'?'th':'en');
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n'), v=DICT[l][k];
+    if(v!==undefined)el.innerHTML=v;
+  });
+  document.getElementById('langLbl').textContent=(l==='th'?'TH':'EN');
+  document.getElementById('langBtn').firstChild.nodeValue=(l==='th'?'🇹🇭 ':'🇬🇧 ');
+  try{localStorage.setItem('cw_landing_lang',l);}catch(e){}
+}
+document.getElementById('langBtn').addEventListener('click',function(){ applyLang(LANG==='th'?'en':'th'); });
+try{ var saved=localStorage.getItem('cw_landing_lang'); if(saved==='en')applyLang('en'); }catch(e){}
+</script>
+</body>
+</html>

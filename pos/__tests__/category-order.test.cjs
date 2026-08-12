@@ -6,7 +6,7 @@
  */
 const fs=require('fs'), path=require('path');
 const src=fs.readFileSync(path.join(__dirname,'..','app.fixed.jsx'),'utf8');
-const body=src.slice(src.indexOf('const CAT_TIERS=['), src.indexOf('function CWMark(props){'));
+const body=src.slice(src.indexOf('const CAT_TIERS=['), src.indexOf('// ——— end of the category-order block'));
 const {catCmp,catRank}=new Function(body+'; return {catCmp:catCmp,catRank:catRank};')();
 // exactly what the shop's own data contains today
 const live=["Accessories","Beer","Edibles","Exotics","Merch","Midgrade","Premium","Joints","Topshelf","Vapes"];
