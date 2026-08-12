@@ -45,14 +45,42 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   Known pending: add Vercel env `POS_FEED_PATHS=/__no_pos_feed__` on dankbkk-site to prefer StoreHub
   (health endpoint currently reports source:"pos").
 
-## Pending
-1. ~~Upload `api/storehub/[...path].mjs` /sold endpoint~~ — DONE, committed.
-2. Confirm fixed index.html (NaN fix) is live on dankbkk-site (manual check per above).
-3. Optional env: POS_FEED_PATHS on dankbkk-site (above).
-4. Petchaboon/Phuket fixed-cost budgets = 0; owner can set in-app (Finance → 💸 → ✏ แก้งบ).
-5. ~~Master PIN hard-coded in the client bundle~~ — DONE. The roster ships with no PINs; logins fall
-   back to `/api/staff-auth` (env `MASTER_PIN` / `STAFF_PINS`, fails closed). Owner must set those
-   env vars and pick new PINs — the old ones were public and must be treated as burned.
+## Pending — in the order they should be done
+1. **Set `MASTER_PIN` (new — the old 110114 is public and burned) and `XAI_API_KEY` in Vercel, then
+   Redeploy.** Nothing else can be verified until login works. `STAFF_PINS` optional per-staff.
+2. **Lock the claim-PIN hole — do this the moment step 1 works.** `handleClaimPin` (search
+   `const handleClaimPin`) lets anyone on the public URL pick ANY staff name, including the CEO, set a
+   6-digit PIN and get in with `approved:true` — no verification at all. It is currently the owner's
+   only escape hatch if `MASTER_PIN` is unset, which is the only reason it still exists. Fix = require
+   a server check (`/api/staff-auth`) or a manager PIN before it will write, or delete the flow.
+3. **StoreHub credentials.** `/api/health` reports configured-but-not-loading. `api/_storehub.js`
+   accepts `STOREHUB_TOKEN` or `STOREHUB_KEY`; confirm the value and that the account has API access.
+4. Petchaboon/Phuket fixed-cost budgets are 0 — owner sets them in-app (Finance → 💸 → ✏ แก้งบ).
+5. Decide the customer site's menu source: the curated 53-item `products.json` (names + photos) vs the
+   raw 393-item POS feed currently served. Optional env `POS_FEED_PATHS=/__no_pos_feed__` on
+   dankbkk-site prefers StoreHub.
+6. Confirm the dankbkk-site cart NaN fix is live (Edibles → "Sour Belts 3000mg" → Add+ → must show
+   ฿300, not ฿NaN).
+7. Root HTML pages left in this repo belong to the customer site — `staff.html`,
+   `build-your-joint.html`, `labels.html`, `status.html`, `SUMMARY.html`, plus the `i18n.js` all four
+   load. Awaiting the owner's word on which are still in daily use before removing.
+
+## Shipped this round (so it is not re-litigated)
+- Customer price memory (`dank_cust_prices`): records what each customer paid, re-applies it only when
+  it beats the current price, shows their last order with a one-tap reorder.
+- Shift count: an over-count is a mismatch, not OK. `Math.abs(d)<=0.05` everywhere; over needs a reason
+  at clock-out just like short.
+- Scale precision: 4 decimals end to end, `fmtW()` prints exactly (0.039 stays 0.039).
+- Bryan AI: `TAB_GUIDE` is an in-app manual for all 21 pages; unmatched questions go to `/api/grok`
+  with that manual as the system prompt; answers carry a 📍 button that opens the page.
+- Customer Display (CDS): `?cds=1` renders a read-only mirror of the till; BroadcastChannel +
+  localStorage, so it needs no network. Button on Scale & Print.
+- Design: forest-green tokens, pill buttons/badges. `inkOn(bg,fg)` in the token layer swaps light text
+  for near-black over any light fill — two real contrast bugs were found by measuring every tab
+  (product names were black-on-black at 1.05:1; white sat on mint/sky/gold at 1.7–2.3:1).
+- `landing/index.html` at `/landing`: bilingual product page, dual-screen hero, product shelf.
+- Root duplicates: 38 serverless handlers that also lived in `api/` were deleted (one was stale). Only
+  `api/**` deploys as functions.
 
 ## Conventions
 - Reply to owner in Thai (he writes Thai/English mix), keep technical terms in English.
