@@ -10622,7 +10622,7 @@ function GreenPOS() {
     var _okN = shiftCheck.rows.filter(function(r) {
       if (r.measured === "") return false;
       var d = Math.round(((+r.measured || 0) - r.expected) * 100) / 100;
-      return d >= -0.05;
+      return Math.abs(d) <= 0.05;
     }).length;
     var _pct = _total ? Math.round(_filled * 100 / _total) : 0;
     var _all = _total > 0 && _okN === _total;
@@ -10655,7 +10655,7 @@ function GreenPOS() {
           var r2 = x.r;
           if (r2.measured === "") return false;
           var d2 = Math.round(((+r2.measured || 0) - r2.expected) * 100) / 100;
-          return d2 >= -0.05;
+          return Math.abs(d2) <= 0.05;
         }).length;
         return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "8px 0 6px", padding: "5px 10px", background: C.card3, borderRadius: 8, border: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, fontWeight: 900 } }, "\u{1F5C2} ", _g.cat), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: _ok === _g.items.length ? C.green : C.muted } }, _ok, "/", _g.items.length));
       })(), _g.items.map(function(_x) {
@@ -10663,8 +10663,8 @@ function GreenPOS() {
         var m = r.measured === "" ? null : +r.measured;
         var wgh = r.unit === "g" || r.unit === "ml" || !r.unit;
         var d = m === null ? null : Math.round((m - r.expected) * 100) / 100;
-        var st = m === null ? "\u2014" : d >= -0.05 ? "\u2705 OK" : "\u26A0 Short " + Math.abs(d).toFixed(2) + (r.unit || "g");
-        return /* @__PURE__ */ React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", background: C.card2, borderRadius: 9, border: "1px solid " + (m === null ? C.border : d >= -0.05 ? "rgba(74,222,128,0.4)" : "rgba(245,158,11,0.5)"), marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { onClick: function() {
+        var st = m === null ? "\u2014" : Math.abs(d) <= 0.05 ? "\u2705 OK" : d > 0 ? "\u2795 Over +" + d.toFixed(2) + (r.unit || "g") : "\u26A0 Short " + Math.abs(d).toFixed(2) + (r.unit || "g");
+        return /* @__PURE__ */ React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", background: C.card2, borderRadius: 9, border: "1px solid " + (m === null ? C.border : Math.abs(d) <= 0.05 ? "rgba(74,222,128,0.4)" : d > 0 ? "rgba(56,189,248,0.55)" : "rgba(245,158,11,0.5)"), marginBottom: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { onClick: function() {
           setWeighFocus(idx);
         }, title: "\u0E41\u0E15\u0E30\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E0A\u0E31\u0E48\u0E07 / tap to weigh", style: { flex: "1 1 140px", minWidth: 0, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name, " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.blue, fontWeight: 400 } }, "\u203A")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, "Expected ", r.expected, r.unit || "g")), /* @__PURE__ */ React.createElement("input", { type: "number", step: wgh ? "0.01" : "1", placeholder: r.unit || "g", value: r.measured, onChange: function(e) {
           var v = e.target.value;
@@ -10692,7 +10692,7 @@ function GreenPOS() {
             });
             return n;
           });
-        }, title: "+1 \u0E0A\u0E34\u0E49\u0E19 / count one", style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 11, padding: "5px 11px", border: "1px solid " + C.border, fontWeight: 900 }) }, "\uFF0B1"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, fontWeight: 800, minWidth: 76, textAlign: "right", color: m === null ? C.muted : d >= -0.05 ? C.green : C.gold } }, st), shiftCheck.mode === "out" && m !== null && d < -0.05 && /* @__PURE__ */ React.createElement("select", { value: r.reason, onChange: function(e) {
+        }, title: "+1 \u0E0A\u0E34\u0E49\u0E19 / count one", style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 11, padding: "5px 11px", border: "1px solid " + C.border, fontWeight: 900 }) }, "\uFF0B1"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, fontWeight: 800, minWidth: 76, textAlign: "right", color: m === null ? C.muted : Math.abs(d) <= 0.05 ? C.green : d > 0 ? "#38bdf8" : C.gold } }, st), shiftCheck.mode === "out" && m !== null && Math.abs(d) > 0.05 && /* @__PURE__ */ React.createElement("select", { value: r.reason, onChange: function(e) {
           var v = e.target.value;
           setShiftCheck(function(p) {
             var n = Object.assign({}, p);
@@ -10701,7 +10701,7 @@ function GreenPOS() {
             });
             return n;
           });
-        }, style: __spreadProps(__spreadValues({}, gs.input), { width: "100%", fontSize: 10 }) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E02\u0E2D\u0E07\u0E2A\u0E48\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E22 (\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19) \u2014"), ["Customer sample", "Trim loss", "Flower dried", "Packaging mistake", "Human counting error", "Manager adjustment", "Unknown"].map(function(rz) {
+        }, style: __spreadProps(__spreadValues({}, gs.input), { width: "100%", fontSize: 10 }) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07 \u0E02\u0E32\u0E14/\u0E40\u0E01\u0E34\u0E19 (\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19) \u2014"), ["Customer sample", "Trim loss", "Flower dried", "Packaging mistake", "Human counting error", "Manager adjustment", "Unknown"].map(function(rz) {
           return /* @__PURE__ */ React.createElement("option", { key: rz, value: rz }, rz);
         })));
       }));
@@ -10769,8 +10769,8 @@ function GreenPOS() {
       fontWeight: 800,
       minHeight: 22,
       marginBottom: 10,
-      color: dv === null ? C.muted : dv >= -0.05 ? C.green : C.gold
-    } }, dv === null ? "\u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E43\u0E2A\u0E48\u0E04\u0E48\u0E32 \u2014" : dv >= -0.05 ? "\u2705 \u0E15\u0E23\u0E07 / OK" + (dv > 0.05 ? " (\u0E40\u0E01\u0E34\u0E19 +" + dv.toFixed(2) + (r.unit || "g") + ")" : "") : "\u26A0 \u0E02\u0E32\u0E14 / short " + Math.abs(dv).toFixed(2) + (r.unit || "g")), shiftCheck.mode === "out" && dv !== null && dv < -0.05 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E02\u0E2D\u0E07\u0E2A\u0E48\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E22 (\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19)"), /* @__PURE__ */ React.createElement("select", { value: r.reason, onChange: function(e) {
+      color: dv === null ? C.muted : Math.abs(dv) <= 0.05 ? C.green : dv > 0 ? "#38bdf8" : C.gold
+    } }, dv === null ? "\u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E43\u0E2A\u0E48\u0E04\u0E48\u0E32 \u2014" : Math.abs(dv) <= 0.05 ? "\u2705 \u0E15\u0E23\u0E07 / OK" : dv > 0 ? "\u2795 \u0E40\u0E01\u0E34\u0E19 / over +" + dv.toFixed(2) + (r.unit || "g") : "\u26A0 \u0E02\u0E32\u0E14 / short " + Math.abs(dv).toFixed(2) + (r.unit || "g")), shiftCheck.mode === "out" && dv !== null && Math.abs(dv) > 0.05 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07 \u0E02\u0E32\u0E14/\u0E40\u0E01\u0E34\u0E19 (\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19)"), /* @__PURE__ */ React.createElement("select", { value: r.reason, onChange: function(e) {
       var v = e.target.value;
       setShiftCheck(function(p) {
         var n = Object.assign({}, p);
@@ -10794,8 +10794,14 @@ function GreenPOS() {
     var missG = shorts.reduce(function(a2, x) {
       return a2 + x.miss;
     }, 0);
+    var overs = shiftCheck.rows.filter(function(r) {
+      if (r.measured === "") return false;
+      return Math.round(((+r.measured || 0) - r.expected) * 100) / 100 > 0.05;
+    });
     var reasonsOk = shorts.every(function(x) {
       return x.r.reason;
+    }) && overs.every(function(r) {
+      return r.reason;
     });
     var needMgr = shiftCheck.mode === "out" && missG > SHRINK_THRESHOLD_G;
     return /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, shiftCheck.mode === "out" && shorts.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 9, padding: "8px 11px", marginBottom: 9, fontSize: 10 } }, "\u26A0 Missing \u0E23\u0E27\u0E21 ", /* @__PURE__ */ React.createElement("b", { style: { color: C.gold } }, missG.toFixed(2), "g"), " \xB7 Cost \u0E3F", Math.round(shorts.reduce(function(a2, x) {
@@ -10823,7 +10829,7 @@ function GreenPOS() {
         return;
       }
       if (!reasonsOk) {
-        notify("\u0E43\u0E2A\u0E48\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E02\u0E32\u0E14", "error");
+        notify("\u0E43\u0E2A\u0E48\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07 (\u0E02\u0E32\u0E14/\u0E40\u0E01\u0E34\u0E19)", "error");
         return;
       }
       if (needMgr) {
