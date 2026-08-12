@@ -194,6 +194,8 @@ function catCmp(a,b){
   var d=catRank(a)-catRank(b);
   return d||String(a||"").localeCompare(String(b||""));
 }
+// ——— end of the category-order block (pos/__tests__/category-order.test.cjs
+// evaluates everything above this line, so keep JSX out of it) ———
 
 function CWMark(props){
   var s=props.size||36, light=!!props.light, cls=props.className||"";
@@ -339,6 +341,50 @@ const ONLINE_ORDERS_INIT=[
 // a BroadcastChannel and also writes dank_cds_state to localStorage; the
 // display listens to both and polls the key once a second as a last resort,
 // so it keeps working across window types and with no network at all.
+// A product's picture at full card width — the difference between a POS that
+// looks like a spreadsheet and one that looks like a shop. Photos that fail to
+// load (StoreHub URLs come and go) fall back to the category emoji in place,
+// so the grid never shows a broken-image box.
+// Category colours are full-strength (#ec4899 etc). Behind a product they
+// have to be a wash, not a slab — so drop them to ~18% over the card.
+// White on mint / sky / gold measures 1.7-2.3:1 — unreadable. Any caller that
+// asks for light text over a light fill gets near-black instead, so the rule
+// holds for every button in the app, including ones written later.
+function _lum(hex){
+  var m=String(hex||"").match(/^#([0-9a-f]{6})$/i); if(!m)return 0;
+  var n=parseInt(m[1],16), c=[(n>>16)&255,(n>>8)&255,n&255].map(function(v){
+    v/=255; return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});
+  return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];
+}
+function inkOn(bg,fg){
+  var wantsLight=/^#(f{3,6}|fff[0-9a-f]{3})$/i.test(String(fg||""))||String(fg||"").toLowerCase()==="white";
+  return (wantsLight&&_lum(bg)>0.4)?"#08130c":fg;
+}
+function softTint(c){
+  var s=String(c||"");
+  var m=s.match(/^#([0-9a-f]{6})$/i);
+  if(m){var n=parseInt(m[1],16);return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+",0.18)";}
+  return s||"rgba(74,222,128,0.16)";
+}
+function ProdTile(props){
+  var src=props.src, h=props.h||96;
+  var isPhoto=typeof src==="string"&&(src.slice(0,4)==="http"||src.slice(0,5)==="data:");
+  var _s=useState(true), okImg=_s[0], setOkImg=_s[1];
+  var show=isPhoto&&okImg;
+  return (
+    <div style={{position:"relative",width:"100%",height:h,borderRadius:props.r||0,overflow:"hidden",flexShrink:0,
+      background:show?"#0b120d":("linear-gradient(145deg,"+softTint(props.tint)+",rgba(255,255,255,0.015))"),
+      display:"flex",alignItems:"center",justifyContent:"center"}}>
+      {show
+        ?<img src={src} alt={props.label||""} loading="lazy" decoding="async"
+           onError={function(){setOkImg(false);}}
+           style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+        :<span aria-hidden="true" style={{fontSize:Math.round(h*0.42),lineHeight:1}}>{isPhoto?"\ud83d\udce6":(src||"\ud83d\udce6")}</span>}
+      {props.children}
+    </div>
+  );
+}
+
 const CDS_MODE=(function(){try{return /[?&]cds=1/.test(window.location.search);}catch(e){return false;}})();
 function CDSView(){
   const [st,setSt]=useState(function(){try{return JSON.parse(localStorage.getItem("dank_cds_state"))||{stage:"idle"};}catch(e){return {stage:"idle"};}});
@@ -3520,11 +3566,11 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     eyebrow:{fontSize:9.5,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:600},
     card:{background:C.card,borderRadius:mob?16:18,border:`1px solid ${C.borderSoft}`,padding:mob?12:16,boxShadow:C.shadow,backgroundImage:"linear-gradient(180deg,rgba(255,255,255,0.022),rgba(255,255,255,0))"},
     card2:{background:C.card2,borderRadius:mob?12:14,border:`1px solid ${C.border}`,padding:mob?9:12},
-    btn:(bg=C.green,fg="#000")=>({background:bg,color:fg,border:"none",borderRadius:999,padding:mob?"8px 13px":"9px 17px",cursor:"pointer",fontWeight:650,fontSize:mob?12:13,letterSpacing:"-0.01em",transition:"transform .15s cubic-bezier(.2,.7,.3,1),filter .15s,box-shadow .15s",boxShadow:bg===C.card2?"none":"0 1px 2px rgba(0,0,0,0.35)"}),
-    btnLg:(bg=C.green)=>({background:bg,color:bg===C.green?"#000":"#fff",border:"none",borderRadius:999,backgroundImage:bg===C.green?"linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0) 55%)":"none",padding:mob?"14px 18px":"15px 22px",cursor:"pointer",fontWeight:700,fontSize:mob?14.5:15.5,width:"100%",letterSpacing:"-0.015em",boxShadow:"0 1px 2px rgba(0,0,0,0.4),0 6px 18px -6px "+(bg===C.green?"rgba(74,222,128,0.45)":"rgba(0,0,0,0.5)"),transition:"transform .15s cubic-bezier(.2,.7,.3,1),filter .15s"}),
+    btn:(bg=C.green,fg="#000")=>({background:bg,color:inkOn(bg,fg),border:"none",borderRadius:999,padding:mob?"8px 13px":"9px 17px",cursor:"pointer",fontWeight:650,fontSize:mob?12:13,letterSpacing:"-0.01em",transition:"transform .15s cubic-bezier(.2,.7,.3,1),filter .15s,box-shadow .15s",boxShadow:bg===C.card2?"none":"0 1px 2px rgba(0,0,0,0.35)"}),
+    btnLg:(bg=C.green)=>({background:bg,color:inkOn(bg,bg===C.green?"#000":"#fff"),border:"none",borderRadius:999,backgroundImage:bg===C.green?"linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0) 55%)":"none",padding:mob?"14px 18px":"15px 22px",cursor:"pointer",fontWeight:700,fontSize:mob?14.5:15.5,width:"100%",letterSpacing:"-0.015em",boxShadow:"0 1px 2px rgba(0,0,0,0.4),0 6px 18px -6px "+(bg===C.green?"rgba(74,222,128,0.45)":"rgba(0,0,0,0.5)"),transition:"transform .15s cubic-bezier(.2,.7,.3,1),filter .15s"}),
     input:{background:C.card2,border:`1px solid ${C.border}`,borderRadius:12,padding:mob?"10px 12px":"11px 14px",color:C.text,fontSize:mob?12.5:13.5,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit",letterSpacing:"-0.01em",transition:"border-color .15s,box-shadow .15s"},
     label:{fontSize:10,color:C.muted,marginBottom:3,display:"block",letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:600},
-    badge:(bg,fg="#000")=>({background:bg,color:fg,borderRadius:999,padding:"2.5px 8px",fontSize:9,fontWeight:700,letterSpacing:"0.03em",display:"inline-block",lineHeight:1.5}),
+    badge:(bg,fg="#000")=>({background:bg,color:inkOn(bg,fg),borderRadius:999,padding:"2.5px 8px",fontSize:9,fontWeight:700,letterSpacing:"0.03em",display:"inline-block",lineHeight:1.5}),
     sec:{padding:mob?"10px":"14px 18px",overflowY:"auto",maxHeight:"calc(100vh - 106px)"},
   };
   // -- Reusable iOS-style toggle switch (used for on/off settings instead of raw checkboxes/buttons) --
@@ -4179,7 +4225,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <span style={{fontSize:mob?16:15}}>{tab.icon}</span>
             <span style={{fontSize:mob?8:10,fontWeight:activeTab===tab.id?700:500,letterSpacing:"0.01em",lineHeight:1.2}}>{tab.label}</span>
             {tab.id==="work"&&currentStaff&&tasks.filter(function(t2){return t2.assigneeId===currentStaff.id&&t2.status!=="done";}).length>0&&<span style={{background:C.gold,color:"#000",borderRadius:"50%",width:14,height:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:800}}>{tasks.filter(function(t2){return t2.assigneeId===currentStaff.id&&t2.status!=="done";}).length}</span>}
-            {tab.id==="orders"&&orders.filter(o=>o.status==="pending").length>0&&<span style={{background:C.accent,color:"#fff",borderRadius:"50%",width:14,height:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:800}}>{orders.filter(o=>o.status==="pending").length}</span>}
+            {tab.id==="orders"&&orders.filter(o=>o.status==="pending").length>0&&<span style={{background:C.accent,color:"#08130c",borderRadius:"50%",width:14,height:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:800}}>{orders.filter(o=>o.status==="pending").length}</span>}
           </button>
         );};
         return (
@@ -4286,8 +4332,8 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                         <table style={{borderCollapse:"collapse",fontSize:10,minWidth:"100%"}}>
                           <thead>
                             <tr>
-                              <th style={{padding:"8px 10px",textAlign:"left",color:"#fff",fontSize:9.5,position:"sticky",left:0,background:C.accent,zIndex:1,whiteSpace:"nowrap"}}>STAFF</th>
-                              {sc.dates.map(function(d,i){return <th key={i} style={{padding:"8px 6px",color:"#fff",background:C.accent,fontSize:9,whiteSpace:"nowrap",textAlign:"center"}}>{sc.dows[i]}<br/><span style={{fontWeight:400,opacity:0.85}}>{d}</span></th>;})}
+                              <th style={{padding:"8px 10px",textAlign:"left",color:"#08130c",fontSize:9.5,position:"sticky",left:0,background:C.accent,zIndex:1,whiteSpace:"nowrap"}}>STAFF</th>
+                              {sc.dates.map(function(d,i){return <th key={i} style={{padding:"8px 6px",color:"#08130c",background:C.accent,fontSize:9,whiteSpace:"nowrap",textAlign:"center"}}>{sc.dows[i]}<br/><span style={{fontWeight:400,opacity:0.85}}>{d}</span></th>;})}
                             </tr>
                           </thead>
                           <tbody>
@@ -4733,12 +4779,14 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               {filteredProds.map(p=>{
                 const ep=ePrice(p);
                 return (
-                  <button key={p.id} onClick={()=>addToCart(p)} style={{background:C.card,border:`1px solid ${p.stock<=p.alert?C.gold:C.border}`,borderRadius:14,padding:mob?10:12,cursor:"pointer",textAlign:"left",position:"relative",display:"flex",flexDirection:"column",height:"100%",boxShadow:p.stock<=p.alert?"0 0 0 1px rgba(245,158,11,0.25),0 4px 14px -4px rgba(245,158,11,0.22)":C.shadow,backgroundImage:"linear-gradient(180deg,rgba(255,255,255,0.022),rgba(255,255,255,0))",transition:"transform .16s cubic-bezier(.2,.7,.3,1),box-shadow .16s,border-color .16s"}}>
+                  <button key={p.id} onClick={()=>addToCart(p)} style={{background:C.card,color:C.text,border:`1px solid ${p.stock<=p.alert?C.gold:C.border}`,borderRadius:14,padding:mob?10:12,cursor:"pointer",textAlign:"left",position:"relative",display:"flex",flexDirection:"column",height:"100%",boxShadow:p.stock<=p.alert?"0 0 0 1px rgba(245,158,11,0.25),0 4px 14px -4px rgba(245,158,11,0.22)":C.shadow,backgroundImage:"linear-gradient(180deg,rgba(255,255,255,0.022),rgba(255,255,255,0))",transition:"transform .16s cubic-bezier(.2,.7,.3,1),box-shadow .16s,border-color .16s"}}>
                     {p.stock>0&&p.stock<=p.alert&&<div style={{...gs.badge(C.gold),position:"absolute",top:6,right:6,fontSize:7}}>LOW</div>}
                     {p.stock===0&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.72)",borderRadius:13,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:C.red,letterSpacing:"0.1em"}}>SOLD OUT{backQty(p.id)>0&&<span style={{fontSize:8,color:C.blue,marginTop:3,letterSpacing:0}}>🏬 หลังร้านมี {backQty(p.id)}{p.unit}</span>}</div>}
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                      {pimg(p.img,mob?24:30)}
-                      {(function(){var cn=cleanName(p);var tg=cn.tag||p.cat;return tg?<span style={{...gs.badge(CAT_CLR[tg]||CAT_CLR[p.cat]||"rgba(201,168,76,0.2)",(CAT_CLR[tg]||CAT_CLR[p.cat])?"#000":"#c9a84c"),fontSize:7,maxWidth:"60%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tg}</span>:null;})()}
+                    <div style={{margin:(mob?-10:-12)+"px "+(mob?-10:-12)+"px 7px",borderTopLeftRadius:13,borderTopRightRadius:13,overflow:"hidden"}}>
+                      <ProdTile src={p.img} label={cleanName(p).short} h={mob?84:104}
+                        tint={CAT_CLR[cleanName(p).tag]||CAT_CLR[p.cat]||"rgba(74,222,128,0.16)"}>
+                        {(function(){var cn=cleanName(p);var tg=cn.tag||p.cat;return tg?<span style={{...gs.badge(CAT_CLR[tg]||CAT_CLR[p.cat]||"rgba(201,168,76,0.2)",(CAT_CLR[tg]||CAT_CLR[p.cat])?"#000":"#c9a84c"),fontSize:7,position:"absolute",top:6,left:6,maxWidth:"72%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",boxShadow:"0 1px 6px rgba(0,0,0,0.45)"}}>{tg}</span>:null;})()}
+                      </ProdTile>
                     </div>
                     <div style={{fontSize:mob?10.5:11.5,fontWeight:650,lineHeight:1.35,marginBottom:2,letterSpacing:"-0.012em",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",minHeight:mob?"28px":"31px"}}>{cleanName(p).short}</div>
                     {p.thc>0&&<div style={{display:"flex",alignItems:"center",gap:3,marginBottom:3}}>
@@ -5750,7 +5798,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           </div>
           <div style={{display:"flex",gap:6,marginBottom:10,overflowX:"auto",paddingBottom:2}}>
             {[["all","👥 ทั้งหมด All ("+customers.length+")"],["debt","🧾 ค้างเงินร้าน Owe ("+_arDebtors.filter(function(d){return d.owed>0;}).length+" คน · ฿"+Math.round(_arTotal).toLocaleString()+")"]].map(function(fc){var on=crmFilter===fc[0];var col=fc[0]==="debt"?C.red:C.green;return (
-              <button key={fc[0]} onClick={function(){setCrmFilter(fc[0]);}} style={{background:on?col:C.card2,border:"1px solid "+(on?col:C.border),borderRadius:16,padding:"6px 12px",color:on?"#fff":C.muted,cursor:"pointer",fontSize:10.5,fontWeight:800,whiteSpace:"nowrap",flexShrink:0}}>{fc[1]}</button>
+              <button key={fc[0]} onClick={function(){setCrmFilter(fc[0]);}} style={{background:on?col:C.card2,border:"1px solid "+(on?col:C.border),borderRadius:999,padding:"6px 12px",color:on?inkOn(col,"#fff"):C.muted,cursor:"pointer",fontSize:10.5,fontWeight:800,whiteSpace:"nowrap",flexShrink:0}}>{fc[1]}</button>
             );})}
           </div>
           <div style={{position:"relative",marginBottom:11}}>
@@ -7320,8 +7368,8 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                     <table style={{borderCollapse:"collapse",fontSize:10,minWidth:"100%"}}>
                       <thead>
                         <tr>
-                          <th style={{padding:"8px 10px",textAlign:"left",color:"#fff",fontSize:9.5,position:"sticky",left:0,background:C.accent,zIndex:1,whiteSpace:"nowrap"}}>STAFF</th>
-                          {sc.dates.map(function(d,i){return <th key={i} style={{padding:"8px 6px",color:"#fff",background:C.accent,fontSize:9,whiteSpace:"nowrap",textAlign:"center"}}>{sc.dows[i]}<br/><span style={{fontWeight:400,opacity:0.85}}>{d}</span></th>;})}
+                          <th style={{padding:"8px 10px",textAlign:"left",color:"#08130c",fontSize:9.5,position:"sticky",left:0,background:C.accent,zIndex:1,whiteSpace:"nowrap"}}>STAFF</th>
+                          {sc.dates.map(function(d,i){return <th key={i} style={{padding:"8px 6px",color:"#08130c",background:C.accent,fontSize:9,whiteSpace:"nowrap",textAlign:"center"}}>{sc.dows[i]}<br/><span style={{fontWeight:400,opacity:0.85}}>{d}</span></th>;})}
                         </tr>
                       </thead>
                       <tbody>
