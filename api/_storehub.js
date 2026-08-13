@@ -63,7 +63,13 @@ export async function fetchStoreHubProducts() {
 }
 
 /* ---- name parsing (THC / type / weight / clean name) ---- */
-function parseType(s) {
+// Indica / Sativa / Hybrid describes cannabis. It was being stamped on
+// everything, so the storefront showed "onion ring · HYBRID · THC" — which is
+// both wrong and, on a menu that sells cannabis, actively misleading.
+const CANNABIS_CATS = ["Exotics","Topshelf","Midgrade","Premium","Edibles","Vapes","Hash","Joints"];
+function isCannabisCat(c){ return CANNABIS_CATS.indexOf(c) >= 0; }
+function parseType(s, cat) {
+  if (cat !== undefined && !isCannabisCat(cat)) return "";
   const m = /(indica|sativa|hybrid)/i.exec(s || "");
   return m ? m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() : "Hybrid";
 }
@@ -110,6 +116,7 @@ function mapCategory(p) {
   if (/beer|lager|soda|drink|beverage/.test(s)) return "Beer";
   if (/paper|grinder|bong|lighter|clipper|tray|raw|accessor|equipment/.test(s)) return "Accessories";
   if (/shirt|tee|hoodie|cap|merch/.test(s)) return "Merch";
+  if (/onion ring|french fr|fries|karaage|nugget|burger|pizza|noodle|ramen|rice|salad|sandwich|toast|wings|ice ?cream|waffle|pancake|steak|soup|curry|somtam|pad thai|dumpling|spring roll|food|snack|meal/.test(s)) return "Food";
   if (/flower|bud|kush|gelato|haze|diesel|zkittle|cake|og\b/.test(s)) return "Exotics";
   return (p.category || "Exotics");
 }
@@ -133,9 +140,9 @@ export function normalize(p, stock) {
     name: baseName(nm) || nm,
     rawName: nm,
     category,
-    type: parseType(nm + " " + (p.tags||[]).join(" ")),
-    thcLabel: parseTHC(nm),
-    thc: parseFloat(parseTHC(nm)) || 0,
+    type: parseType(nm + " " + (p.tags||[]).join(" "), category),
+    thcLabel: isCannabisCat(category) ? parseTHC(nm) : "",
+    thc: isCannabisCat(category) ? (parseFloat(parseTHC(nm)) || 0) : 0,
     cbd: 0,
     unit: flower ? "g" : "pc",
     stock: st,
