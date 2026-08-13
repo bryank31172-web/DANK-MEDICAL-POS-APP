@@ -473,6 +473,169 @@ const ONLINE_ORDERS_INIT = [
   { id: "ON-1041", customerName: "Nina K.", phone: "089-333-4444", address: "Condo One Sathorn, Tower B", time: "16 Jul, 19:22", branchId: 2, note: "Leave at lobby", items: [{ name: "THC Vape Cart 1ml", qty: 1 }], dist: 1.4, fee: 30, total: 900, status: "delivered", isMedical: false }
 ];
 const { useState, useEffect, useRef, useCallback } = React;
+const BAR_BOTTLES = [
+  { n: "Tanqueray Gin", ml: 750, thb: 1135 },
+  { n: "Absolut Vodka", ml: 700, thb: 790 },
+  { n: "Bols Triple Sec", ml: 700, thb: 850 },
+  { n: "Sierra Blanco Tequila", ml: 700, thb: 900 },
+  { n: "Havana Rum", ml: 750, thb: 780 },
+  { n: "Maker's Mark", ml: 700, thb: 1380 },
+  { n: "Campari", ml: 700, thb: 1265 },
+  { n: "Martini Rosso (sweet vermouth)", ml: 1e3, thb: 1045 },
+  { n: "Martini Blanco", ml: 1e3, thb: 1100 },
+  { n: "Angostura Bitters", ml: 200, thb: 1e3 },
+  { n: "Truth Orange Bitters", ml: 200, thb: 750 },
+  { n: "Midori Melon Liqueur", ml: 700, thb: 1250 },
+  { n: "Kahlua", ml: 700, thb: 1145 },
+  { n: "Cointreau", ml: 700, thb: 1313 },
+  { n: "Heering Cherry", ml: 700, thb: 1435 },
+  { n: "Fireball Cinnamon Whisky", ml: 750, thb: 980 },
+  { n: "Tabasco", ml: 60, thb: 170 }
+];
+const barMlCost = (b) => b.ml ? b.thb / b.ml : 0;
+const BAR_RECIPES = [
+  {
+    id: "margarita",
+    name: "Margarita",
+    kind: "classic",
+    cost: 95,
+    glass: "Margarita / coupe",
+    ing: [["Tequila", "45 ml", 50], ["Triple sec", "20 ml", 24], ["Syrup", "5 ml", 5], ["Lime juice", "30 ml", 10], ["Misc / salt rim", "-", 10]],
+    method: ["\u0E43\u0E2A\u0E48\u0E17\u0E38\u0E01\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E25\u0E07\u0E40\u0E0A\u0E04\u0E40\u0E01\u0E2D\u0E23\u0E4C\u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 / Shake all with ice", "\u0E01\u0E23\u0E2D\u0E07\u0E25\u0E07\u0E41\u0E01\u0E49\u0E27 / Strain into the glass"],
+    garnish: "\u0E02\u0E2D\u0E1A\u0E40\u0E01\u0E25\u0E37\u0E2D + \u0E0A\u0E34\u0E49\u0E19\u0E21\u0E30\u0E19\u0E32\u0E27 / Salt rim, lime wedge"
+  },
+  {
+    id: "mojito",
+    name: "Mojito",
+    kind: "classic",
+    cost: 77,
+    glass: "Highball",
+    ing: [["Rum", "45 ml", 47], ["Lime wedge", "3 \u0E0A\u0E34\u0E49\u0E19 / wedges", 10], ["Sugar", "2 bsp", 5], ["Syrup", "15 ml", 5], ["Lime juice", "30 ml", 10], ["Soda (top)", "80 ml", 0]],
+    method: ["\u0E1A\u0E14\u0E21\u0E30\u0E19\u0E32\u0E27\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E15\u0E32\u0E25\u0E40\u0E1A\u0E32 \u0E46 / Muddle lime and sugar gently", "\u0E43\u0E2A\u0E48\u0E23\u0E31\u0E21\u0E41\u0E25\u0E30\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 \u0E04\u0E19\u0E43\u0E2B\u0E49\u0E40\u0E02\u0E49\u0E32\u0E01\u0E31\u0E19 / Add rum and ice, stir", "\u0E40\u0E15\u0E34\u0E21\u0E42\u0E0B\u0E14\u0E32\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 / Top with soda"],
+    garnish: "\u0E43\u0E1A\u0E2A\u0E30\u0E23\u0E30\u0E41\u0E2B\u0E19\u0E48 / Mint sprig"
+  },
+  {
+    id: "negroni",
+    name: "Negroni",
+    kind: "classic",
+    cost: 112,
+    glass: "Rocks",
+    ing: [["Gin", "30 ml", 46], ["Campari", "20 ml", 36], ["Sweet vermouth", "20 ml", 20], ["Misc", "-", 10]],
+    method: ["\u0E04\u0E19\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07\u0E08\u0E19\u0E40\u0E22\u0E47\u0E19\u0E08\u0E31\u0E14 / Stir with ice until cold", "\u0E01\u0E23\u0E2D\u0E07\u0E25\u0E07\u0E41\u0E01\u0E49\u0E27\u0E17\u0E35\u0E48\u0E21\u0E35\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07\u0E01\u0E49\u0E2D\u0E19\u0E43\u0E2B\u0E0D\u0E48 / Strain over a big cube"],
+    garnish: "\u0E40\u0E1B\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E49\u0E21 / Orange peel"
+  },
+  {
+    id: "oldfashioned",
+    name: "Old Fashioned",
+    kind: "classic",
+    cost: 130,
+    glass: "Old fashion",
+    ing: [["Maker's Mark", "60 ml", 120], ["Syrup", "5 ml (1 bsp)", 5], ["Angostura bitters", "7 dash (~0.35-0.5 ml)", 5]],
+    method: ["\u0E04\u0E19\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 / Stir with ice", "\u0E40\u0E2A\u0E34\u0E23\u0E4C\u0E1F\u0E43\u0E19\u0E41\u0E01\u0E49\u0E27 old fashion \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07\u0E01\u0E49\u0E2D\u0E19 / Serve in an old fashion glass with a cube"],
+    garnish: "\u0E40\u0E1B\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E49\u0E21 / Orange peel"
+  },
+  {
+    id: "martini",
+    name: "Martini",
+    kind: "classic",
+    cost: 112,
+    glass: "Martini",
+    ing: [["Gin", "60 ml", 92], ["Vermouth extra dry", "5 ml", 10], ["Olive (garnish)", "-", 10]],
+    method: ["\u0E04\u0E19\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07\u0E08\u0E19\u0E40\u0E22\u0E47\u0E19\u0E08\u0E31\u0E14 / Stir with ice until very cold", "\u0E01\u0E23\u0E2D\u0E07\u0E25\u0E07\u0E41\u0E01\u0E49\u0E27\u0E21\u0E32\u0E23\u0E4C\u0E15\u0E34\u0E19\u0E35\u0E48\u0E41\u0E0A\u0E48\u0E40\u0E22\u0E47\u0E19 / Strain into a chilled martini glass"],
+    garnish: "\u0E21\u0E30\u0E01\u0E2D\u0E01 / Olive"
+  },
+  {
+    id: "cosmopolitan",
+    name: "Cosmopolitan",
+    kind: "classic",
+    cost: 95,
+    glass: "Martini",
+    ing: [["Vodka", "45 ml", 51], ["Triple sec", "20 ml", 24], ["Syrup", "5 ml", 5], ["Lime juice", "20 ml", 10], ["Cranberry juice", "30 ml", 5]],
+    method: ["\u0E40\u0E0A\u0E04\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 / Shake with ice", "\u0E01\u0E23\u0E2D\u0E07\u0E25\u0E07\u0E41\u0E01\u0E49\u0E27\u0E21\u0E32\u0E23\u0E4C\u0E15\u0E34\u0E19\u0E35\u0E48 / Strain into a martini glass"],
+    garnish: "\u0E40\u0E1B\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E49\u0E21 / Orange twist"
+  },
+  {
+    id: "manhattan",
+    name: "Manhattan",
+    kind: "classic",
+    cost: 163,
+    glass: "Martini",
+    note: "\u0E43\u0E19\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E23\u0E30\u0E14\u0E32\u0E29\u0E23\u0E27\u0E21\u0E22\u0E2D\u0E14\u0E44\u0E27\u0E49 178 \u0E40\u0E1E\u0E23\u0E32\u0E30\u0E21\u0E35\u0E41\u0E16\u0E27\u0E44\u0E02\u0E48\u0E02\u0E32\u0E27 10 + \u0E19\u0E49\u0E33\u0E23\u0E49\u0E2D\u0E19 5 \u0E02\u0E2D\u0E07 Matcha Forest \u0E2B\u0E25\u0E38\u0E14\u0E21\u0E32\u0E1B\u0E19\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E1A\u0E25\u0E47\u0E2D\u0E01\u0E19\u0E35\u0E49 \xB7 The paper sheet totals 178 because two Matcha Forest rows (egg white 10, hot water 5) bled into this block.",
+    ing: [["Maker's Mark", "60 ml", 120], ["Sweet vermouth (Martini)", "30 ml", 33], ["Orange bitters", "1 dash (0.1 ml)", 5], ["Angostura bitters", "2 dash (0.2 ml)", 5]],
+    method: ["\u0E04\u0E19\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 / Stir with ice", "\u0E01\u0E23\u0E2D\u0E07\u0E25\u0E07\u0E41\u0E01\u0E49\u0E27\u0E21\u0E32\u0E23\u0E4C\u0E15\u0E34\u0E19\u0E35\u0E48 / Strain into a martini glass"],
+    garnish: "\u0E40\u0E0A\u0E2D\u0E23\u0E4C\u0E23\u0E35\u0E48 / Cherry"
+  },
+  {
+    id: "whiskeysour",
+    name: "Whiskey Sour",
+    kind: "classic",
+    cost: 145,
+    glass: "Old fashion",
+    ing: [["Whiskey (Maker's Mark)", "60 ml", 120], ["Egg white", "20 ml", 10], ["Lime juice", "30 ml", 5], ["Sugar syrup", "10 ml", 10]],
+    method: ["\u0E14\u0E23\u0E32\u0E22\u0E40\u0E0A\u0E04\u0E01\u0E48\u0E2D\u0E19\u0E43\u0E2B\u0E49\u0E44\u0E02\u0E48\u0E02\u0E32\u0E27\u0E02\u0E36\u0E49\u0E19\u0E1F\u0E2D\u0E07 / Dry shake first to build the foam", "\u0E40\u0E0A\u0E04\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 / Shake with ice", "\u0E40\u0E2A\u0E34\u0E23\u0E4C\u0E1F\u0E43\u0E19\u0E41\u0E01\u0E49\u0E27 old fashion / Serve in an old fashion glass"],
+    garnish: "\u0E40\u0E0A\u0E2D\u0E23\u0E4C\u0E23\u0E35\u0E48 + Angostura 4 dash \u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 / Cherry, 4 dashes of Angostura on top"
+  },
+  {
+    id: "espressomartini",
+    name: "Espresso Martini",
+    kind: "classic",
+    cost: 171,
+    glass: "Martini",
+    ing: [["Espresso shot", "45 ml", 50], ["Kahlua", "30 ml", 51], ["Vodka", "50 ml", 60], ["Sugar syrup", "7 ml", 10]],
+    method: ["\u0E40\u0E0A\u0E04\u0E41\u0E23\u0E07 \u0E46 \u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07\u0E43\u0E2B\u0E49\u0E40\u0E01\u0E34\u0E14\u0E04\u0E23\u0E35\u0E21\u0E32 / Shake hard with ice for the crema", "\u0E01\u0E23\u0E2D\u0E07\u0E25\u0E07\u0E41\u0E01\u0E49\u0E27\u0E21\u0E32\u0E23\u0E4C\u0E15\u0E34\u0E19\u0E35\u0E48 / Strain into a martini glass"],
+    garnish: "\u0E40\u0E21\u0E25\u0E47\u0E14\u0E01\u0E32\u0E41\u0E1F 3 \u0E40\u0E21\u0E25\u0E47\u0E14 / 3 coffee beans"
+  },
+  {
+    id: "longisland",
+    name: "Long Island Ice Tea",
+    kind: "classic",
+    cost: 198,
+    glass: "Sling",
+    ing: [["Vodka", "20 ml", 25], ["Tequila", "20 ml", 28], ["Rum", "30 ml", 32], ["Triple sec", "20 ml", 36], ["Gin", "20 ml", 32], ["Syrup", "10 ml", 10], ["Lime juice", "30 ml", 15], ["Coke (top)", "30 ml", 20]],
+    method: ["\u0E40\u0E0A\u0E04\u0E17\u0E38\u0E01\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E22\u0E01\u0E40\u0E27\u0E49\u0E19\u0E42\u0E04\u0E49\u0E01 / Shake everything except the Coke", "\u0E01\u0E23\u0E2D\u0E07\u0E25\u0E07\u0E41\u0E01\u0E49\u0E27 sling \u0E17\u0E35\u0E48\u0E21\u0E35\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 / Strain into a sling glass with ice", "\u0E40\u0E15\u0E34\u0E21\u0E42\u0E04\u0E49\u0E01\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 / Top with Coke"],
+    garnish: "\u0E21\u0E30\u0E19\u0E32\u0E27\u0E1D\u0E32\u0E19 + \u0E40\u0E0A\u0E2D\u0E23\u0E4C\u0E23\u0E35\u0E48 / Lime slice and cherry"
+  },
+  {
+    id: "matchaforest",
+    name: "Matcha Forest",
+    kind: "signature",
+    cost: 128,
+    glass: "Matcha bowl",
+    ing: [["Gin", "30 ml", 46], ["Midori melon liqueur", "15 ml", 27], ["Green apple syrup", "5 ml", 5], ["Lime juice", "15 ml", 10], ["Matcha", "3 g", 10], ["Egg white", "30 ml", 10], ["Hot water", "40 ml", 20]],
+    method: ["\u0E25\u0E30\u0E25\u0E32\u0E22\u0E21\u0E31\u0E17\u0E09\u0E30\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E23\u0E49\u0E2D\u0E19\u0E01\u0E48\u0E2D\u0E19 / Mix the matcha with hot water first", "\u0E40\u0E0A\u0E04\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 / Shake with ice", "\u0E40\u0E2A\u0E34\u0E23\u0E4C\u0E1F\u0E43\u0E19\u0E16\u0E49\u0E27\u0E22\u0E21\u0E31\u0E17\u0E09\u0E30 / Serve in a matcha bowl"],
+    garnish: "\u0E43\u0E1A\u0E44\u0E21\u0E49/\u0E14\u0E2D\u0E01\u0E44\u0E21\u0E49\u0E01\u0E34\u0E19\u0E44\u0E14\u0E49 / Edible leaves and flowers"
+  },
+  {
+    id: "dankfireball",
+    name: "Dank Fireball",
+    kind: "signature",
+    cost: 136,
+    glass: "Rocks",
+    ing: [["Fireball", "45 ml", 63], ["Campari", "20 ml", 36], ["Heering cherry", "10 ml", 21], ["Blanco vermouth", "10 ml", 11], ["Orange bitters", "4 dash (0.4 ml)", 5], ["Tabasco", "3 dash (0.3 ml)", 0]],
+    method: ["\u0E04\u0E19\u0E41\u0E25\u0E49\u0E27\u0E01\u0E23\u0E2D\u0E07 / Stir and strain"],
+    garnish: "\u0E2D\u0E1A\u0E40\u0E0A\u0E22 + \u0E40\u0E0A\u0E2D\u0E23\u0E4C\u0E23\u0E35\u0E48 / Cinnamon and cherry"
+  },
+  {
+    id: "mangostickyrice",
+    name: "Mango Sticky Rice",
+    kind: "signature",
+    cost: 175,
+    glass: "Coupe",
+    ing: [["Vodka", "45 ml", 51], ["Cointreau", "15 ml", 29], ["Mango handmade syrup", "45 ml", 5], ["Lime juice", "20 ml", 10], ["\u0E42\u0E1F\u0E21: cream", "60 ml", 30], ["\u0E42\u0E1F\u0E21: coconut milk", "40 ml", 20], ["\u0E42\u0E1F\u0E21: pandan syrup", "15 ml", 30], ["\u0E42\u0E1F\u0E21: \u0E40\u0E01\u0E25\u0E37\u0E2D / a pinch of salt", "-", 0]],
+    method: ["\u0E15\u0E35\u0E42\u0E1F\u0E21\u0E01\u0E30\u0E17\u0E34\u0E43\u0E2B\u0E49\u0E40\u0E02\u0E49\u0E32\u0E01\u0E31\u0E19\u0E01\u0E48\u0E2D\u0E19 / Whip the coconut foam first", "\u0E40\u0E0A\u0E04\u0E15\u0E31\u0E27\u0E40\u0E2B\u0E25\u0E49\u0E32\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 / Shake the base with ice", "\u0E23\u0E32\u0E14\u0E42\u0E1F\u0E21\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 / Top with the coconut foam"],
+    garnish: "\u0E02\u0E49\u0E32\u0E27\u0E40\u0E2B\u0E19\u0E35\u0E22\u0E27 + \u0E43\u0E1A\u0E40\u0E15\u0E22 / Sticky rice and pandan leaf"
+  },
+  {
+    id: "lostcherry",
+    name: "Lost Cherry",
+    kind: "signature",
+    cost: 204,
+    glass: "Coupe",
+    ing: [["Vodka", "50 ml", 56], ["Cherry brine", "20 ml", 20], ["Heering cherry", "45 ml", 93], ["Cherry", "4 \u0E25\u0E39\u0E01 / pieces", 10], ["Lime juice", "20 ml", 10], ["Egg white", "30 ml", 10], ["Vanilla syrup", "5 ml", 5]],
+    method: ["\u0E1A\u0E14\u0E40\u0E0A\u0E2D\u0E23\u0E4C\u0E23\u0E35\u0E48 / Muddle the cherries", "\u0E14\u0E23\u0E32\u0E22\u0E40\u0E0A\u0E04\u0E01\u0E48\u0E2D\u0E19 / Dry shake first", "\u0E41\u0E25\u0E49\u0E27\u0E40\u0E0A\u0E04\u0E01\u0E31\u0E1A\u0E19\u0E49\u0E33\u0E41\u0E02\u0E47\u0E07 / Then shake with ice"],
+    garnish: "\u0E2D\u0E1A\u0E40\u0E0A\u0E22\u0E40\u0E1C\u0E32 + \u0E40\u0E0A\u0E2D\u0E23\u0E4C\u0E23\u0E35\u0E48 3 \u0E25\u0E39\u0E01 / Burnt cinnamon stick and 3 cherries"
+  }
+];
 const SHIFT_TASKS = {
   in: [
     {
@@ -6729,6 +6892,8 @@ function GreenPOS() {
   const [asstMsgs, setAsstMsgs] = useState([]);
   const [asstBusy, setAsstBusy] = useState(false);
   const [claimBusy, setClaimBusy] = useState(false);
+  const [barPick, setBarPick] = useState(null);
+  const [barDone, setBarDone] = useState({});
   const asstGreetRef = useRef(false);
   useEffect(function() {
     if (screen === "main" && !asstGreetRef.current) {
@@ -7348,6 +7513,7 @@ function GreenPOS() {
     ...canEdit ? [{ id: "api", icon: "\u{1F50C}", label: mob ? "API" : "API / Website" }] : [],
     { id: "work", icon: "\u{1F4CB}", label: mob ? "Work" : "\u0E07\u0E32\u0E19 Work" },
     { id: "scale", icon: "\u2696", label: mob ? "Scale" : "Scale & Print" },
+    { id: "bar", icon: "\u{1F378}", label: mob ? "Bar" : "\u0E1A\u0E32\u0E23\u0E4C Bar" },
     { id: "marketing", icon: "\u{1F4E3}", label: mob ? "Mktg" : "Marketing" },
     { id: "aisum", icon: "\u{1F9E0}", label: mob ? "AI Sum" : "AI Summary" }
   ];
@@ -7484,7 +7650,7 @@ function GreenPOS() {
     setActiveTab("pos");
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${C.border}` }) }, "\u23CF"))), (function() {
     var HIDDEN_IDS = { rewards: 1, medical: 1, affiliate: 1, notif: 1, aisum: 1 };
-    var MORE_IDS = { kitchen: 1, api: 1, scale: 1, marketing: 1 };
+    var MORE_IDS = { kitchen: 1, api: 1, scale: 1, marketing: 1, bar: 1 };
     var visibleTabs = TABS.filter(function(t2) {
       return !HIDDEN_IDS[t2.id];
     });
@@ -9352,7 +9518,102 @@ function GreenPOS() {
         return np;
       });
     } }), t2[1]);
-  })), /* @__PURE__ */ React.createElement("button", { onClick: sendLineTest, disabled: lineTestSending, style: __spreadProps(__spreadValues({}, gs.btn(lineTestSending ? C.card3 : C.green)), { fontSize: 11 }) }, lineTestSending ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E48\u0E07..." : "\u{1F4E4} \u0E2A\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E17\u0E14\u0E2A\u0E2D\u0E1A / Send test message"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 7 } }, "\u0E15\u0E49\u0E2D\u0E07\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 Webhook URL \u0E43\u0E19\u0E40\u0E0B\u0E34\u0E23\u0E4C\u0E1F\u0E40\u0E27\u0E2D\u0E23\u0E4C LINE \u0E01\u0E48\u0E2D\u0E19 (\u0E14\u0E39 README \u0E02\u0E2D\u0E07\u0E42\u0E1B\u0E23\u0E40\u0E08\u0E01\u0E15\u0E4C Bryan AI) \xB7 Requires the Bryan AI LINE server deployed with a public URL, its /notify endpoint added, and (if used) NOTIFY_SECRET matching what you entered above.")))), activeTab === "marketing" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900, marginBottom: 4 } }, "\u{1F4E3} Marketing \u2014 AI Team"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 12 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22 AI \u0E14\u0E49\u0E32\u0E19\u0E01\u0E32\u0E23\u0E15\u0E25\u0E32\u0E14 \u2014 \u0E01\u0E14 \u{1F4CB} Copy prompt \u0E41\u0E25\u0E49\u0E27\u0E27\u0E32\u0E07\u0E43\u0E19\u0E41\u0E2D\u0E1B Grok (\u0E41\u0E1C\u0E19 999\u0E3F \u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E1E\u0E34\u0E48\u0E21)"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 14, border: "1px solid rgba(201,168,76,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800, marginBottom: 3 } }, "\u{1F3AC} Video Creator \u2014 Grok Imagine"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E27\u0E34\u0E14\u0E35\u0E42\u0E2D\u0E42\u0E1B\u0E23\u0E42\u0E21\u0E17\u0E23\u0E49\u0E32\u0E19 \xB7 generate keywords + brief \u2192 \u0E40\u0E1B\u0E34\u0E14 Grok (\u0E41\u0E1C\u0E19 999\u0E3F \u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13) \u2192 \u0E27\u0E32\u0E07 \u2192 \u0E44\u0E14\u0E49\u0E27\u0E34\u0E14\u0E35\u0E42\u0E2D \u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E1E\u0E34\u0E48\u0E21"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 9, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Promote what?"), /* @__PURE__ */ React.createElement("select", { style: gs.input, value: vidTopic, onChange: function(e) {
+  })), /* @__PURE__ */ React.createElement("button", { onClick: sendLineTest, disabled: lineTestSending, style: __spreadProps(__spreadValues({}, gs.btn(lineTestSending ? C.card3 : C.green)), { fontSize: 11 }) }, lineTestSending ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E48\u0E07..." : "\u{1F4E4} \u0E2A\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E17\u0E14\u0E2A\u0E2D\u0E1A / Send test message"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 7 } }, "\u0E15\u0E49\u0E2D\u0E07\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 Webhook URL \u0E43\u0E19\u0E40\u0E0B\u0E34\u0E23\u0E4C\u0E1F\u0E40\u0E27\u0E2D\u0E23\u0E4C LINE \u0E01\u0E48\u0E2D\u0E19 (\u0E14\u0E39 README \u0E02\u0E2D\u0E07\u0E42\u0E1B\u0E23\u0E40\u0E08\u0E01\u0E15\u0E4C Bryan AI) \xB7 Requires the Bryan AI LINE server deployed with a public URL, its /notify endpoint added, and (if used) NOTIFY_SECRET matching what you entered above.")))), activeTab === "bar" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900, marginBottom: 4 } }, "\u{1F378} \u0E1A\u0E32\u0E23\u0E4C \xB7 Bar recipes & cost"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 12 } }, "\u0E41\u0E15\u0E30\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E14\u0E37\u0E48\u0E21\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1B\u0E34\u0E14\u0E40\u0E0A\u0E47\u0E04\u0E25\u0E34\u0E2A\u0E15\u0E4C \u2014 \u0E15\u0E34\u0E4A\u0E01\u0E17\u0E35\u0E25\u0E30\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E15\u0E2D\u0E19\u0E23\u0E34\u0E19\u0E08\u0E30\u0E44\u0E14\u0E49\u0E44\u0E21\u0E48\u0E25\u0E37\u0E21\u0E41\u0E25\u0E30\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E44\u0E21\u0E48\u0E1A\u0E32\u0E19 \xB7 Tap a drink for a pour-along checklist."), barPick && (function() {
+    var r = BAR_RECIPES.find(function(x) {
+      return x.id === barPick;
+    });
+    if (!r) return null;
+    var steps = r.ing.map(function(g, i) {
+      return { k: "i" + i, label: g[0], amt: g[1], cost: g[2] };
+    }).concat(r.method.map(function(m, i) {
+      return { k: "m" + i, label: m, amt: "", cost: null };
+    })).concat([{ k: "g", label: r.garnish, amt: "", cost: null, garnish: true }]);
+    var done = steps.filter(function(st) {
+      return barDone[st.k];
+    }).length;
+    var all = done === steps.length;
+    return /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
+      setBarPick(null);
+    } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 520, maxHeight: "92vh", overflowY: "auto" }), onClick: function(e) {
+      e.stopPropagation();
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900 } }, r.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 2 } }, r.glass, " \xB7 \u0E15\u0E49\u0E19\u0E17\u0E38\u0E19 \u0E3F", r.cost, " \xB7 ", r.kind === "signature" ? "Signature" : "Classic")), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setBarPick(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 12, padding: "5px 11px" }) }, "\u2715")), /* @__PURE__ */ React.createElement("div", { style: { height: 24, background: C.card2, border: "1px solid " + C.border, borderRadius: 12, overflow: "hidden", position: "relative", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: "0 auto 0 0", width: Math.round(done * 100 / steps.length) + "%", background: all ? C.green : "rgba(74,222,128,0.35)", transition: "width .2s" } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: all ? "#052e16" : C.text } }, all ? "\u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E2A\u0E34\u0E23\u0E4C\u0E1F / Ready to serve" : done + "/" + steps.length)), r.note && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(245,158,11,0.09)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 9, padding: "7px 10px", marginBottom: 9, fontSize: 9, color: "#fcd34d", lineHeight: 1.6 } }, "\u26A0 ", r.note), steps.map(function(st, i) {
+      var on = !!barDone[st.k];
+      var isIng = st.cost !== null;
+      return /* @__PURE__ */ React.createElement(
+        "div",
+        {
+          key: st.k,
+          onClick: function() {
+            setBarDone(function(p) {
+              var q = Object.assign({}, p);
+              q[st.k] = !q[st.k];
+              return q;
+            });
+          },
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            padding: "8px 10px",
+            marginBottom: 5,
+            cursor: "pointer",
+            borderRadius: 10,
+            background: on ? "rgba(74,222,128,0.08)" : C.card2,
+            border: "1px solid " + (on ? "rgba(74,222,128,0.4)" : C.border)
+          }
+        },
+        /* @__PURE__ */ React.createElement("div", { style: {
+          width: 20,
+          height: 20,
+          borderRadius: 6,
+          flexShrink: 0,
+          background: on ? C.green : "transparent",
+          border: "2px solid " + (on ? C.green : C.border),
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 11,
+          color: "#052e16",
+          fontWeight: 900
+        } }, on ? "\u2713" : ""),
+        /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: isIng ? 800 : 600, color: on ? C.green : C.text, lineHeight: 1.45 } }, st.garnish ? "\u{1F33F} " : isIng ? "" : "\u2192 ", st.label)),
+        st.amt ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: C.blue, whiteSpace: "nowrap" } }, st.amt) : null
+      );
+    }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, marginTop: 9 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setBarDone({});
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#9ca3af")), { flex: "0 0 auto", border: "1px solid " + C.border, fontSize: 11 }) }, "\u0E25\u0E49\u0E32\u0E07"), /* @__PURE__ */ React.createElement("button", { disabled: !all, onClick: function() {
+      addAudit("BAR_MADE", r.name + " (\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19 \u0E3F" + r.cost + ")", currentStaff && currentStaff.name);
+      notify("\u{1F378} " + r.name + " \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E2A\u0E34\u0E23\u0E4C\u0E1F");
+      setBarDone({});
+      setBarPick(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(all ? C.green : C.card3, all ? "#000" : "#666")), { flex: 1 }) }, all ? "\u2705 \u0E40\u0E2A\u0E34\u0E23\u0E4C\u0E1F\u0E40\u0E25\u0E22 / Serve" : "\u0E15\u0E34\u0E4A\u0E01\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A\u0E01\u0E48\u0E2D\u0E19"))));
+  })(), ["classic", "signature"].map(function(kind) {
+    var list = BAR_RECIPES.filter(function(r) {
+      return r.kind === kind;
+    });
+    return /* @__PURE__ */ React.createElement("span", { key: kind, style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.eyebrow), { margin: "10px 0 6px" }) }, kind === "classic" ? "CLASSIC COCKTAILS" : "SIGNATURE COCKTAILS", " \xB7 ", list.length), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(auto-fill,minmax(190px,1fr))", gap: 8, marginBottom: 6 } }, list.map(function(r) {
+      var suggest = Math.ceil(r.cost * 4 / 10) * 10;
+      return /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          key: r.id,
+          onClick: function() {
+            setBarPick(r.id);
+            setBarDone({});
+          },
+          style: __spreadProps(__spreadValues({}, gs.card), { cursor: "pointer", textAlign: "left", padding: mob ? 10 : 12, border: "1px solid " + C.border, color: C.text })
+        },
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name),
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted, marginBottom: 6 } }, r.ing.length, " \u0E2D\u0E22\u0E48\u0E32\u0E07 \xB7 ", r.glass),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: __spreadValues({}, gs.metric(mob ? 14 : 15, C.green)) }, "\u0E3F", r.cost), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 8.5, color: C.muted } }, "\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19")),
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.blue, marginTop: 2 } }, "\u0E02\u0E32\u0E22 \u0E3F", suggest, "+ \u2192 pour cost ~", Math.round(r.cost * 100 / suggest), "%")
+      );
+    })));
+  }), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.eyebrow), { margin: "14px 0 6px" }) }, "\u0E23\u0E32\u0E04\u0E32\u0E02\u0E27\u0E14 \xB7 BOTTLE COST"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { padding: 0, overflow: "hidden" }) }, BAR_BOTTLES.map(function(b, i) {
+    return /* @__PURE__ */ React.createElement("div", { key: b.n, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 11px", borderTop: i ? "1px solid " + C.borderSoft : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.n), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, whiteSpace: "nowrap" } }, b.ml, "ml"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, minWidth: 54, textAlign: "right", fontVariantNumeric: "tabular-nums" } }, "\u0E3F", b.thb.toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.blue, minWidth: 62, textAlign: "right", fontVariantNumeric: "tabular-nums" } }, "\u0E3F", barMlCost(b).toFixed(2), "/ml"));
+  })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 7, lineHeight: 1.6 } }, "\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E15\u0E48\u0E2D\u0E41\u0E01\u0E49\u0E27\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E08\u0E32\u0E01\u0E15\u0E32\u0E23\u0E32\u0E07\u0E02\u0E2D\u0E07\u0E23\u0E49\u0E32\u0E19 \xB7 \u0E16\u0E49\u0E32\u0E23\u0E32\u0E04\u0E32\u0E02\u0E27\u0E14\u0E02\u0E36\u0E49\u0E19 \u0E43\u0E0A\u0E49 \u0E3F/ml \u0E04\u0E34\u0E14\u0E43\u0E2B\u0E21\u0E48\u0E44\u0E14\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35 \xB7 Per-drink costs are the shop's own figures; the \u0E3F/ml column is there to recost a drink when a bottle price moves.")), activeTab === "marketing" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900, marginBottom: 4 } }, "\u{1F4E3} Marketing \u2014 AI Team"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 12 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22 AI \u0E14\u0E49\u0E32\u0E19\u0E01\u0E32\u0E23\u0E15\u0E25\u0E32\u0E14 \u2014 \u0E01\u0E14 \u{1F4CB} Copy prompt \u0E41\u0E25\u0E49\u0E27\u0E27\u0E32\u0E07\u0E43\u0E19\u0E41\u0E2D\u0E1B Grok (\u0E41\u0E1C\u0E19 999\u0E3F \u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E1E\u0E34\u0E48\u0E21)"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 14, border: "1px solid rgba(201,168,76,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800, marginBottom: 3 } }, "\u{1F3AC} Video Creator \u2014 Grok Imagine"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E27\u0E34\u0E14\u0E35\u0E42\u0E2D\u0E42\u0E1B\u0E23\u0E42\u0E21\u0E17\u0E23\u0E49\u0E32\u0E19 \xB7 generate keywords + brief \u2192 \u0E40\u0E1B\u0E34\u0E14 Grok (\u0E41\u0E1C\u0E19 999\u0E3F \u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13) \u2192 \u0E27\u0E32\u0E07 \u2192 \u0E44\u0E14\u0E49\u0E27\u0E34\u0E14\u0E35\u0E42\u0E2D \u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E1E\u0E34\u0E48\u0E21"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 9, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Promote what?"), /* @__PURE__ */ React.createElement("select", { style: gs.input, value: vidTopic, onChange: function(e) {
     setVidTopic(e.target.value);
   } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 / topic \u2014"), /* @__PURE__ */ React.createElement("option", { value: "__shop__" }, "The shop (Dank Cannabis Clinic)"), /* @__PURE__ */ React.createElement("option", { value: "__happyhour__" }, "Happy Hour promo"), products.slice(0, 30).map(function(p) {
     return /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.name }, p.name);

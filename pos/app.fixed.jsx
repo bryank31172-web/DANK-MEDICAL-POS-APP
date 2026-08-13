@@ -341,6 +341,79 @@ const ONLINE_ORDERS_INIT=[
 // a BroadcastChannel and also writes dank_cds_state to localStorage; the
 // display listens to both and polls the key once a second as a last resort,
 // so it keeps working across window types and with no network at all.
+// ── BAR ─────────────────────────────────────────────────────────────────────
+// Typed up from the bar's own laminated cost sheets. Costs are the shop's own
+// numbers, kept as-is so the sheet and the app agree; BAR_BOTTLES carries the
+// bottle prices those costs came from, so a pour cost can be recomputed when a
+// supplier price moves instead of being re-guessed.
+const BAR_BOTTLES = [
+  {n:"Tanqueray Gin", ml:750, thb:1135},
+  {n:"Absolut Vodka", ml:700, thb:790},
+  {n:"Bols Triple Sec", ml:700, thb:850},
+  {n:"Sierra Blanco Tequila", ml:700, thb:900},
+  {n:"Havana Rum", ml:750, thb:780},
+  {n:"Maker's Mark", ml:700, thb:1380},
+  {n:"Campari", ml:700, thb:1265},
+  {n:"Martini Rosso (sweet vermouth)", ml:1000, thb:1045},
+  {n:"Martini Blanco", ml:1000, thb:1100},
+  {n:"Angostura Bitters", ml:200, thb:1000},
+  {n:"Truth Orange Bitters", ml:200, thb:750},
+  {n:"Midori Melon Liqueur", ml:700, thb:1250},
+  {n:"Kahlua", ml:700, thb:1145},
+  {n:"Cointreau", ml:700, thb:1313},
+  {n:"Heering Cherry", ml:700, thb:1435},
+  {n:"Fireball Cinnamon Whisky", ml:750, thb:980},
+  {n:"Tabasco", ml:60, thb:170},
+];
+const barMlCost = (b) => (b.ml ? b.thb / b.ml : 0);
+
+const BAR_RECIPES = [
+  {id:"margarita", name:"Margarita", kind:"classic", cost:95, glass:"Margarita / coupe",
+   ing:[["Tequila","45 ml",50],["Triple sec","20 ml",24],["Syrup","5 ml",5],["Lime juice","30 ml",10],["Misc / salt rim","-",10]],
+   method:["ใส่ทุกอย่างลงเชคเกอร์พร้อมน้ำแข็ง / Shake all with ice","กรองลงแก้ว / Strain into the glass"], garnish:"ขอบเกลือ + ชิ้นมะนาว / Salt rim, lime wedge"},
+  {id:"mojito", name:"Mojito", kind:"classic", cost:77, glass:"Highball",
+   ing:[["Rum","45 ml",47],["Lime wedge","3 ชิ้น / wedges",10],["Sugar","2 bsp",5],["Syrup","15 ml",5],["Lime juice","30 ml",10],["Soda (top)","80 ml",0]],
+   method:["บดมะนาวกับน้ำตาลเบา ๆ / Muddle lime and sugar gently","ใส่รัมและน้ำแข็ง คนให้เข้ากัน / Add rum and ice, stir","เติมโซดาด้านบน / Top with soda"], garnish:"ใบสะระแหน่ / Mint sprig"},
+  {id:"negroni", name:"Negroni", kind:"classic", cost:112, glass:"Rocks",
+   ing:[["Gin","30 ml",46],["Campari","20 ml",36],["Sweet vermouth","20 ml",20],["Misc","-",10]],
+   method:["คนกับน้ำแข็งจนเย็นจัด / Stir with ice until cold","กรองลงแก้วที่มีน้ำแข็งก้อนใหญ่ / Strain over a big cube"], garnish:"เปลือกส้ม / Orange peel"},
+  {id:"oldfashioned", name:"Old Fashioned", kind:"classic", cost:130, glass:"Old fashion",
+   ing:[["Maker's Mark","60 ml",120],["Syrup","5 ml (1 bsp)",5],["Angostura bitters","7 dash (~0.35-0.5 ml)",5]],
+   method:["คนกับน้ำแข็ง / Stir with ice","เสิร์ฟในแก้ว old fashion พร้อมน้ำแข็งก้อน / Serve in an old fashion glass with a cube"], garnish:"เปลือกส้ม / Orange peel"},
+  {id:"martini", name:"Martini", kind:"classic", cost:112, glass:"Martini",
+   ing:[["Gin","60 ml",92],["Vermouth extra dry","5 ml",10],["Olive (garnish)","-",10]],
+   method:["คนกับน้ำแข็งจนเย็นจัด / Stir with ice until very cold","กรองลงแก้วมาร์ตินี่แช่เย็น / Strain into a chilled martini glass"], garnish:"มะกอก / Olive"},
+  {id:"cosmopolitan", name:"Cosmopolitan", kind:"classic", cost:95, glass:"Martini",
+   ing:[["Vodka","45 ml",51],["Triple sec","20 ml",24],["Syrup","5 ml",5],["Lime juice","20 ml",10],["Cranberry juice","30 ml",5]],
+   method:["เชคกับน้ำแข็ง / Shake with ice","กรองลงแก้วมาร์ตินี่ / Strain into a martini glass"], garnish:"เปลือกส้ม / Orange twist"},
+  {id:"manhattan", name:"Manhattan", kind:"classic", cost:163, glass:"Martini",
+   note:"ในตารางกระดาษรวมยอดไว้ 178 เพราะมีแถวไข่ขาว 10 + น้ำร้อน 5 ของ Matcha Forest หลุดมาปนอยู่ในบล็อกนี้ · The paper sheet totals 178 because two Matcha Forest rows (egg white 10, hot water 5) bled into this block.",
+   ing:[["Maker's Mark","60 ml",120],["Sweet vermouth (Martini)","30 ml",33],["Orange bitters","1 dash (0.1 ml)",5],["Angostura bitters","2 dash (0.2 ml)",5]],
+   method:["คนกับน้ำแข็ง / Stir with ice","กรองลงแก้วมาร์ตินี่ / Strain into a martini glass"], garnish:"เชอร์รี่ / Cherry"},
+  {id:"whiskeysour", name:"Whiskey Sour", kind:"classic", cost:145, glass:"Old fashion",
+   ing:[["Whiskey (Maker's Mark)","60 ml",120],["Egg white","20 ml",10],["Lime juice","30 ml",5],["Sugar syrup","10 ml",10]],
+   method:["ดรายเชคก่อนให้ไข่ขาวขึ้นฟอง / Dry shake first to build the foam","เชคกับน้ำแข็ง / Shake with ice","เสิร์ฟในแก้ว old fashion / Serve in an old fashion glass"], garnish:"เชอร์รี่ + Angostura 4 dash ด้านบน / Cherry, 4 dashes of Angostura on top"},
+  {id:"espressomartini", name:"Espresso Martini", kind:"classic", cost:171, glass:"Martini",
+   ing:[["Espresso shot","45 ml",50],["Kahlua","30 ml",51],["Vodka","50 ml",60],["Sugar syrup","7 ml",10]],
+   method:["เชคแรง ๆ กับน้ำแข็งให้เกิดครีมา / Shake hard with ice for the crema","กรองลงแก้วมาร์ตินี่ / Strain into a martini glass"], garnish:"เมล็ดกาแฟ 3 เมล็ด / 3 coffee beans"},
+  {id:"longisland", name:"Long Island Ice Tea", kind:"classic", cost:198, glass:"Sling",
+   ing:[["Vodka","20 ml",25],["Tequila","20 ml",28],["Rum","30 ml",32],["Triple sec","20 ml",36],["Gin","20 ml",32],["Syrup","10 ml",10],["Lime juice","30 ml",15],["Coke (top)","30 ml",20]],
+   method:["เชคทุกอย่างยกเว้นโค้ก / Shake everything except the Coke","กรองลงแก้ว sling ที่มีน้ำแข็ง / Strain into a sling glass with ice","เติมโค้กด้านบน / Top with Coke"], garnish:"มะนาวฝาน + เชอร์รี่ / Lime slice and cherry"},
+
+  {id:"matchaforest", name:"Matcha Forest", kind:"signature", cost:128, glass:"Matcha bowl",
+   ing:[["Gin","30 ml",46],["Midori melon liqueur","15 ml",27],["Green apple syrup","5 ml",5],["Lime juice","15 ml",10],["Matcha","3 g",10],["Egg white","30 ml",10],["Hot water","40 ml",20]],
+   method:["ละลายมัทฉะกับน้ำร้อนก่อน / Mix the matcha with hot water first","เชคกับน้ำแข็ง / Shake with ice","เสิร์ฟในถ้วยมัทฉะ / Serve in a matcha bowl"], garnish:"ใบไม้/ดอกไม้กินได้ / Edible leaves and flowers"},
+  {id:"dankfireball", name:"Dank Fireball", kind:"signature", cost:136, glass:"Rocks",
+   ing:[["Fireball","45 ml",63],["Campari","20 ml",36],["Heering cherry","10 ml",21],["Blanco vermouth","10 ml",11],["Orange bitters","4 dash (0.4 ml)",5],["Tabasco","3 dash (0.3 ml)",0]],
+   method:["คนแล้วกรอง / Stir and strain"], garnish:"อบเชย + เชอร์รี่ / Cinnamon and cherry"},
+  {id:"mangostickyrice", name:"Mango Sticky Rice", kind:"signature", cost:175, glass:"Coupe",
+   ing:[["Vodka","45 ml",51],["Cointreau","15 ml",29],["Mango handmade syrup","45 ml",5],["Lime juice","20 ml",10],["โฟม: cream","60 ml",30],["โฟม: coconut milk","40 ml",20],["โฟม: pandan syrup","15 ml",30],["โฟม: เกลือ / a pinch of salt","-",0]],
+   method:["ตีโฟมกะทิให้เข้ากันก่อน / Whip the coconut foam first","เชคตัวเหล้ากับน้ำแข็ง / Shake the base with ice","ราดโฟมด้านบน / Top with the coconut foam"], garnish:"ข้าวเหนียว + ใบเตย / Sticky rice and pandan leaf"},
+  {id:"lostcherry", name:"Lost Cherry", kind:"signature", cost:204, glass:"Coupe",
+   ing:[["Vodka","50 ml",56],["Cherry brine","20 ml",20],["Heering cherry","45 ml",93],["Cherry","4 ลูก / pieces",10],["Lime juice","20 ml",10],["Egg white","30 ml",10],["Vanilla syrup","5 ml",5]],
+   method:["บดเชอร์รี่ / Muddle the cherries","ดรายเชคก่อน / Dry shake first","แล้วเชคกับน้ำแข็ง / Then shake with ice"], garnish:"อบเชยเผา + เชอร์รี่ 3 ลูก / Burnt cinnamon stick and 3 cherries"},
+];
+
 // What a shift actually requires, in the order it gets done. Each line carries
 // its own how-to, because the person who most needs this list is the one who
 // has never opened the shop before. Only steps this app can really do are
@@ -3890,6 +3963,8 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   const [asstMsgs,setAsstMsgs]=useState([]);
   const [asstBusy,setAsstBusy]=useState(false);
   const [claimBusy,setClaimBusy]=useState(false);
+  const [barPick,setBarPick]=useState(null);
+  const [barDone,setBarDone]=useState({});
   const asstGreetRef=useRef(false);
   useEffect(function(){if(screen==="main"&&!asstGreetRef.current){asstGreetRef.current=true;var tm=setTimeout(function(){setAsstIntro(true);},1800);return function(){clearTimeout(tm);};}},[screen]);
   const asstBestSellers=function(){var agg={};(_txScoped||[]).forEach(function(t){(t.items||[]).forEach(function(it){var pid=it.productId;if(!pid)return;if(!agg[pid])agg[pid]={s:0,r:0,pid:pid};agg[pid].s+=(+it.quantity||0);agg[pid].r+=(+it.total||0);});});return Object.values(agg).sort(function(a,b){return b.r-a.r;}).slice(0,5).map(function(x){var pr=products.find(function(p){return p.id===x.pid;});return (pr?cleanName(pr).short:("#"+x.pid))+" (฿"+Math.round(x.r).toLocaleString()+")";});};
@@ -4134,6 +4209,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     ...(canEdit?[{id:"api",icon:"🔌",label:mob?"API":"API / Website"}]:[]),
     {id:"work",icon:"📋",label:mob?"Work":"งาน Work"},
     {id:"scale",icon:"⚖",label:mob?"Scale":"Scale & Print"},
+    {id:"bar",icon:"🍸",label:mob?"Bar":"บาร์ Bar"},
     {id:"marketing",icon:"📣",label:mob?"Mktg":"Marketing"},
     {id:"aisum",icon:"🧠",label:mob?"AI Sum":"AI Summary"},
   ];
@@ -4330,7 +4406,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       {/* TAB BAR */}
       {(function(){
         var HIDDEN_IDS={rewards:1,medical:1,affiliate:1,notif:1,aisum:1};
-        var MORE_IDS={kitchen:1,api:1,scale:1,marketing:1};
+        var MORE_IDS={kitchen:1,api:1,scale:1,marketing:1,bar:1};
         var visibleTabs=TABS.filter(function(t2){return !HIDDEN_IDS[t2.id];});
         var primaryTabs=visibleTabs.filter(function(t2){return !MORE_IDS[t2.id];});
         var moreTabs=visibleTabs.filter(function(t2){return MORE_IDS[t2.id];});
@@ -6928,6 +7004,107 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{fontSize:9,color:C.muted,marginTop:7}}>ต้องตั้งค่า Webhook URL ในเซิร์ฟเวอร์ LINE ก่อน (ดู README ของโปรเจกต์ Bryan AI) · Requires the Bryan AI LINE server deployed with a public URL, its /notify endpoint added, and (if used) NOTIFY_SECRET matching what you entered above.</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── BAR TAB ── */}
+      {activeTab==="bar"&&(
+        <div style={gs.sec}>
+          <div style={{fontSize:mob?15:17,fontWeight:900,marginBottom:4}}>🍸 บาร์ · Bar recipes & cost</div>
+          <div style={{fontSize:10,color:C.muted,marginBottom:12}}>แตะเครื่องดื่มเพื่อเปิดเช็คลิสต์ — ติ๊กทีละอย่างตอนรินจะได้ไม่ลืมและต้นทุนไม่บาน · Tap a drink for a pour-along checklist.</div>
+
+          {barPick&&(function(){
+            var r=BAR_RECIPES.find(function(x){return x.id===barPick;});
+            if(!r)return null;
+            var steps=r.ing.map(function(g,i){return {k:"i"+i,label:g[0],amt:g[1],cost:g[2]};})
+              .concat(r.method.map(function(m,i){return {k:"m"+i,label:m,amt:"",cost:null};}))
+              .concat([{k:"g",label:r.garnish,amt:"",cost:null,garnish:true}]);
+            var done=steps.filter(function(st){return barDone[st.k];}).length;
+            var all=done===steps.length;
+            return (
+            <div style={OVERLAY} onClick={function(){setBarPick(null);}}>
+              <div style={{...gs.card,width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}} onClick={function(e){e.stopPropagation();}}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:16,fontWeight:900}}>{r.name}</div>
+                    <div style={{fontSize:9.5,color:C.muted,marginTop:2}}>{r.glass} · ต้นทุน ฿{r.cost} · {r.kind==="signature"?"Signature":"Classic"}</div>
+                  </div>
+                  <button onClick={function(){setBarPick(null);}} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:12,padding:"5px 11px"}}>✕</button>
+                </div>
+
+                <div style={{height:24,background:C.card2,border:"1px solid "+C.border,borderRadius:12,overflow:"hidden",position:"relative",marginBottom:9}}>
+                  <div style={{position:"absolute",inset:"0 auto 0 0",width:Math.round(done*100/steps.length)+"%",background:all?C.green:"rgba(74,222,128,0.35)",transition:"width .2s"}}/>
+                  <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,color:all?"#052e16":C.text}}>{all?"พร้อมเสิร์ฟ / Ready to serve":(done+"/"+steps.length)}</div>
+                </div>
+
+                {r.note&&<div style={{background:"rgba(245,158,11,0.09)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:9,padding:"7px 10px",marginBottom:9,fontSize:9,color:"#fcd34d",lineHeight:1.6}}>⚠ {r.note}</div>}
+
+                {steps.map(function(st,i){
+                  var on=!!barDone[st.k];
+                  var isIng=st.cost!==null;
+                  return (
+                  <div key={st.k} onClick={function(){setBarDone(function(p){var q=Object.assign({},p);q[st.k]=!q[st.k];return q;});}}
+                    style={{display:"flex",alignItems:"center",gap:9,padding:"8px 10px",marginBottom:5,cursor:"pointer",borderRadius:10,
+                      background:on?"rgba(74,222,128,0.08)":C.card2,border:"1px solid "+(on?"rgba(74,222,128,0.4)":C.border)}}>
+                    <div style={{width:20,height:20,borderRadius:6,flexShrink:0,background:on?C.green:"transparent",
+                      border:"2px solid "+(on?C.green:C.border),display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#052e16",fontWeight:900}}>{on?"\u2713":""}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11,fontWeight:isIng?800:600,color:on?C.green:C.text,lineHeight:1.45}}>
+                        {st.garnish?"\ud83c\udf3f ":(isIng?"":"\u2192 ")}{st.label}
+                      </div>
+                    </div>
+                    {st.amt?<div style={{fontSize:10.5,fontWeight:800,color:C.blue,whiteSpace:"nowrap"}}>{st.amt}</div>:null}
+                  </div>);
+                })}
+
+                <div style={{display:"flex",gap:7,marginTop:9}}>
+                  <button onClick={function(){setBarDone({});}} style={{...gs.btn(C.card2,"#9ca3af"),flex:"0 0 auto",border:"1px solid "+C.border,fontSize:11}}>ล้าง</button>
+                  <button disabled={!all} onClick={function(){
+                    addAudit("BAR_MADE",r.name+" (ต้นทุน ฿"+r.cost+")",currentStaff&&currentStaff.name);
+                    notify("🍸 "+r.name+" พร้อมเสิร์ฟ");
+                    setBarDone({});setBarPick(null);
+                  }} style={{...gs.btn(all?C.green:C.card3,all?"#000":"#666"),flex:1}}>{all?"✅ เสิร์ฟเลย / Serve":"ติ๊กให้ครบก่อน"}</button>
+                </div>
+              </div>
+            </div>);
+          })()}
+
+          {["classic","signature"].map(function(kind){
+            var list=BAR_RECIPES.filter(function(r){return r.kind===kind;});
+            return (
+            <span key={kind} style={{display:"contents"}}>
+              <div style={{...gs.eyebrow,margin:"10px 0 6px"}}>{kind==="classic"?"CLASSIC COCKTAILS":"SIGNATURE COCKTAILS"} · {list.length}</div>
+              <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(auto-fill,minmax(190px,1fr))",gap:8,marginBottom:6}}>
+                {list.map(function(r){
+                  // 25% pour cost is the usual bar target; show what that price would be
+                  var suggest=Math.ceil(r.cost*4/10)*10;
+                  return (
+                  <button key={r.id} onClick={function(){setBarPick(r.id);setBarDone({});}}
+                    style={{...gs.card,cursor:"pointer",textAlign:"left",padding:mob?10:12,border:"1px solid "+C.border,color:C.text}}>
+                    <div style={{fontSize:12,fontWeight:800,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</div>
+                    <div style={{fontSize:8.5,color:C.muted,marginBottom:6}}>{r.ing.length} อย่าง · {r.glass}</div>
+                    <div style={{display:"flex",alignItems:"baseline",gap:6}}>
+                      <span style={{...gs.metric(mob?14:15,C.green)}}>฿{r.cost}</span>
+                      <span style={{fontSize:8.5,color:C.muted}}>ต้นทุน</span>
+                    </div>
+                    <div style={{fontSize:8.5,color:C.blue,marginTop:2}}>ขาย ฿{suggest}+ → pour cost ~{Math.round(r.cost*100/suggest)}%</div>
+                  </button>);
+                })}
+              </div>
+            </span>);
+          })}
+
+          <div style={{...gs.eyebrow,margin:"14px 0 6px"}}>ราคาขวด · BOTTLE COST</div>
+          <div style={{...gs.card,padding:0,overflow:"hidden"}}>
+            {BAR_BOTTLES.map(function(b,i){return (
+              <div key={b.n} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 11px",borderTop:i?"1px solid "+C.borderSoft:"none"}}>
+                <div style={{flex:1,minWidth:0,fontSize:10.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.n}</div>
+                <div style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>{b.ml}ml</div>
+                <div style={{fontSize:10.5,fontWeight:800,minWidth:54,textAlign:"right",fontVariantNumeric:"tabular-nums"}}>฿{b.thb.toLocaleString()}</div>
+                <div style={{fontSize:9.5,color:C.blue,minWidth:62,textAlign:"right",fontVariantNumeric:"tabular-nums"}}>฿{barMlCost(b).toFixed(2)}/ml</div>
+              </div>);})}
+          </div>
+          <div style={{fontSize:9,color:C.muted,marginTop:7,lineHeight:1.6}}>ต้นทุนต่อแก้วเป็นตัวเลขจากตารางของร้าน · ถ้าราคาขวดขึ้น ใช้ ฿/ml คิดใหม่ได้ทันที · Per-drink costs are the shop's own figures; the ฿/ml column is there to recost a drink when a bottle price moves.</div>
         </div>
       )}
 
