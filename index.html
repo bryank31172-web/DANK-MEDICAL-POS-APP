@@ -3630,7 +3630,8 @@ function GreenPOS() {
         return s + i.cost;
       }, 0);
       var discount = +t2.discount || +t2.discountAmount || +t2.totalDiscount || 0;
-      var total = +t2.total || subtotal - discount;
+      var _rawTot = t2.total === void 0 || t2.total === null || t2.total === "" ? NaN : +t2.total;
+      var total = isFinite(_rawTot) ? _rawTot : Math.max(0, subtotal - discount);
       var profit = total - cost;
       rows.push({
         id: t2.id || "sh-" + t2.transactionTime + "-" + rows.length,
