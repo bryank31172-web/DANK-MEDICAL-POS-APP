@@ -5523,7 +5523,7 @@ function GreenPOS() {
     setRegForm({ name: "", pin: "", confirmPin: "", email: "", role: "budtender", branch: "Pattanakarn" });
     notify("Request sent! Pending approval at dankclubbkk@gmail.com \u{1F4E7}");
   };
-  const handleClaimPin = function() {
+  const handleClaimPin = async function() {
     var sf = staff.find(function(x) {
       return String(x.id) === claimForm.staffId;
     });
@@ -5545,15 +5545,45 @@ function GreenPOS() {
       notify("PIN \u0E19\u0E35\u0E49\u0E21\u0E35\u0E04\u0E19\u0E43\u0E0A\u0E49\u0E41\u0E25\u0E49\u0E27", "error");
       return;
     }
+    if (claimBusy) return;
+    setClaimBusy(true);
+    var unguarded = false;
+    try {
+      var r = await fetch("/api/staff-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: claimForm.authPin || "" })
+      });
+      var d = await r.json();
+      if (d && d.error === "not configured") {
+        unguarded = true;
+      } else if (!d || d.ok !== true) {
+        setClaimBusy(false);
+        notify("PIN \u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23/CEO \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07 \u2014 \u0E15\u0E31\u0E49\u0E07 PIN \u0E40\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49", "error");
+        return;
+      } else if (d.role !== "manager" && d.role !== "owner") {
+        setClaimBusy(false);
+        notify("\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2B\u0E49\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2B\u0E23\u0E37\u0E2D CEO \u0E40\u0E1B\u0E47\u0E19\u0E04\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34", "error");
+        return;
+      }
+    } catch (e) {
+      setClaimBusy(false);
+      notify("\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 (\u0E2D\u0E2D\u0E1F\u0E44\u0E25\u0E19\u0E4C?) \u2014 \u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07", "error");
+      return;
+    }
     setStaff(function(prev) {
       return prev.map(function(x) {
         return x.id === sf.id ? Object.assign({}, x, { pin: claimForm.pin, approved: true }) : x;
       });
     });
-    addAudit("SET_PIN", sf.name + " \u0E15\u0E31\u0E49\u0E07 PIN \u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19\u0E40\u0E2D\u0E07");
+    addAudit(
+      unguarded ? "SET_PIN_UNVERIFIED" : "SET_PIN",
+      sf.name + (unguarded ? " \u0E15\u0E31\u0E49\u0E07 PIN \u0E40\u0E2D\u0E07\u0E02\u0E13\u0E30\u0E17\u0E35\u0E48\u0E40\u0E0B\u0E34\u0E23\u0E4C\u0E1F\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35 MASTER_PIN" : " \u0E15\u0E31\u0E49\u0E07 PIN (\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34)")
+    );
+    setClaimBusy(false);
     setShowRegister(false);
-    setClaimForm({ staffId: "", pin: "", confirmPin: "" });
-    notify("\u2705 \u0E15\u0E31\u0E49\u0E07 PIN \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E25\u0E47\u0E2D\u0E01\u0E2D\u0E34\u0E19\u0E14\u0E49\u0E27\u0E22 PIN \u0E43\u0E2B\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22");
+    setClaimForm({ staffId: "", pin: "", confirmPin: "", authPin: "" });
+    notify(unguarded ? "\u2705 \u0E15\u0E31\u0E49\u0E07 PIN \u0E41\u0E25\u0E49\u0E27 \u2014 \u26A0 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E15\u0E31\u0E49\u0E07 MASTER_PIN \u0E1A\u0E19\u0E40\u0E0B\u0E34\u0E23\u0E4C\u0E1F\u0E40\u0E27\u0E2D\u0E23\u0E4C \u0E43\u0E04\u0E23\u0E01\u0E47\u0E17\u0E33\u0E41\u0E1A\u0E1A\u0E19\u0E35\u0E49\u0E44\u0E14\u0E49 \u0E23\u0E35\u0E1A\u0E15\u0E31\u0E49\u0E07\u0E14\u0E48\u0E27\u0E19" : "\u2705 \u0E15\u0E31\u0E49\u0E07 PIN \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E25\u0E47\u0E2D\u0E01\u0E2D\u0E34\u0E19\u0E14\u0E49\u0E27\u0E22 PIN \u0E43\u0E2B\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22");
   };
   const handleAddCust = () => {
     if (!newCust.name || !newCust.phone) {
@@ -6544,6 +6574,7 @@ function GreenPOS() {
   const [asstQ, setAsstQ] = useState("");
   const [asstMsgs, setAsstMsgs] = useState([]);
   const [asstBusy, setAsstBusy] = useState(false);
+  const [claimBusy, setClaimBusy] = useState(false);
   const asstGreetRef = useRef(false);
   useEffect(function() {
     if (screen === "main" && !asstGreetRef.current) {
@@ -7267,7 +7298,12 @@ function GreenPOS() {
       setClaimForm(function(p) {
         return Object.assign({}, p, { confirmPin: v });
       });
-    } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRegister(false), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { onClick: handleClaimPin, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { flex: 1 }) }, "\u{1F511} \u0E15\u0E31\u0E49\u0E07 PIN + \u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19"))) : /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.muted, marginBottom: 12, padding: "10px 12px", background: C.card2, borderRadius: 8, textAlign: "center" } }, '\u0E17\u0E38\u0E01\u0E04\u0E19\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E21\u0E35 PIN \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E16\u0E49\u0E32\u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48 \u0E01\u0E14 "\u{1F195} \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E2B\u0E21\u0E48 New" \u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1A\u0E31\u0E0D\u0E0A\u0E35'), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRegister(false), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { width: "100%", border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14"));
+    } }), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "PIN \u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23/CEO \u0E17\u0E35\u0E48\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 / Manager PIN"), /* @__PURE__ */ React.createElement("input", { type: "password", inputMode: "numeric", maxLength: 12, style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 6, letterSpacing: 4 }), placeholder: "\u25CF \u25CF \u25CF \u25CF \u25CF \u25CF", value: claimForm.authPin || "", onChange: function(e) {
+      var v = e.target.value.replace(/[^0-9]/g, "");
+      setClaimForm(function(p) {
+        return Object.assign({}, p, { authPin: v });
+      });
+    } }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 12, lineHeight: 1.6 } }, "\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2B\u0E49\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2B\u0E23\u0E37\u0E2D CEO \u0E43\u0E2A\u0E48 PIN \u0E02\u0E2D\u0E07\u0E40\u0E02\u0E32\u0E40\u0E2D\u0E07\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 \xB7 A manager or the owner must enter their own PIN to approve this."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRegister(false), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { onClick: handleClaimPin, disabled: claimBusy, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { flex: 1 }) }, "\u{1F511} \u0E15\u0E31\u0E49\u0E07 PIN + \u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19"))) : /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.muted, marginBottom: 12, padding: "10px 12px", background: C.card2, borderRadius: 8, textAlign: "center" } }, '\u0E17\u0E38\u0E01\u0E04\u0E19\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E21\u0E35 PIN \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E16\u0E49\u0E32\u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48 \u0E01\u0E14 "\u{1F195} \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E2B\u0E21\u0E48 New" \u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1A\u0E31\u0E0D\u0E0A\u0E35'), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRegister(false), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { width: "100%", border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14"));
   })()))));
   return /* @__PURE__ */ React.createElement("div", { key: lang, style: gs.app }, notif && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", top: 14, right: 14, background: notif.type === "error" ? C.red : C.accent, color: "#000", padding: "10px 16px", borderRadius: 11, fontWeight: 700, zIndex: 9999, fontSize: 13, boxShadow: `0 8px 28px ${notif.type === "error" ? "rgba(244,63,94,0.4)" : "rgba(74,222,128,0.4)"}`, maxWidth: 290 } }, notif.msg), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(13,20,16,0.95)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}`, padding: mob ? "9px 12px" : "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } }, /* @__PURE__ */ React.createElement(CWMark, { size: mob ? 40 : 48 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: mob ? 13.5 : 15, letterSpacing: "0.015em" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "#f2f5f3" } }, "CLINIC"), /* @__PURE__ */ React.createElement("span", { style: { color: "#4ade80" } }, "WORKS")), !mob && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 7.5, color: "#7f9c86", letterSpacing: "0.18em", textTransform: "uppercase" } }, "CANNABIS POS")), stores.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginLeft: 8, overflowX: "auto", maxWidth: mob ? 150 : 430 } }, [{ id: "all", name: "All" }].concat(stores).map(function(b) {
     var on = activeBranch === b.id;

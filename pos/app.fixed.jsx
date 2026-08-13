@@ -3296,16 +3296,51 @@ function GreenPOS() {
     setShowRegister(false);setRegForm({name:"",pin:"",confirmPin:"",email:"",role:"budtender",branch:"Pattanakarn"});
     notify("Request sent! Pending approval at dankclubbkk@gmail.com 📧");
   };
-  const handleClaimPin=function(){
+  // Anyone who could open the login page used to be able to pick any name on
+  // the roster — the CEO included — set a PIN and be let straight in. The claim
+  // now has to be authorised by a manager or owner, checked server-side.
+  //
+  // The one exception is the deployment that has no server PINs at all: there
+  // is then no manager who could authorise anything, and refusing would lock
+  // the owner out of his own shop. That case stays open, says so on screen, and
+  // writes a distinct audit line — and it closes by itself the moment
+  // MASTER_PIN is set, with no redeploy needed.
+  const handleClaimPin=async function(){
     var sf=staff.find(function(x){return String(x.id)===claimForm.staffId;});
     if(!sf){notify("เลือกชื่อของคุณก่อน","error");return;}
     if(claimForm.pin.length!==6){notify("PIN ต้อง 6 หลัก","error");return;}
     if(claimForm.pin!==claimForm.confirmPin){notify("PIN ไม่ตรงกัน","error");return;}
     if(staff.find(function(x){return x.pin===claimForm.pin;})){notify("PIN นี้มีคนใช้แล้ว","error");return;}
+    if(claimBusy)return;
+    setClaimBusy(true);
+    var unguarded=false;
+    try{
+      var r=await fetch("/api/staff-auth",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({pin:claimForm.authPin||""})});
+      var d=await r.json();
+      if(d&&d.error==="not configured"){
+        unguarded=true;                       // no server PINs exist yet
+      }else if(!d||d.ok!==true){
+        setClaimBusy(false);
+        notify("PIN ผู้จัดการ/CEO ไม่ถูกต้อง — ตั้ง PIN เองไม่ได้","error");
+        return;
+      }else if(d.role!=="manager"&&d.role!=="owner"){
+        setClaimBusy(false);
+        notify("ต้องให้ผู้จัดการหรือ CEO เป็นคนอนุมัติ","error");
+        return;
+      }
+    }catch(e){
+      setClaimBusy(false);
+      notify("ตรวจสอบสิทธิ์ไม่ได้ (ออฟไลน์?) — ลองใหม่อีกครั้ง","error");
+      return;
+    }
     setStaff(function(prev){return prev.map(function(x){return x.id===sf.id?Object.assign({},x,{pin:claimForm.pin,approved:true}):x;});});
-    addAudit("SET_PIN",sf.name+" ตั้ง PIN เข้าใช้งานเอง");
-    setShowRegister(false);setClaimForm({staffId:"",pin:"",confirmPin:""});
-    notify("✅ ตั้ง PIN สำเร็จ — ล็อกอินด้วย PIN ใหม่ได้เลย");
+    addAudit(unguarded?"SET_PIN_UNVERIFIED":"SET_PIN",
+      sf.name+(unguarded?" ตั้ง PIN เองขณะที่เซิร์ฟเวอร์ยังไม่มี MASTER_PIN":" ตั้ง PIN (ผู้จัดการอนุมัติ)"));
+    setClaimBusy(false);
+    setShowRegister(false);setClaimForm({staffId:"",pin:"",confirmPin:"",authPin:""});
+    notify(unguarded?"✅ ตั้ง PIN แล้ว — ⚠ ยังไม่ได้ตั้ง MASTER_PIN บนเซิร์ฟเวอร์ ใครก็ทำแบบนี้ได้ รีบตั้งด่วน"
+                    :"✅ ตั้ง PIN สำเร็จ — ล็อกอินด้วย PIN ใหม่ได้เลย");
   };
 
   const handleAddCust=()=>{
@@ -3777,6 +3812,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   const [asstQ,setAsstQ]=useState("");
   const [asstMsgs,setAsstMsgs]=useState([]);
   const [asstBusy,setAsstBusy]=useState(false);
+  const [claimBusy,setClaimBusy]=useState(false);
   const asstGreetRef=useRef(false);
   useEffect(function(){if(screen==="main"&&!asstGreetRef.current){asstGreetRef.current=true;var tm=setTimeout(function(){setAsstIntro(true);},1800);return function(){clearTimeout(tm);};}},[screen]);
   const asstBestSellers=function(){var agg={};(_txScoped||[]).forEach(function(t){(t.items||[]).forEach(function(it){var pid=it.productId;if(!pid)return;if(!agg[pid])agg[pid]={s:0,r:0,pid:pid};agg[pid].s+=(+it.quantity||0);agg[pid].r+=(+it.total||0);});});return Object.values(agg).sort(function(a,b){return b.r-a.r;}).slice(0,5).map(function(x){var pr=products.find(function(p){return p.id===x.pid;});return (pr?cleanName(pr).short:("#"+x.pid))+" (฿"+Math.round(x.r).toLocaleString()+")";});};
@@ -4154,9 +4190,12 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <input type="password" inputMode="numeric" maxLength={6} style={{...gs.input,marginBottom:9,letterSpacing:4}} placeholder="● ● ● ● ● ●" value={claimForm.pin} onChange={function(e){var v=e.target.value.replace(/[^0-9]/g,"");setClaimForm(function(p){return Object.assign({},p,{pin:v});});}}/>
             <label style={gs.label}>ยืนยัน PIN / Confirm PIN</label>
             <input type="password" inputMode="numeric" maxLength={6} style={{...gs.input,marginBottom:12,letterSpacing:4}} placeholder="● ● ● ● ● ●" value={claimForm.confirmPin} onChange={function(e){var v=e.target.value.replace(/[^0-9]/g,"");setClaimForm(function(p){return Object.assign({},p,{confirmPin:v});});}}/>
+            <label style={gs.label}>PIN ผู้จัดการ/CEO ที่อนุมัติ / Manager PIN</label>
+            <input type="password" inputMode="numeric" maxLength={12} style={{...gs.input,marginBottom:6,letterSpacing:4}} placeholder="● ● ● ● ● ●" value={claimForm.authPin||""} onChange={function(e){var v=e.target.value.replace(/[^0-9]/g,"");setClaimForm(function(p){return Object.assign({},p,{authPin:v});});}}/>
+            <div style={{fontSize:9,color:C.muted,marginBottom:12,lineHeight:1.6}}>ต้องให้ผู้จัดการหรือ CEO ใส่ PIN ของเขาเองเพื่ออนุมัติ · A manager or the owner must enter their own PIN to approve this.</div>
             <div style={{display:"flex",gap:7}}>
               <button onClick={()=>setShowRegister(false)} style={{...gs.btn(C.card2,"#fff"),flex:1,border:"1px solid "+C.border}}>Cancel</button>
-              <button onClick={handleClaimPin} style={{...gs.btn(C.green),flex:1}}>🔑 ตั้ง PIN + เข้าใช้งาน</button>
+              <button onClick={handleClaimPin} disabled={claimBusy} style={{...gs.btn(C.green),flex:1}}>🔑 ตั้ง PIN + เข้าใช้งาน</button>
             </div>
             </span>:<span style={{display:"contents"}}>
             <div style={{fontSize:11,color:C.muted,marginBottom:12,padding:"10px 12px",background:C.card2,borderRadius:8,textAlign:"center"}}>ทุกคนในระบบมี PIN แล้ว — ถ้าคุณเป็นพนักงานใหม่ กด "🆕 สมัครใหม่ New" ด้านบนเพื่อสร้างบัญชี</div>
