@@ -1,15 +1,21 @@
 /* ============================================================
    Thread storage adapter.
-   Production: Upstash Redis (free tier) — set
-     UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
-   (upstash.com → create Redis DB → REST API section, 2 minutes).
+   Production: Upstash Redis (free tier). Either naming works:
+     UPSTASH_REDIS_REST_URL   / UPSTASH_REDIS_REST_TOKEN   (upstash.com direct)
+     KV_REST_API_URL          / KV_REST_API_TOKEN          (Vercel Marketplace)
+   The Vercel → Upstash integration injects only the KV_* pair, so reading just
+   the UPSTASH_* names left the store silently in memory-only mode on a
+   deployment that had a database attached and looked correctly configured.
    Without them: in-memory store — fine for local testing, but on
    Vercel serverless memory isn't shared between instances, so set
    Upstash before going live with staff chat.
    ============================================================ */
 
-const URL_ = process.env.UPSTASH_REDIS_REST_URL || "";
-const TOK = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const URL_ = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
+// The read-only token is a last resort: reads work, writes fail loudly,
+// which is still better than silently losing every write to memory.
+const TOK = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN
+  || process.env.KV_REST_API_READ_ONLY_TOKEN || "";
 const mem = globalThis.__dankMem || (globalThis.__dankMem = new Map());
 
 export const usingRedis = () => Boolean(URL_ && TOK);
