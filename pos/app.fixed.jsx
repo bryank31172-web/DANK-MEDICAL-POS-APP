@@ -2030,7 +2030,14 @@ function GreenPOS() {
       var subtotal=items.reduce(function(s,i){return s+i.total;},0);
       var cost=items.reduce(function(s,i){return s+i.cost;},0);
       var discount=(+t.discount||+t.discountAmount||+t.totalDiscount||0);
-      var total=+t.total||(subtotal-discount);
+      // A bill the customer paid nothing for — a comp, or a 100% discount —
+      // has a total of 0, and `||` reads that as "missing" and falls through to
+      // subtotal-discount. With every line already discounted to 0 that came out
+      // as 0-748 = -748: a loss the shop never took. Take t.total whenever it is
+      // a real number, including 0 and including the negatives a refund carries;
+      // only estimate when it is genuinely absent, and never estimate a negative.
+      var _rawTot=(t.total===undefined||t.total===null||t.total==="")?NaN:+t.total;
+      var total=isFinite(_rawTot)?_rawTot:Math.max(0,subtotal-discount);
       // Gross profit = money actually received (already net of any discount) − COGS.
       // StoreHub's bill total is post-discount, so we must NOT subtract the discount
       // again (that double-counted it and made profit go negative on discounted bills).
