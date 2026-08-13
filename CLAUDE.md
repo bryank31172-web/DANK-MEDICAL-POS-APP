@@ -46,41 +46,53 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   (health endpoint currently reports source:"pos").
 
 ## Pending — in the order they should be done
-1. **Set `MASTER_PIN` (new — the old 110114 is public and burned) and `XAI_API_KEY` in Vercel, then
-   Redeploy.** Nothing else can be verified until login works. `STAFF_PINS` optional per-staff.
-2. **Lock the claim-PIN hole — do this the moment step 1 works.** `handleClaimPin` (search
-   `const handleClaimPin`) lets anyone on the public URL pick ANY staff name, including the CEO, set a
-   6-digit PIN and get in with `approved:true` — no verification at all. It is currently the owner's
-   only escape hatch if `MASTER_PIN` is unset, which is the only reason it still exists. Fix = require
-   a server check (`/api/staff-auth`) or a manager PIN before it will write, or delete the flow.
-3. **StoreHub credentials.** `/api/health` reports configured-but-not-loading. `api/_storehub.js`
-   accepts `STOREHUB_TOKEN` or `STOREHUB_KEY`; confirm the value and that the account has API access.
-4. Petchaboon/Phuket fixed-cost budgets are 0 — owner sets them in-app (Finance → 💸 → ✏ แก้งบ).
-5. Decide the customer site's menu source: the curated 53-item `products.json` (names + photos) vs the
-   raw 393-item POS feed currently served. Optional env `POS_FEED_PATHS=/__no_pos_feed__` on
-   dankbkk-site prefers StoreHub.
-6. Confirm the dankbkk-site cart NaN fix is live (Edibles → "Sour Belts 3000mg" → Add+ → must show
-   ฿300, not ฿NaN).
-7. Root HTML pages left in this repo belong to the customer site — `staff.html`,
-   `build-your-joint.html`, `labels.html`, `status.html`, `SUMMARY.html`, plus the `i18n.js` all four
-   load. Awaiting the owner's word on which are still in daily use before removing.
+1. **Set `MASTER_PIN` in Vercel (new number — 110114 is public and burned), then Redeploy.**
+   Still the one blocker: nobody can log in without it, and until it is set the claim-PIN
+   break-glass stays open by design. `XAI_API_KEY` in the same visit makes the 🤖 free-text
+   answers work (the built-in manual already works without it). `STAFF_PINS` optional.
+2. **Connect the Upstash Redis to `dank-medical-pos-app` too.** It is attached to
+   `dankbkk-site` only. `/api/staff-auth`, `/api/grok` and `/api/storehub/*` all rate-limit
+   through it; without it the counters live in per-instance memory, so PIN guessing can be
+   spread across instances. The code accepts either `UPSTASH_REDIS_REST_*` or Vercel's
+   `KV_REST_API_*`.
+3. **`dankbkk-site` needs the two `UPSTASH_REDIS_REST_*` names added by hand** (copy the
+   values from its `KV_REST_API_*`). That repo is private and separate, so the name fix in
+   `api/_store.js` here does not reach it.
+4. **Generate the 52 product photos** — `docs/product-image-prompts.pdf` / `.txt`. The till
+   already pulls photos from `products.json` by name, so adding them there lights up both
+   the POS and the website at once.
+5. Petchaboon/Phuket fixed-cost budgets are 0 — owner sets them in-app (Finance → 💸 → ✏ แก้งบ).
+6. Delete the duplicate Vercel project `dankbkk-site-4jrn` once the live domain is confirmed
+   to point at `dankbkk-site` — otherwise every env var has to be set twice, forever.
+7. Root HTML pages that belong to the customer site — `staff.html`, `build-your-joint.html`,
+   `labels.html`, `status.html`, `SUMMARY.html`, plus the `i18n.js` all four load. Awaiting
+   the owner's word on which are still in daily use before removing.
+8. Decide the customer site's menu source: the curated 53-item `products.json` (clean names +
+   photos) vs the raw 395-item POS feed it serves today (`( Bar ) Tequila shot`).
 
-## Shipped this round (so it is not re-litigated)
-- Customer price memory (`dank_cust_prices`): records what each customer paid, re-applies it only when
-  it beats the current price, shows their last order with a one-tap reorder.
-- Shift count: an over-count is a mismatch, not OK. `Math.abs(d)<=0.05` everywhere; over needs a reason
-  at clock-out just like short.
-- Scale precision: 4 decimals end to end, `fmtW()` prints exactly (0.039 stays 0.039).
-- Bryan AI: `TAB_GUIDE` is an in-app manual for all 21 pages; unmatched questions go to `/api/grok`
-  with that manual as the system prompt; answers carry a 📍 button that opens the page.
-- Customer Display (CDS): `?cds=1` renders a read-only mirror of the till; BroadcastChannel +
-  localStorage, so it needs no network. Button on Scale & Print.
-- Design: forest-green tokens, pill buttons/badges. `inkOn(bg,fg)` in the token layer swaps light text
-  for near-black over any light fill — two real contrast bugs were found by measuring every tab
-  (product names were black-on-black at 1.05:1; white sat on mint/sky/gold at 1.7–2.3:1).
-- `landing/index.html` at `/landing`: bilingual product page, dual-screen hero, product shelf.
-- Root duplicates: 38 serverless handlers that also lived in `api/` were deleted (one was stale). Only
-  `api/**` deploys as functions.
+## Done and verified — do not re-litigate
+- **StoreHub is connected** (396 products, Pattanakarn 373 / Sathorn 373 / Bars 23).
+- Claim-PIN hole closed: a claim now needs a manager or owner PIN checked by `/api/staff-auth`,
+  fails closed offline, and the break-glass shuts itself the moment `MASTER_PIN` exists.
+- Menu feed was quoting every price 7% under the counter — StoreHub stores `unitPrice`
+  ex-VAT; `withVat()` adds it back and rounds, matching what the POS has always done.
+- `_store.js` accepts Vercel's `KV_*` env names, so an attached Redis is actually used.
+- Bill list: real customer name resolved across every id shape (StoreHub id, refId, `sh-`
+  prefix, phone, email); no customer now reads `none`. A comped bill totals 0, not −748.
+- CRM spend/visits counted from synced sales (points/balance deliberately left alone —
+  StoreHub does not expose loyalty balances, so they are entered once via Edit).
+- Shift open/close each start on a 7-step checklist with how-to text; every item must be
+  ticked and completion writes `SHIFT_TASKS_IN`/`_OUT` to the audit log.
+- Bar tab: 14 recipes as pour-along checklists, per-drink cost, bottle ฿/ml. The paper sheet
+  totals Manhattan at 178; its ingredients are 163 (two Matcha Forest rows bled in) — the app
+  uses 163 and says so.
+- Till shows the website's product photos, matched by a normalised name; a failed photo falls
+  back to the item's category emoji.
+- Over-count is a mismatch, not OK. Scale prints exactly (0.039 stays 0.039).
+- `inkOn()` in the token layer keeps light text off light fills — found two real contrast bugs
+  by measuring every tab, including product names at 1.05:1.
+- 38 duplicated serverless handlers deleted from the repo root; only `api/**` deploys.
+- `landing/index.html` at `/landing`; CDS at `?cds=1`; SOP deck at `docs/`.
 
 ## Conventions
 - Reply to owner in Thai (he writes Thai/English mix), keep technical terms in English.
