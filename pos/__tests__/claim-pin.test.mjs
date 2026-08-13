@@ -9,7 +9,7 @@ const run=async(handler)=>{
   const p=await ctx.newPage();
   p.on('pageerror',e=>errs.push(e.message.slice(0,120)));
   await p.route('**/api/staff-auth',handler);
-  await p.goto('http://127.0.0.1:8791/pos/testrun/test2.html');
+  await p.goto('http://127.0.0.1:8799/pos/testrun/test2.html');
   await p.waitForTimeout(2200);
   return {p,ctx};
 };
