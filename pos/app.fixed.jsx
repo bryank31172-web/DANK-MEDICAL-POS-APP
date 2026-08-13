@@ -341,6 +341,36 @@ const ONLINE_ORDERS_INIT=[
 // a BroadcastChannel and also writes dank_cds_state to localStorage; the
 // display listens to both and polls the key once a second as a last resort,
 // so it keeps working across window types and with no network at all.
+// StoreHub carries no product photos, so the till showed a category emoji for
+// every item. The customer site already has a curated photo per strain, keyed
+// by a shorter name — "Zkittles" there is "Zkittles Blunt" or "Zkittles Joint"
+// on the till. webKey() strips the branch prefix, the format word and the pack
+// size so the two names meet in the middle.
+function webKey(name){
+  return String(name||"")
+    .toLowerCase()
+    .replace(/^\s*\([^)]*\)\s*/,"")
+    .replace(/\b(joint|blunt|pre-?roll|preroll|cone|stick|bud|flower)\b/g," ")
+    .replace(/\b\d+(\.\d+)?\s*(g|gram|grams|mg|ml|pc|pcs|pack|x)\b/g," ")
+    .replace(/[^a-z0-9]+/g," ")
+    .trim();
+}
+// exact key first; then the longest website name that is contained in the till
+// name (or the reverse), so "OG Kush x Zkittlez" still finds "OG Kush".
+function webImgFor(name, map){
+  var k=webKey(name);
+  if(!k)return "";
+  if(map[k])return map[k];
+  var best="",bestLen=0;
+  for(var wk in map){
+    if(wk.length<4)continue;
+    if(k===wk||k.indexOf(wk)>=0||wk.indexOf(k)>=0){
+      if(wk.length>bestLen){bestLen=wk.length;best=map[wk];}
+    }
+  }
+  return best;
+}
+
 // ── BAR ─────────────────────────────────────────────────────────────────────
 // Typed up from the bar's own laminated cost sheets. Costs are the shop's own
 // numbers, kept as-is so the sheet and the app agree; BAR_BOTTLES carries the
@@ -491,7 +521,7 @@ function ProdTile(props){
         ?<img src={src} alt={props.label||""} loading="lazy" decoding="async"
            onError={function(){setOkImg(false);}}
            style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-        :<span aria-hidden="true" style={{fontSize:Math.round(h*0.42),lineHeight:1}}>{isPhoto?"\ud83d\udce6":(src||"\ud83d\udce6")}</span>}
+        :<span aria-hidden="true" style={{fontSize:Math.round(h*0.42),lineHeight:1}}>{props.fallback||(isPhoto?"\ud83d\udce6":(src||"\ud83d\udce6"))}</span>}
       {props.children}
     </div>
   );
@@ -3963,6 +3993,26 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   const [asstMsgs,setAsstMsgs]=useState([]);
   const [asstBusy,setAsstBusy]=useState(false);
   const [claimBusy,setClaimBusy]=useState(false);
+  // the customer site's curated catalogue, used only for its photos
+  const [webImgs,setWebImgs]=useState({});
+  useEffect(function(){
+    fetch("/products.json").then(function(r){return r.ok?r.json():null;}).then(function(d){
+      if(!d)return;
+      var list=Array.isArray(d)?d:(d.products||[]);
+      var m={};
+      list.forEach(function(p){
+        var img=String(p.image||"");
+        if(!img)return;
+        var k=webKey(p.name);
+        if(k&&!m[k])m[k]=img;
+      });
+      setWebImgs(m);
+    }).catch(function(){});
+  },[]);
+  const imgFor=function(p){
+    if(isDataImg(p.img))return p.img;                 // a photo already set here wins
+    return webImgFor(p.name,webImgs)||p.img;          // else the site's, else the emoji
+  };
   const [barPick,setBarPick]=useState(null);
   const [barDone,setBarDone]=useState({});
   const asstGreetRef=useRef(false);
@@ -4975,7 +5025,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                     {p.stock>0&&p.stock<=p.alert&&<div style={{...gs.badge(C.gold),position:"absolute",top:6,right:6,fontSize:7}}>LOW</div>}
                     {p.stock===0&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.72)",borderRadius:13,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:C.red,letterSpacing:"0.1em"}}>SOLD OUT{backQty(p.id)>0&&<span style={{fontSize:8,color:C.blue,marginTop:3,letterSpacing:0}}>🏬 หลังร้านมี {backQty(p.id)}{p.unit}</span>}</div>}
                     <div style={{margin:(mob?-10:-12)+"px "+(mob?-10:-12)+"px 7px",borderTopLeftRadius:13,borderTopRightRadius:13,overflow:"hidden"}}>
-                      <ProdTile src={p.img} label={cleanName(p).short} h={mob?84:104}
+                      <ProdTile src={imgFor(p)} fallback={isDataImg(p.img)?(CAT_ICONS[p.cat]||"\ud83d\udce6"):p.img} label={cleanName(p).short} h={mob?84:104}
                         tint={CAT_CLR[cleanName(p).tag]||CAT_CLR[p.cat]||"rgba(74,222,128,0.16)"}>
                         {(function(){var cn=cleanName(p);var tg=cn.tag||p.cat;return tg?<span style={{...gs.badge(CAT_CLR[tg]||CAT_CLR[p.cat]||"rgba(201,168,76,0.2)",(CAT_CLR[tg]||CAT_CLR[p.cat])?"#000":"#c9a84c"),fontSize:7,position:"absolute",top:6,left:6,maxWidth:"72%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",boxShadow:"0 1px 6px rgba(0,0,0,0.45)"}}>{tg}</span>:null;})()}
                       </ProdTile>

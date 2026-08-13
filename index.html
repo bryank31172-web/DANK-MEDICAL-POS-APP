@@ -473,6 +473,25 @@ const ONLINE_ORDERS_INIT = [
   { id: "ON-1041", customerName: "Nina K.", phone: "089-333-4444", address: "Condo One Sathorn, Tower B", time: "16 Jul, 19:22", branchId: 2, note: "Leave at lobby", items: [{ name: "THC Vape Cart 1ml", qty: 1 }], dist: 1.4, fee: 30, total: 900, status: "delivered", isMedical: false }
 ];
 const { useState, useEffect, useRef, useCallback } = React;
+function webKey(name) {
+  return String(name || "").toLowerCase().replace(/^\s*\([^)]*\)\s*/, "").replace(/\b(joint|blunt|pre-?roll|preroll|cone|stick|bud|flower)\b/g, " ").replace(/\b\d+(\.\d+)?\s*(g|gram|grams|mg|ml|pc|pcs|pack|x)\b/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function webImgFor(name, map) {
+  var k = webKey(name);
+  if (!k) return "";
+  if (map[k]) return map[k];
+  var best = "", bestLen = 0;
+  for (var wk in map) {
+    if (wk.length < 4) continue;
+    if (k === wk || k.indexOf(wk) >= 0 || wk.indexOf(k) >= 0) {
+      if (wk.length > bestLen) {
+        bestLen = wk.length;
+        best = map[wk];
+      }
+    }
+  }
+  return best;
+}
 const BAR_BOTTLES = [
   { n: "Tanqueray Gin", ml: 750, thb: 1135 },
   { n: "Absolut Vodka", ml: 700, thb: 790 },
@@ -790,7 +809,7 @@ function ProdTile(props) {
       },
       style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }
     }
-  ) : /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { fontSize: Math.round(h * 0.42), lineHeight: 1 } }, isPhoto ? "\u{1F4E6}" : src || "\u{1F4E6}"), props.children);
+  ) : /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { fontSize: Math.round(h * 0.42), lineHeight: 1 } }, props.fallback || (isPhoto ? "\u{1F4E6}" : src || "\u{1F4E6}")), props.children);
 }
 const CDS_MODE = (function() {
   try {
@@ -6892,6 +6911,28 @@ function GreenPOS() {
   const [asstMsgs, setAsstMsgs] = useState([]);
   const [asstBusy, setAsstBusy] = useState(false);
   const [claimBusy, setClaimBusy] = useState(false);
+  const [webImgs, setWebImgs] = useState({});
+  useEffect(function() {
+    fetch("/products.json").then(function(r) {
+      return r.ok ? r.json() : null;
+    }).then(function(d) {
+      if (!d) return;
+      var list = Array.isArray(d) ? d : d.products || [];
+      var m = {};
+      list.forEach(function(p) {
+        var img = String(p.image || "");
+        if (!img) return;
+        var k = webKey(p.name);
+        if (k && !m[k]) m[k] = img;
+      });
+      setWebImgs(m);
+    }).catch(function() {
+    });
+  }, []);
+  const imgFor = function(p) {
+    if (isDataImg(p.img)) return p.img;
+    return webImgFor(p.name, webImgs) || p.img;
+  };
   const [barPick, setBarPick] = useState(null);
   const [barDone, setBarDone] = useState({});
   const asstGreetRef = useRef(false);
@@ -8124,7 +8165,8 @@ function GreenPOS() {
     return /* @__PURE__ */ React.createElement("button", { key: p.id, onClick: () => addToCart(p), style: { background: C.card, color: C.text, border: `1px solid ${p.stock <= p.alert ? C.gold : C.border}`, borderRadius: 14, padding: mob ? 10 : 12, cursor: "pointer", textAlign: "left", position: "relative", display: "flex", flexDirection: "column", height: "100%", boxShadow: p.stock <= p.alert ? "0 0 0 1px rgba(245,158,11,0.25),0 4px 14px -4px rgba(245,158,11,0.22)" : C.shadow, backgroundImage: "linear-gradient(180deg,rgba(255,255,255,0.022),rgba(255,255,255,0))", transition: "transform .16s cubic-bezier(.2,.7,.3,1),box-shadow .16s,border-color .16s" } }, p.stock > 0 && p.stock <= p.alert && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.badge(C.gold)), { position: "absolute", top: 6, right: 6, fontSize: 7 }) }, "LOW"), p.stock === 0 && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, background: "rgba(0,0,0,0.72)", borderRadius: 13, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.red, letterSpacing: "0.1em" } }, "SOLD OUT", backQty(p.id) > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 8, color: C.blue, marginTop: 3, letterSpacing: 0 } }, "\u{1F3EC} \u0E2B\u0E25\u0E31\u0E07\u0E23\u0E49\u0E32\u0E19\u0E21\u0E35 ", backQty(p.id), p.unit)), /* @__PURE__ */ React.createElement("div", { style: { margin: (mob ? -10 : -12) + "px " + (mob ? -10 : -12) + "px 7px", borderTopLeftRadius: 13, borderTopRightRadius: 13, overflow: "hidden" } }, /* @__PURE__ */ React.createElement(
       ProdTile,
       {
-        src: p.img,
+        src: imgFor(p),
+        fallback: isDataImg(p.img) ? CAT_ICONS[p.cat] || "\u{1F4E6}" : p.img,
         label: cleanName(p).short,
         h: mob ? 84 : 104,
         tint: CAT_CLR[cleanName(p).tag] || CAT_CLR[p.cat] || "rgba(74,222,128,0.16)"
