@@ -341,6 +341,45 @@ const ONLINE_ORDERS_INIT=[
 // a BroadcastChannel and also writes dank_cds_state to localStorage; the
 // display listens to both and polls the key once a second as a last resort,
 // so it keeps working across window types and with no network at all.
+// What a shift actually requires, in the order it gets done. Each line carries
+// its own how-to, because the person who most needs this list is the one who
+// has never opened the shop before. Only steps this app can really do are
+// listed — nothing here points at a screen that does not exist.
+const SHIFT_TASKS = {
+  in: [
+    {id:"open", icon:"\ud83d\udd11", th:"เปิดร้าน ตรวจความเรียบร้อย", en:"Open up and look around",
+     how:"เปิดไฟ แอร์ กล้อง ตรวจว่าประตูและตู้ไม่มีร่องรอยงัดแงะ · Lights, aircon, cameras on; check nothing has been forced overnight."},
+    {id:"float", icon:"\ud83d\udcb0", th:"นับเงินทอนตั้งต้น", en:"Count the opening float",
+     how:"นับเงินในลิ้นชักแล้วบันทึกที่ปุ่ม Cash Count บนหน้าขาย · Count the drawer, then record it with Cash Count on the sell screen."},
+    {id:"scale", icon:"\u2696", th:"ต่อและทดสอบเครื่องชั่ง", en:"Connect and test the scale",
+     how:"หน้าถัดไปมีปุ่มทดสอบให้ · วางของที่รู้น้ำหนักแล้วดูว่าตรงกับหน้าจอเครื่อง ถ้าเลขน้อยกว่า 1000 เท่า ให้ตั้งหน่วยเป็น kg · The next screen tests it; if the app reads 1000x low, set the unit to kg."},
+    {id:"printer", icon:"\ud83d\udda8", th:"ทดสอบเครื่องพิมพ์ใบเสร็จ", en:"Test the receipt printer",
+     how:"ไปหน้า Scale & Print แล้วสั่งพิมพ์ทดสอบ 1 ใบ · Scale & Print page, send one test print."},
+    {id:"cds", icon:"\ud83d\udda5", th:"เปิดจอลูกค้า", en:"Open the customer display",
+     how:"Scale & Print → เปิดจอลูกค้า → ลากไปจอที่สอง แล้วกด F11 · Open it, drag to the second screen, press F11."},
+    {id:"low", icon:"\ud83d\udce6", th:"ดูของใกล้หมด", en:"Check what is running low",
+     how:"แท็บ สต็อก จะเน้นกรอบสีทองไว้ให้ · แจ้งผู้จัดการก่อนของหมดกลางกะ · The Stock tab outlines low items in gold — tell a manager before it runs out mid-shift."},
+    {id:"count", icon:"\ud83d\udccb", th:"นับสต๊อกทุก SKU", en:"Count every SKU",
+     how:"หน้าถัดไปให้ชั่ง/นับทีละรายการ · แตะชื่อสินค้าเพื่อเปิดหน้าชั่งทีละตัว · The next screen walks you through it — tap a name to weigh it."},
+  ],
+  out: [
+    {id:"count", icon:"\ud83d\udccb", th:"นับสต๊อกทุก SKU", en:"Count every SKU again",
+     how:"ขาดหรือเกินต้องเลือกเหตุผททุกรายการ · ตรงเป๊ะเท่านั้นถึงขึ้น OK · Short and over both need a reason; only an exact match reads OK."},
+    {id:"cash", icon:"\ud83d\udcb5", th:"นับเงินในลิ้นชัก", en:"Count the drawer",
+     how:"นับแล้วกรอกในหน้าสรุปกะ · ระบบเทียบกับยอดขายให้เอง · Enter it on the shift report; the app compares it to sales for you."},
+    {id:"waste", icon:"\u267b", th:"บันทึกของเสีย/ของแถม", en:"Log waste and giveaways",
+     how:"ปุ่ม Waste บนหน้าขาย · ของที่แจกหรือทิ้งต้องลงระบบ ไม่งั้นสต๊อกจะไม่ตรง · Use the Waste button — anything given away or binned must be logged or the count will not match."},
+    {id:"orders", icon:"\ud83e\uddfe", th:"เคลียร์ออเดอร์และบิลค้าง", en:"Clear open orders and tabs",
+     how:"แท็บ ออเดอร์ ต้องไม่มีรายการค้าง · ลูกค้าค้างจ่ายให้แจ้งผู้จัดการ · Nothing left pending in Orders; tell a manager about any unpaid tab."},
+    {id:"clean", icon:"\ud83e\uddf9", th:"ทำความสะอาดเครื่องชั่งและโต๊ะ", en:"Clean the scale and counter",
+     how:"ปัดเศษออกจากจานชั่งให้เกลี้ยง ไม่งั้นกะหน้าจะนับเกิน · Brush the pan clean, or the next shift counts your leftovers as stock."},
+    {id:"photo", icon:"\ud83d\udcf8", th:"ถ่ายรูปหลักฐาน", en:"Photograph the drawer",
+     how:"แนบรูปเงินในลิ้นชักที่หน้าสรุปกะ · Attach a photo of the counted cash on the shift report."},
+    {id:"lock", icon:"\ud83d\udd12", th:"เก็บของมีค่าและล็อกตู้", en:"Lock everything away",
+     how:"เก็บเงินและสินค้าเข้าตู้ ปิดจอลูกค้าและเครื่องพิมพ์ · Cash and stock into the safe, customer display and printer off."},
+  ],
+};
+
 // A product's picture at full card width — the difference between a POS that
 // looks like a spreadsheet and one that looks like a shop. Photos that fail to
 // load (StoreHub URLs come and go) fall back to the category emoji in place,
@@ -843,8 +882,12 @@ function GreenPOS() {
     if(mode==="in"&&openShiftOf(s.id)){notify(s.name+" is already clocked in","error");return;}
     if(mode==="out"&&!openShiftOf(s.id)){notify(s.name+" is not clocked in","error");return;}
     var rows=checkSKUs().map(function(p){return {id:p.id,name:cleanName(p).short,cat:p.cat||"",unit:p.unit||"pc",expected:Math.round((+p.stock||0)*100)/100,measured:"",cost:+p.cost||0,price:+p.price||0,reason:"",note:""};});
-    if(rows.length===0){ (mode==="in"?directClockIn(s,[]):setShiftCheck({mode:"out",staffId:s.id,staffName:s.name,rows:[],step:"report",cash:"",notes:"",issues:"",sigOut:"",mgrPin:"",reasonsOk:true,proofPhoto:null,byCat:true})); if(mode==="in")return; }
-    else setShiftCheck({mode:mode,staffId:s.id,staffName:s.name,rows:rows,step:(rows.some(function(r){return (r.unit||"g")==="g";})?"scale":"weigh"),cash:"",notes:"",issues:"",sigOut:"",mgrPin:"",proofPhoto:null,byCat:true});
+    var _next=rows.length===0?(mode==="in"?"__done__":"report")
+      :(rows.some(function(r){return (r.unit||"g")==="g";})?"scale":"weigh");
+    // the checklist comes first either way — it is what tells a new starter
+    // what the shift even consists of
+    setShiftCheck({mode:mode,staffId:s.id,staffName:s.name,rows:rows,step:"tasks",nextStep:_next,
+      tasks:{},cash:"",notes:"",issues:"",sigOut:"",mgrPin:"",reasonsOk:true,proofPhoto:null,byCat:true});
   };
   const clockIn=function(s){beginClock(s,"in");};
   const clockOut=function(s){beginClock(s,"out");};
@@ -8453,6 +8496,61 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           <div style={{...gs.card,width:"100%",maxWidth:560,maxHeight:"92vh",overflowY:"auto"}} onClick={function(e){e.stopPropagation();}}>
             <div style={{fontWeight:900,fontSize:14,marginBottom:2}}>{shiftCheck.mode==="in"?"⚖ เช็คสต็อกก่อนเข้างาน · Clock-In Inventory Check":"⚖ เช็คสต็อกก่อนออกงาน · Clock-Out Inventory Check"}</div>
             <div style={{fontSize:9,color:C.muted,marginBottom:10}}>{shiftCheck.staffName} · {currentShiftSlot().name} · นับ/ชั่งทุก SKU ก่อน{shiftCheck.mode==="in"?"เริ่มงาน":"ออกงาน"} — ใช้เครื่องชั่ง (แท็บ Scale) หรือพิมพ์เอง</div>
+
+            {shiftCheck.step==="tasks"&&(function(){
+              var list=SHIFT_TASKS[shiftCheck.mode]||[];
+              var ticked=list.filter(function(t2){return shiftCheck.tasks&&shiftCheck.tasks[t2.id];}).length;
+              var allDone=ticked===list.length;
+              var toggle=function(id){setShiftCheck(function(p){
+                var t2=Object.assign({},p.tasks||{}); t2[id]=!t2[id];
+                return Object.assign({},p,{tasks:t2});});};
+              return (<span style={{display:"contents"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:9}}>
+                  <div style={{flex:1,height:26,background:C.card2,border:"1px solid "+C.border,borderRadius:13,overflow:"hidden",position:"relative"}}>
+                    <div style={{position:"absolute",inset:"0 auto 0 0",width:(list.length?Math.round(ticked*100/list.length):0)+"%",background:allDone?C.green:"rgba(74,222,128,0.35)",transition:"width .25s"}}/>
+                    <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10.5,fontWeight:900,color:allDone?"#052e16":C.text}}>
+                      {allDone?"ครบแล้ว / All done":("ทำแล้ว "+ticked+"/"+list.length)}
+                    </div>
+                  </div>
+                  <button onClick={function(){setShiftCheck(function(p){var t2={};list.forEach(function(x){t2[x.id]=true;});return Object.assign({},p,{tasks:t2});});}}
+                    style={{...gs.btn(C.card2,"#9ca3af"),fontSize:9.5,border:"1px solid "+C.border,whiteSpace:"nowrap"}}>ติ๊กทั้งหมด</button>
+                </div>
+                {list.map(function(t2,i){
+                  var on=!!(shiftCheck.tasks&&shiftCheck.tasks[t2.id]);
+                  return (
+                  <div key={t2.id} onClick={function(){toggle(t2.id);}} style={{display:"flex",gap:9,padding:"9px 11px",marginBottom:6,cursor:"pointer",
+                    background:on?"rgba(74,222,128,0.08)":C.card2,borderRadius:11,
+                    border:"1px solid "+(on?"rgba(74,222,128,0.45)":C.border)}}>
+                    <div style={{width:22,height:22,borderRadius:7,flexShrink:0,marginTop:1,
+                      background:on?C.green:"transparent",border:"2px solid "+(on?C.green:C.border),
+                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#052e16",fontWeight:900}}>{on?"\u2713":""}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11.5,fontWeight:800,color:on?C.green:C.text}}>
+                        <span style={{marginRight:5}}>{t2.icon}</span>{i+1}. {t2.th} <span style={{color:C.muted,fontWeight:600}}>/ {t2.en}</span>
+                      </div>
+                      <div style={{fontSize:9.5,color:C.muted,lineHeight:1.6,marginTop:2}}>{t2.how}</div>
+                    </div>
+                  </div>);
+                })}
+                <div style={{fontSize:9,color:C.muted,margin:"2px 0 9px"}}>แตะเพื่อติ๊กเมื่อทำเสร็จ · ต้องครบทุกข้อถึงจะไปต่อได้ · Tap each one as you finish it.</div>
+                <div style={{display:"flex",gap:7}}>
+                  <button onClick={function(){setShiftCheck(null);}} style={{...gs.btn(C.card2,"#fff"),flex:1,border:"1px solid "+C.border}}>ยกเลิก</button>
+                  <button disabled={!allDone} onClick={function(){
+                    if(!allDone){notify("ยังทำไม่ครบทุกข้อ","error");return;}
+                    addAudit(shiftCheck.mode==="in"?"SHIFT_TASKS_IN":"SHIFT_TASKS_OUT",
+                      shiftCheck.staffName+" ทำเช็คลิสต์"+(shiftCheck.mode==="in"?"เปิดกะ":"ปิดกะ")+"ครบ "+list.length+" ข้อ",shiftCheck.staffName);
+                    if(shiftCheck.nextStep==="__done__"){
+                      var s2=staff.find(function(x){return x.id===shiftCheck.staffId;});
+                      directClockIn(s2||{id:shiftCheck.staffId,name:shiftCheck.staffName},[]);
+                      setShiftCheck(null);return;
+                    }
+                    setShiftCheck(function(p){return Object.assign({},p,{step:p.nextStep||"weigh"});});
+                  }} style={{...gs.btn(allDone?C.green:C.card3,allDone?"#000":"#666"),flex:2}}>
+                    {shiftCheck.mode==="in"?"ต่อไป → นับสต็อก":"ต่อไป → นับสต็อกปิดกะ"}
+                  </button>
+                </div>
+              </span>);
+            })()}
 
             {shiftCheck.step==="scale"&&(function(){
               var live=Math.round((+scaleReading||0)*10000)/10000;

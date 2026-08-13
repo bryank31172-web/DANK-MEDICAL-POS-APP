@@ -473,6 +473,110 @@ const ONLINE_ORDERS_INIT = [
   { id: "ON-1041", customerName: "Nina K.", phone: "089-333-4444", address: "Condo One Sathorn, Tower B", time: "16 Jul, 19:22", branchId: 2, note: "Leave at lobby", items: [{ name: "THC Vape Cart 1ml", qty: 1 }], dist: 1.4, fee: 30, total: 900, status: "delivered", isMedical: false }
 ];
 const { useState, useEffect, useRef, useCallback } = React;
+const SHIFT_TASKS = {
+  in: [
+    {
+      id: "open",
+      icon: "\u{1F511}",
+      th: "\u0E40\u0E1B\u0E34\u0E14\u0E23\u0E49\u0E32\u0E19 \u0E15\u0E23\u0E27\u0E08\u0E04\u0E27\u0E32\u0E21\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22",
+      en: "Open up and look around",
+      how: "\u0E40\u0E1B\u0E34\u0E14\u0E44\u0E1F \u0E41\u0E2D\u0E23\u0E4C \u0E01\u0E25\u0E49\u0E2D\u0E07 \u0E15\u0E23\u0E27\u0E08\u0E27\u0E48\u0E32\u0E1B\u0E23\u0E30\u0E15\u0E39\u0E41\u0E25\u0E30\u0E15\u0E39\u0E49\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E48\u0E2D\u0E07\u0E23\u0E2D\u0E22\u0E07\u0E31\u0E14\u0E41\u0E07\u0E30 \xB7 Lights, aircon, cameras on; check nothing has been forced overnight."
+    },
+    {
+      id: "float",
+      icon: "\u{1F4B0}",
+      th: "\u0E19\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E17\u0E2D\u0E19\u0E15\u0E31\u0E49\u0E07\u0E15\u0E49\u0E19",
+      en: "Count the opening float",
+      how: "\u0E19\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E43\u0E19\u0E25\u0E34\u0E49\u0E19\u0E0A\u0E31\u0E01\u0E41\u0E25\u0E49\u0E27\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E17\u0E35\u0E48\u0E1B\u0E38\u0E48\u0E21 Cash Count \u0E1A\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E02\u0E32\u0E22 \xB7 Count the drawer, then record it with Cash Count on the sell screen."
+    },
+    {
+      id: "scale",
+      icon: "\u2696",
+      th: "\u0E15\u0E48\u0E2D\u0E41\u0E25\u0E30\u0E17\u0E14\u0E2A\u0E2D\u0E1A\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07",
+      en: "Connect and test the scale",
+      how: "\u0E2B\u0E19\u0E49\u0E32\u0E16\u0E31\u0E14\u0E44\u0E1B\u0E21\u0E35\u0E1B\u0E38\u0E48\u0E21\u0E17\u0E14\u0E2A\u0E2D\u0E1A\u0E43\u0E2B\u0E49 \xB7 \u0E27\u0E32\u0E07\u0E02\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E23\u0E39\u0E49\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01\u0E41\u0E25\u0E49\u0E27\u0E14\u0E39\u0E27\u0E48\u0E32\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E08\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07 \u0E16\u0E49\u0E32\u0E40\u0E25\u0E02\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32 1000 \u0E40\u0E17\u0E48\u0E32 \u0E43\u0E2B\u0E49\u0E15\u0E31\u0E49\u0E07\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E40\u0E1B\u0E47\u0E19 kg \xB7 The next screen tests it; if the app reads 1000x low, set the unit to kg."
+    },
+    {
+      id: "printer",
+      icon: "\u{1F5A8}",
+      th: "\u0E17\u0E14\u0E2A\u0E2D\u0E1A\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08",
+      en: "Test the receipt printer",
+      how: "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32 Scale & Print \u0E41\u0E25\u0E49\u0E27\u0E2A\u0E31\u0E48\u0E07\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E17\u0E14\u0E2A\u0E2D\u0E1A 1 \u0E43\u0E1A \xB7 Scale & Print page, send one test print."
+    },
+    {
+      id: "cds",
+      icon: "\u{1F5A5}",
+      th: "\u0E40\u0E1B\u0E34\u0E14\u0E08\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32",
+      en: "Open the customer display",
+      how: "Scale & Print \u2192 \u0E40\u0E1B\u0E34\u0E14\u0E08\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 \u2192 \u0E25\u0E32\u0E01\u0E44\u0E1B\u0E08\u0E2D\u0E17\u0E35\u0E48\u0E2A\u0E2D\u0E07 \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 F11 \xB7 Open it, drag to the second screen, press F11."
+    },
+    {
+      id: "low",
+      icon: "\u{1F4E6}",
+      th: "\u0E14\u0E39\u0E02\u0E2D\u0E07\u0E43\u0E01\u0E25\u0E49\u0E2B\u0E21\u0E14",
+      en: "Check what is running low",
+      how: "\u0E41\u0E17\u0E47\u0E1A \u0E2A\u0E15\u0E47\u0E2D\u0E01 \u0E08\u0E30\u0E40\u0E19\u0E49\u0E19\u0E01\u0E23\u0E2D\u0E1A\u0E2A\u0E35\u0E17\u0E2D\u0E07\u0E44\u0E27\u0E49\u0E43\u0E2B\u0E49 \xB7 \u0E41\u0E08\u0E49\u0E07\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E01\u0E48\u0E2D\u0E19\u0E02\u0E2D\u0E07\u0E2B\u0E21\u0E14\u0E01\u0E25\u0E32\u0E07\u0E01\u0E30 \xB7 The Stock tab outlines low items in gold \u2014 tell a manager before it runs out mid-shift."
+    },
+    {
+      id: "count",
+      icon: "\u{1F4CB}",
+      th: "\u0E19\u0E31\u0E1A\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E17\u0E38\u0E01 SKU",
+      en: "Count every SKU",
+      how: "\u0E2B\u0E19\u0E49\u0E32\u0E16\u0E31\u0E14\u0E44\u0E1B\u0E43\u0E2B\u0E49\u0E0A\u0E31\u0E48\u0E07/\u0E19\u0E31\u0E1A\u0E17\u0E35\u0E25\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \xB7 \u0E41\u0E15\u0E30\u0E0A\u0E37\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E0A\u0E31\u0E48\u0E07\u0E17\u0E35\u0E25\u0E30\u0E15\u0E31\u0E27 \xB7 The next screen walks you through it \u2014 tap a name to weigh it."
+    }
+  ],
+  out: [
+    {
+      id: "count",
+      icon: "\u{1F4CB}",
+      th: "\u0E19\u0E31\u0E1A\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E17\u0E38\u0E01 SKU",
+      en: "Count every SKU again",
+      how: "\u0E02\u0E32\u0E14\u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E01\u0E34\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E17\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \xB7 \u0E15\u0E23\u0E07\u0E40\u0E1B\u0E4A\u0E30\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19\u0E16\u0E36\u0E07\u0E02\u0E36\u0E49\u0E19 OK \xB7 Short and over both need a reason; only an exact match reads OK."
+    },
+    {
+      id: "cash",
+      icon: "\u{1F4B5}",
+      th: "\u0E19\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E43\u0E19\u0E25\u0E34\u0E49\u0E19\u0E0A\u0E31\u0E01",
+      en: "Count the drawer",
+      how: "\u0E19\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E01\u0E23\u0E2D\u0E01\u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E2A\u0E23\u0E38\u0E1B\u0E01\u0E30 \xB7 \u0E23\u0E30\u0E1A\u0E1A\u0E40\u0E17\u0E35\u0E22\u0E1A\u0E01\u0E31\u0E1A\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E43\u0E2B\u0E49\u0E40\u0E2D\u0E07 \xB7 Enter it on the shift report; the app compares it to sales for you."
+    },
+    {
+      id: "waste",
+      icon: "\u267B",
+      th: "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E2D\u0E07\u0E40\u0E2A\u0E35\u0E22/\u0E02\u0E2D\u0E07\u0E41\u0E16\u0E21",
+      en: "Log waste and giveaways",
+      how: "\u0E1B\u0E38\u0E48\u0E21 Waste \u0E1A\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E02\u0E32\u0E22 \xB7 \u0E02\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E41\u0E08\u0E01\u0E2B\u0E23\u0E37\u0E2D\u0E17\u0E34\u0E49\u0E07\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E07\u0E23\u0E30\u0E1A\u0E1A \u0E44\u0E21\u0E48\u0E07\u0E31\u0E49\u0E19\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E08\u0E30\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07 \xB7 Use the Waste button \u2014 anything given away or binned must be logged or the count will not match."
+    },
+    {
+      id: "orders",
+      icon: "\u{1F9FE}",
+      th: "\u0E40\u0E04\u0E25\u0E35\u0E22\u0E23\u0E4C\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E41\u0E25\u0E30\u0E1A\u0E34\u0E25\u0E04\u0E49\u0E32\u0E07",
+      en: "Clear open orders and tabs",
+      how: "\u0E41\u0E17\u0E47\u0E1A \u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C \u0E15\u0E49\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E04\u0E49\u0E32\u0E07 \xB7 \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E04\u0E49\u0E32\u0E07\u0E08\u0E48\u0E32\u0E22\u0E43\u0E2B\u0E49\u0E41\u0E08\u0E49\u0E07\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23 \xB7 Nothing left pending in Orders; tell a manager about any unpaid tab."
+    },
+    {
+      id: "clean",
+      icon: "\u{1F9F9}",
+      th: "\u0E17\u0E33\u0E04\u0E27\u0E32\u0E21\u0E2A\u0E30\u0E2D\u0E32\u0E14\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\u0E41\u0E25\u0E30\u0E42\u0E15\u0E4A\u0E30",
+      en: "Clean the scale and counter",
+      how: "\u0E1B\u0E31\u0E14\u0E40\u0E28\u0E29\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E08\u0E32\u0E19\u0E0A\u0E31\u0E48\u0E07\u0E43\u0E2B\u0E49\u0E40\u0E01\u0E25\u0E35\u0E49\u0E22\u0E07 \u0E44\u0E21\u0E48\u0E07\u0E31\u0E49\u0E19\u0E01\u0E30\u0E2B\u0E19\u0E49\u0E32\u0E08\u0E30\u0E19\u0E31\u0E1A\u0E40\u0E01\u0E34\u0E19 \xB7 Brush the pan clean, or the next shift counts your leftovers as stock."
+    },
+    {
+      id: "photo",
+      icon: "\u{1F4F8}",
+      th: "\u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19",
+      en: "Photograph the drawer",
+      how: "\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E40\u0E07\u0E34\u0E19\u0E43\u0E19\u0E25\u0E34\u0E49\u0E19\u0E0A\u0E31\u0E01\u0E17\u0E35\u0E48\u0E2B\u0E19\u0E49\u0E32\u0E2A\u0E23\u0E38\u0E1B\u0E01\u0E30 \xB7 Attach a photo of the counted cash on the shift report."
+    },
+    {
+      id: "lock",
+      icon: "\u{1F512}",
+      th: "\u0E40\u0E01\u0E47\u0E1A\u0E02\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E48\u0E32\u0E41\u0E25\u0E30\u0E25\u0E47\u0E2D\u0E01\u0E15\u0E39\u0E49",
+      en: "Lock everything away",
+      how: "\u0E40\u0E01\u0E47\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E41\u0E25\u0E30\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E40\u0E02\u0E49\u0E32\u0E15\u0E39\u0E49 \u0E1B\u0E34\u0E14\u0E08\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E41\u0E25\u0E30\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E1E\u0E34\u0E21\u0E1E\u0E4C \xB7 Cash and stock into the safe, customer display and printer off."
+    }
+  ]
+};
 function _lum(hex) {
   var m = String(hex || "").match(/^#([0-9a-f]{6})$/i);
   if (!m) return 0;
@@ -1422,12 +1526,26 @@ function GreenPOS() {
     var rows = checkSKUs().map(function(p) {
       return { id: p.id, name: cleanName(p).short, cat: p.cat || "", unit: p.unit || "pc", expected: Math.round((+p.stock || 0) * 100) / 100, measured: "", cost: +p.cost || 0, price: +p.price || 0, reason: "", note: "" };
     });
-    if (rows.length === 0) {
-      mode === "in" ? directClockIn(s, []) : setShiftCheck({ mode: "out", staffId: s.id, staffName: s.name, rows: [], step: "report", cash: "", notes: "", issues: "", sigOut: "", mgrPin: "", reasonsOk: true, proofPhoto: null, byCat: true });
-      if (mode === "in") return;
-    } else setShiftCheck({ mode, staffId: s.id, staffName: s.name, rows, step: rows.some(function(r) {
+    var _next = rows.length === 0 ? mode === "in" ? "__done__" : "report" : rows.some(function(r) {
       return (r.unit || "g") === "g";
-    }) ? "scale" : "weigh", cash: "", notes: "", issues: "", sigOut: "", mgrPin: "", proofPhoto: null, byCat: true });
+    }) ? "scale" : "weigh";
+    setShiftCheck({
+      mode,
+      staffId: s.id,
+      staffName: s.name,
+      rows,
+      step: "tasks",
+      nextStep: _next,
+      tasks: {},
+      cash: "",
+      notes: "",
+      issues: "",
+      sigOut: "",
+      mgrPin: "",
+      reasonsOk: true,
+      proofPhoto: null,
+      byCat: true
+    });
   };
   const clockIn = function(s) {
     beginClock(s, "in");
@@ -11040,7 +11158,87 @@ function GreenPOS() {
     return /* @__PURE__ */ React.createElement("div", { key: a2.id, style: { fontSize: 9.5, padding: "5px 0", borderBottom: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, a2.time), " \xB7 ", /* @__PURE__ */ React.createElement("b", null, a2.action), " \xB7 ", a2.detail, " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.accent } }, "(", a2.user, ")"), a2.reason ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.gold, marginTop: 1 } }, "\u{1F4AC} ", a2.reason) : null);
   }))), shiftCheck && /* @__PURE__ */ React.createElement("div", { style: OVERLAY }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 560, maxHeight: "92vh", overflowY: "auto" }), onClick: function(e) {
     e.stopPropagation();
-  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, marginBottom: 2 } }, shiftCheck.mode === "in" ? "\u2696 \u0E40\u0E0A\u0E47\u0E04\u0E2A\u0E15\u0E47\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E40\u0E02\u0E49\u0E32\u0E07\u0E32\u0E19 \xB7 Clock-In Inventory Check" : "\u2696 \u0E40\u0E0A\u0E47\u0E04\u0E2A\u0E15\u0E47\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E2D\u0E01\u0E07\u0E32\u0E19 \xB7 Clock-Out Inventory Check"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, shiftCheck.staffName, " \xB7 ", currentShiftSlot().name, " \xB7 \u0E19\u0E31\u0E1A/\u0E0A\u0E31\u0E48\u0E07\u0E17\u0E38\u0E01 SKU \u0E01\u0E48\u0E2D\u0E19", shiftCheck.mode === "in" ? "\u0E40\u0E23\u0E34\u0E48\u0E21\u0E07\u0E32\u0E19" : "\u0E2D\u0E2D\u0E01\u0E07\u0E32\u0E19", " \u2014 \u0E43\u0E0A\u0E49\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 (\u0E41\u0E17\u0E47\u0E1A Scale) \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E2D\u0E07"), shiftCheck.step === "scale" && (function() {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, marginBottom: 2 } }, shiftCheck.mode === "in" ? "\u2696 \u0E40\u0E0A\u0E47\u0E04\u0E2A\u0E15\u0E47\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E40\u0E02\u0E49\u0E32\u0E07\u0E32\u0E19 \xB7 Clock-In Inventory Check" : "\u2696 \u0E40\u0E0A\u0E47\u0E04\u0E2A\u0E15\u0E47\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E2D\u0E01\u0E07\u0E32\u0E19 \xB7 Clock-Out Inventory Check"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, shiftCheck.staffName, " \xB7 ", currentShiftSlot().name, " \xB7 \u0E19\u0E31\u0E1A/\u0E0A\u0E31\u0E48\u0E07\u0E17\u0E38\u0E01 SKU \u0E01\u0E48\u0E2D\u0E19", shiftCheck.mode === "in" ? "\u0E40\u0E23\u0E34\u0E48\u0E21\u0E07\u0E32\u0E19" : "\u0E2D\u0E2D\u0E01\u0E07\u0E32\u0E19", " \u2014 \u0E43\u0E0A\u0E49\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 (\u0E41\u0E17\u0E47\u0E1A Scale) \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E2D\u0E07"), shiftCheck.step === "tasks" && (function() {
+    var list = SHIFT_TASKS[shiftCheck.mode] || [];
+    var ticked = list.filter(function(t2) {
+      return shiftCheck.tasks && shiftCheck.tasks[t2.id];
+    }).length;
+    var allDone = ticked === list.length;
+    var toggle = function(id) {
+      setShiftCheck(function(p) {
+        var t2 = Object.assign({}, p.tasks || {});
+        t2[id] = !t2[id];
+        return Object.assign({}, p, { tasks: t2 });
+      });
+    };
+    return /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, height: 26, background: C.card2, border: "1px solid " + C.border, borderRadius: 13, overflow: "hidden", position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: "0 auto 0 0", width: (list.length ? Math.round(ticked * 100 / list.length) : 0) + "%", background: allDone ? C.green : "rgba(74,222,128,0.35)", transition: "width .25s" } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 900, color: allDone ? "#052e16" : C.text } }, allDone ? "\u0E04\u0E23\u0E1A\u0E41\u0E25\u0E49\u0E27 / All done" : "\u0E17\u0E33\u0E41\u0E25\u0E49\u0E27 " + ticked + "/" + list.length)), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: function() {
+          setShiftCheck(function(p) {
+            var t2 = {};
+            list.forEach(function(x) {
+              t2[x.id] = true;
+            });
+            return Object.assign({}, p, { tasks: t2 });
+          });
+        },
+        style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#9ca3af")), { fontSize: 9.5, border: "1px solid " + C.border, whiteSpace: "nowrap" })
+      },
+      "\u0E15\u0E34\u0E4A\u0E01\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"
+    )), list.map(function(t2, i) {
+      var on = !!(shiftCheck.tasks && shiftCheck.tasks[t2.id]);
+      return /* @__PURE__ */ React.createElement("div", { key: t2.id, onClick: function() {
+        toggle(t2.id);
+      }, style: {
+        display: "flex",
+        gap: 9,
+        padding: "9px 11px",
+        marginBottom: 6,
+        cursor: "pointer",
+        background: on ? "rgba(74,222,128,0.08)" : C.card2,
+        borderRadius: 11,
+        border: "1px solid " + (on ? "rgba(74,222,128,0.45)" : C.border)
+      } }, /* @__PURE__ */ React.createElement("div", { style: {
+        width: 22,
+        height: 22,
+        borderRadius: 7,
+        flexShrink: 0,
+        marginTop: 1,
+        background: on ? C.green : "transparent",
+        border: "2px solid " + (on ? C.green : C.border),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 12,
+        color: "#052e16",
+        fontWeight: 900
+      } }, on ? "\u2713" : ""), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: on ? C.green : C.text } }, /* @__PURE__ */ React.createElement("span", { style: { marginRight: 5 } }, t2.icon), i + 1, ". ", t2.th, " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.muted, fontWeight: 600 } }, "/ ", t2.en)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, lineHeight: 1.6, marginTop: 2 } }, t2.how)));
+    }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, margin: "2px 0 9px" } }, "\u0E41\u0E15\u0E30\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E15\u0E34\u0E4A\u0E01\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E17\u0E33\u0E40\u0E2A\u0E23\u0E47\u0E08 \xB7 \u0E15\u0E49\u0E2D\u0E07\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E02\u0E49\u0E2D\u0E16\u0E36\u0E07\u0E08\u0E30\u0E44\u0E1B\u0E15\u0E48\u0E2D\u0E44\u0E14\u0E49 \xB7 Tap each one as you finish it."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShiftCheck(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"), /* @__PURE__ */ React.createElement("button", { disabled: !allDone, onClick: function() {
+      if (!allDone) {
+        notify("\u0E22\u0E31\u0E07\u0E17\u0E33\u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E02\u0E49\u0E2D", "error");
+        return;
+      }
+      addAudit(
+        shiftCheck.mode === "in" ? "SHIFT_TASKS_IN" : "SHIFT_TASKS_OUT",
+        shiftCheck.staffName + " \u0E17\u0E33\u0E40\u0E0A\u0E47\u0E04\u0E25\u0E34\u0E2A\u0E15\u0E4C" + (shiftCheck.mode === "in" ? "\u0E40\u0E1B\u0E34\u0E14\u0E01\u0E30" : "\u0E1B\u0E34\u0E14\u0E01\u0E30") + "\u0E04\u0E23\u0E1A " + list.length + " \u0E02\u0E49\u0E2D",
+        shiftCheck.staffName
+      );
+      if (shiftCheck.nextStep === "__done__") {
+        var s2 = staff.find(function(x) {
+          return x.id === shiftCheck.staffId;
+        });
+        directClockIn(s2 || { id: shiftCheck.staffId, name: shiftCheck.staffName }, []);
+        setShiftCheck(null);
+        return;
+      }
+      setShiftCheck(function(p) {
+        return Object.assign({}, p, { step: p.nextStep || "weigh" });
+      });
+    }, style: __spreadProps(__spreadValues({}, gs.btn(allDone ? C.green : C.card3, allDone ? "#000" : "#666")), { flex: 2 }) }, shiftCheck.mode === "in" ? "\u0E15\u0E48\u0E2D\u0E44\u0E1B \u2192 \u0E19\u0E31\u0E1A\u0E2A\u0E15\u0E47\u0E2D\u0E01" : "\u0E15\u0E48\u0E2D\u0E44\u0E1B \u2192 \u0E19\u0E31\u0E1A\u0E2A\u0E15\u0E47\u0E2D\u0E01\u0E1B\u0E34\u0E14\u0E01\u0E30")));
+  })(), shiftCheck.step === "scale" && (function() {
     var live = Math.round((+scaleReading || 0) * 1e4) / 1e4;
     return /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { background: C.card2, border: "1px solid " + (scaleConnected ? "rgba(74,222,128,0.35)" : C.border), borderRadius: 12, textAlign: "center", padding: "16px 12px", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.eyebrow), { marginBottom: 6 }) }, "\u0E02\u0E31\u0E49\u0E19\u0E41\u0E23\u0E01: \u0E40\u0E0A\u0E47\u0E04\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E19\u0E31\u0E1A / Scale check first"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 46, fontWeight: 800, fontFamily: "monospace", letterSpacing: "-0.02em", color: scaleConnected ? C.green : C.muted } }, fmtW(live), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 18 } }, "g")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: scaleConnected ? C.green : C.muted, margin: "2px 0 10px" } }, scaleConnected ? "\u25CF \u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D\u0E41\u0E25\u0E49\u0E27" + (scaleSrcUnit ? " \xB7 \u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E2A\u0E48\u0E07\u0E2B\u0E19\u0E48\u0E27\u0E22 " + scaleSrcUnit : "") : "\u25CB \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D / not connected"), !scaleConnected ? /* @__PURE__ */ React.createElement("button", { onClick: connectScale, style: __spreadValues({}, gs.btnLg(C.blue)) }, "\u{1F50C} \u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07 / Connect scale") : /* @__PURE__ */ React.createElement("button", { onClick: disconnectScale, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 11 }) }, "\u0E15\u0E31\u0E14\u0E01\u0E32\u0E23\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D / Disconnect")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.muted, lineHeight: 1.7, background: C.card2, border: "1px solid " + C.border, borderRadius: 9, padding: "9px 12px", marginBottom: 10 } }, "\u0E27\u0E34\u0E18\u0E35\u0E40\u0E0A\u0E47\u0E04: 1) \u0E40\u0E2D\u0E32\u0E02\u0E2D\u0E07\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E16\u0E32\u0E14\u0E43\u0E2B\u0E49\u0E2B\u0E21\u0E14 \u2014 \u0E15\u0E49\u0E2D\u0E07\u0E02\u0E36\u0E49\u0E19 0.00\xA0\xA02) \u0E27\u0E32\u0E07\u0E02\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E23\u0E39\u0E49\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01 (\u0E40\u0E0A\u0E48\u0E19 \u0E15\u0E38\u0E49\u0E21\u0E40\u0E17\u0E35\u0E22\u0E1A \u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E1F\u0E41\u0E0A\u0E47\u0E01 ~20g)\xA0\xA03) \u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E1A\u0E19\u0E08\u0E2D\u0E19\u0E35\u0E49\u0E15\u0E49\u0E2D\u0E07", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, "\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E08\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07"), " \u2014 \u0E16\u0E49\u0E32\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32 1000 \u0E40\u0E17\u0E48\u0E32 \u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E2A\u0E48\u0E07\u0E40\u0E1B\u0E47\u0E19 kg \u0E43\u0E2B\u0E49\u0E15\u0E31\u0E49\u0E07\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E17\u0E35\u0E48\u0E2B\u0E19\u0E49\u0E32 \u2696 \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setShiftCheck(null);
