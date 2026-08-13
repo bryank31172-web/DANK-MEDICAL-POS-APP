@@ -4,6 +4,7 @@
    status so you can confirm the StoreHub link right after deploying.           */
 import { getMenu } from "./_menu.js";
 import { shConfigured } from "./_storehub.js";
+import { usingRedis } from "./_store.js";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -51,6 +52,17 @@ export default async function handler(req, res) {
       source,
       products: count,
       storehubConfigured: shSet,
+      // Whether the shared store is real Redis or the per-instance memory
+      // fallback. Rate limiting rides on this, so "memory" means a PIN guesser
+      // can spread attempts across serverless instances and never hit a limit.
+      // Names only — never the URL or the token.
+      storage: {
+        redis: usingRedis(),
+        via: process.env.UPSTASH_REDIS_REST_URL ? "UPSTASH_REDIS_REST_*"
+           : (process.env.KV_REST_API_URL ? "KV_REST_API_*" : null),
+        note: usingRedis() ? "shared store OK — rate limits count across instances"
+                           : "in-memory fallback — attach a Redis to this project",
+      },
       updated: new Date(menu.at || Date.now()).toISOString(),
       sample,
     });
