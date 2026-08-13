@@ -1993,7 +1993,35 @@ function GreenPOS() {
   // list always reconciles exactly with whatever number the user tapped into.
   const _billExplorerRows=(function(){
     var stMap={};(stores||[]).forEach(function(st){stMap[st.id]=st.name;});
-    var custMap={};(customers||[]).forEach(function(c){custMap[c.id]=c.name;});
+    // A bill's customer arrives from StoreHub keyed by whichever id StoreHub
+    // felt like sending — its own id, the refId we store as c.id, sometimes only
+    // a phone. Indexing on c.id alone matched almost nothing, so every bill read
+    // "Walk-in" even when the sale was rung up against a real member.
+    var custMap={};
+    var _addCust=function(k,name){var s2=String(k||"").trim();if(s2)custMap[s2.toLowerCase()]=name;};
+    (customers||[]).forEach(function(c){
+      var nm=String(c.name||"").trim();
+      if(!nm)return;
+      _addCust(c.id,nm); _addCust(c.refId,nm); _addCust(c.shId,nm);
+      _addCust(c.customerId,nm); _addCust(c.memberId,nm);
+      if(c.shId)_addCust("sh-"+c.shId,nm);
+      if(c.phone)_addCust(String(c.phone).replace(/[^0-9]/g,""),nm);
+      if(c.email)_addCust(c.email,nm);
+    });
+    var _lookupCust=function(t){
+      var keys=[t.customerId,t.customer,t.customerRefId,t.refId,t.memberId,
+                t.customerPhone,t.phone,t.customerEmail,t.email];
+      for(var i=0;i<keys.length;i++){
+        var k=keys[i]; if(k===undefined||k===null||k==="")continue;
+        var hit=custMap[String(k).trim().toLowerCase()];
+        if(hit)return hit;
+        var digits=String(k).replace(/[^0-9]/g,"");
+        if(digits.length>=8&&custMap[digits])return custMap[digits];
+      }
+      // StoreHub sometimes sends the name inline and no id at all
+      var nm=t.customerName||((t.customerFirstName||"")+" "+(t.customerLastName||"")).trim();
+      return nm&&nm.trim()?nm.trim():"";
+    };
     var rows=[];
     _txScoped.forEach(function(t){
       var dstr=new Date(new Date(t.transactionTime||0).getTime()+7*3600*1000).toISOString().slice(0,10);
@@ -2007,13 +2035,12 @@ function GreenPOS() {
       // StoreHub's bill total is post-discount, so we must NOT subtract the discount
       // again (that double-counted it and made profit go negative on discounted bills).
       var profit=total-cost;
-      var cid=t.customerId||t.customer;
       rows.push({
         id:t.id||("sh-"+t.transactionTime+"-"+rows.length),
         dateSort:new Date(t.transactionTime||0).getTime(),
         date:new Date(new Date(t.transactionTime||0).getTime()+7*3600*1000).toLocaleString("th-TH"),
         branch:stMap[t.storeId]||t.storeId||"—",
-        customer:(cid&&custMap[cid])||t.customerName||"Walk-in",
+        customer:_lookupCust(t)||"none",
         payment:t.paymentType||t.payment||"—",
         items:items,subtotal:subtotal,discount:discount,total:total,profit:profit
       });

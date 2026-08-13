@@ -3573,9 +3573,45 @@ function GreenPOS() {
       stMap[st.id] = st.name;
     });
     var custMap = {};
+    var _addCust = function(k, name) {
+      var s2 = String(k || "").trim();
+      if (s2) custMap[s2.toLowerCase()] = name;
+    };
     (customers || []).forEach(function(c) {
-      custMap[c.id] = c.name;
+      var nm = String(c.name || "").trim();
+      if (!nm) return;
+      _addCust(c.id, nm);
+      _addCust(c.refId, nm);
+      _addCust(c.shId, nm);
+      _addCust(c.customerId, nm);
+      _addCust(c.memberId, nm);
+      if (c.shId) _addCust("sh-" + c.shId, nm);
+      if (c.phone) _addCust(String(c.phone).replace(/[^0-9]/g, ""), nm);
+      if (c.email) _addCust(c.email, nm);
     });
+    var _lookupCust = function(t2) {
+      var keys = [
+        t2.customerId,
+        t2.customer,
+        t2.customerRefId,
+        t2.refId,
+        t2.memberId,
+        t2.customerPhone,
+        t2.phone,
+        t2.customerEmail,
+        t2.email
+      ];
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        if (k === void 0 || k === null || k === "") continue;
+        var hit = custMap[String(k).trim().toLowerCase()];
+        if (hit) return hit;
+        var digits = String(k).replace(/[^0-9]/g, "");
+        if (digits.length >= 8 && custMap[digits]) return custMap[digits];
+      }
+      var nm = t2.customerName || ((t2.customerFirstName || "") + " " + (t2.customerLastName || "")).trim();
+      return nm && nm.trim() ? nm.trim() : "";
+    };
     var rows = [];
     _txScoped.forEach(function(t2) {
       var dstr = new Date(new Date(t2.transactionTime || 0).getTime() + 7 * 3600 * 1e3).toISOString().slice(0, 10);
@@ -3596,13 +3632,12 @@ function GreenPOS() {
       var discount = +t2.discount || +t2.discountAmount || +t2.totalDiscount || 0;
       var total = +t2.total || subtotal - discount;
       var profit = total - cost;
-      var cid = t2.customerId || t2.customer;
       rows.push({
         id: t2.id || "sh-" + t2.transactionTime + "-" + rows.length,
         dateSort: new Date(t2.transactionTime || 0).getTime(),
         date: new Date(new Date(t2.transactionTime || 0).getTime() + 7 * 3600 * 1e3).toLocaleString("th-TH"),
         branch: stMap[t2.storeId] || t2.storeId || "\u2014",
-        customer: cid && custMap[cid] || t2.customerName || "Walk-in",
+        customer: _lookupCust(t2) || "none",
         payment: t2.paymentType || t2.payment || "\u2014",
         items,
         subtotal,
