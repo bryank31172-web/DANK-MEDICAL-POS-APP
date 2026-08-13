@@ -58,9 +58,12 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
 3. **`dankbkk-site` needs the two `UPSTASH_REDIS_REST_*` names added by hand** (copy the
    values from its `KV_REST_API_*`). That repo is private and separate, so the name fix in
    `api/_store.js` here does not reach it.
-4. **Generate the 52 product photos** — `docs/product-image-prompts.pdf` / `.txt`. The till
-   already pulls photos from `products.json` by name, so adding them there lights up both
-   the POS and the website at once.
+4. **Generate the product images** — `docs/botanical-legends-prompts.pdf` / `.txt` (41 items,
+   the shop's own BOTANICAL LEGENDS card style; the older photographic set is still in
+   `docs/product-image-prompts.*`). Use **variant B** (1:1, no lettering) for the app and the
+   website — the POS draws the name and price over the tile, so a card with baked-in text
+   double-prints. Variant A (3:2, with text) is for IG and menu boards. The till pulls photos
+   from `products.json` by name, so adding them there lights up POS and website at once.
 5. Petchaboon/Phuket fixed-cost budgets are 0 — owner sets them in-app (Finance → 💸 → ✏ แก้งบ).
 6. Delete the duplicate Vercel project `dankbkk-site-4jrn` once the live domain is confirmed
    to point at `dankbkk-site` — otherwise every env var has to be set twice, forever.
