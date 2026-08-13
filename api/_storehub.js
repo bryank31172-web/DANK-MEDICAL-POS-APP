@@ -114,6 +114,14 @@ function mapCategory(p) {
   return (p.category || "Exotics");
 }
 
+// StoreHub stores unitPrice EXCLUDING VAT: a ฿200 item comes back as
+// 186.91588785046727 (200 / 1.07). The POS adds the 7% back and rounds before
+// it ever shows or charges a price (pos/app.fixed.jsx: unitPrice * 1.07), so
+// the menu feed has to do the same — otherwise the storefront quotes every
+// item 7% under the counter price, with the float noise still attached.
+export const VAT_MULT = 1.07;
+export const withVat = (v) => Math.round((Number(v) || 0) * VAT_MULT);
+
 export function normalize(p, stock) {
   const nm = p.name || p.title; if (!nm) return null;
   const category = mapCategory(p);
@@ -131,8 +139,8 @@ export function normalize(p, stock) {
     cbd: 0,
     unit: flower ? "g" : "pc",
     stock: st,
-    price: Number(p.unitPrice) || 0,
-    member: p.unitPrice ? Math.round(Number(p.unitPrice) * 0.9) : undefined,
+    price: withVat(p.unitPrice),
+    member: p.unitPrice ? Math.round(withVat(p.unitPrice) * 0.9) : undefined,
     image: p.imageUrl || p.image || "",   // usually empty on StoreHub → genPhoto fallback
     featured: (p.tags||[]).includes("featured"),
     freeGift: (p.tags||[]).map(x=>String(x).toLowerCase()).includes("freegift"),
