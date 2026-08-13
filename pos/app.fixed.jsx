@@ -4013,6 +4013,38 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     if(isDataImg(p.img))return p.img;                 // a photo already set here wins
     return webImgFor(p.name,webImgs)||p.img;          // else the site's, else the emoji
   };
+  // SPENT and VISITS were only ever what this app itself recorded — the
+  // StoreHub customer sync writes `totalSpent: existing.totalSpent||0`, so on a
+  // device that has not rung up a member yet every card reads 0, even for a
+  // customer with years of history. The transactions are already synced, so the
+  // history is right there; count it instead of showing a zero we know is wrong.
+  const custStats=React.useMemo(function(){
+    var byKey={};
+    var add=function(k,total,when){
+      var s2=String(k||"").trim().toLowerCase(); if(!s2)return;
+      var e=byKey[s2]||(byKey[s2]={spent:0,visits:0,last:0});
+      e.spent+=total; e.visits+=1;
+      var ts=new Date(when||0).getTime(); if(ts>e.last)e.last=ts;
+    };
+    (Array.isArray(txHistory)?txHistory:[]).forEach(function(t){
+      if(/return|refund|void/i.test(String(t.transactionType||"")))return;
+      var total=+t.total||0;
+      [t.customerId,t.customer,t.customerRefId,t.memberId,t.customerPhone,t.phone,t.customerEmail,t.email]
+        .forEach(function(k){ if(k!==undefined&&k!==null&&k!=="")add(k,total,t.transactionTime); });
+    });
+    return byKey;
+  },[txHistory]);
+  // a customer may be keyed by any of several ids; take the best-matching one
+  const statsFor=React.useCallback(function(c){
+    var keys=[c.id,c.refId,c.shId,c.customerId,c.memberId,c.email];
+    if(c.phone)keys.push(String(c.phone).replace(/[^0-9]/g,""),c.phone);
+    var best={spent:0,visits:0,last:0};
+    keys.forEach(function(k){
+      var e=k?custStats[String(k).trim().toLowerCase()]:null;
+      if(e&&e.visits>best.visits)best=e;
+    });
+    return best;
+  },[custStats]);
   const [barPick,setBarPick]=useState(null);
   const [barDone,setBarDone]=useState({});
   const asstGreetRef=useRef(false);
@@ -6090,8 +6122,13 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                       {c.tags&&c.tags!=="nan"&&c.tags!==""&&<div style={{marginTop:3,display:"flex",flexWrap:"wrap",gap:3}}>{String(c.tags||"").split(";").filter(t=>t.trim()).map((tag,ti)=><span key={ti} style={{...gs.badge("rgba(201,168,76,0.15)","#c9a84c"),fontSize:8}}>{tag.trim()}</span>)}</div>}
                       <div style={{display:"flex",gap:14,marginTop:7}}>
                         <div><div style={{fontSize:16,fontWeight:900,color:C.accent}}>⭐{(+c.points||0).toLocaleString()}</div><div style={{fontSize:8,color:C.muted}}>POINTS</div></div>
-                        <div><div style={{fontSize:16,fontWeight:900,color:C.green}}>฿{((+c.totalSpent||0)/1000).toFixed(1)}K</div><div style={{fontSize:8,color:C.muted}}>SPENT</div></div>
-                        <div><div style={{fontSize:16,fontWeight:900,color:C.blue}}>{(+c.visits||0)}</div><div style={{fontSize:8,color:C.muted}}>VISITS</div></div>
+                        {(function(){var _st=statsFor(c);
+                          var _sp=Math.max(+c.totalSpent||0,_st.spent);
+                          var _vi=Math.max(+c.visits||0,_st.visits);
+                          return (<span style={{display:"contents"}}>
+                          <div><div style={{fontSize:16,fontWeight:900,color:C.green}}>฿{(_sp/1000).toFixed(1)}K</div><div style={{fontSize:8,color:C.muted}}>SPENT{_st.spent>(+c.totalSpent||0)?" ·จากบิล":""}</div></div>
+                          <div><div style={{fontSize:16,fontWeight:900,color:C.blue}}>{_vi}</div><div style={{fontSize:8,color:C.muted}}>VISITS</div></div>
+                          </span>);})()}
                         <div><div style={{fontSize:16,fontWeight:900,color:C.gold}}>฿{(+c.balance||0).toLocaleString()}</div><div style={{fontSize:8,color:C.muted}}>BALANCE 💰</div></div>
                         {(+c.creditLimit||0)>0&&<div><div style={{fontSize:16,fontWeight:900,color:C.red}}>฿{(+c.creditLimit).toLocaleString()}</div><div style={{fontSize:8,color:C.muted}}>CREDIT LIMIT 🧾</div></div>}
                       </div>

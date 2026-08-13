@@ -6933,6 +6933,36 @@ function GreenPOS() {
     if (isDataImg(p.img)) return p.img;
     return webImgFor(p.name, webImgs) || p.img;
   };
+  const custStats = React.useMemo(function() {
+    var byKey = {};
+    var add = function(k, total, when) {
+      var s2 = String(k || "").trim().toLowerCase();
+      if (!s2) return;
+      var e = byKey[s2] || (byKey[s2] = { spent: 0, visits: 0, last: 0 });
+      e.spent += total;
+      e.visits += 1;
+      var ts = new Date(when || 0).getTime();
+      if (ts > e.last) e.last = ts;
+    };
+    (Array.isArray(txHistory) ? txHistory : []).forEach(function(t2) {
+      if (/return|refund|void/i.test(String(t2.transactionType || ""))) return;
+      var total = +t2.total || 0;
+      [t2.customerId, t2.customer, t2.customerRefId, t2.memberId, t2.customerPhone, t2.phone, t2.customerEmail, t2.email].forEach(function(k) {
+        if (k !== void 0 && k !== null && k !== "") add(k, total, t2.transactionTime);
+      });
+    });
+    return byKey;
+  }, [txHistory]);
+  const statsFor = React.useCallback(function(c) {
+    var keys = [c.id, c.refId, c.shId, c.customerId, c.memberId, c.email];
+    if (c.phone) keys.push(String(c.phone).replace(/[^0-9]/g, ""), c.phone);
+    var best = { spent: 0, visits: 0, last: 0 };
+    keys.forEach(function(k) {
+      var e = k ? custStats[String(k).trim().toLowerCase()] : null;
+      if (e && e.visits > best.visits) best = e;
+    });
+    return best;
+  }, [custStats]);
   const [barPick, setBarPick] = useState(null);
   const [barDone, setBarDone] = useState({});
   const asstGreetRef = useRef(false);
@@ -8859,7 +8889,12 @@ function GreenPOS() {
       setMedCardCust(c);
     }, style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 9, border: "1px solid " + C.border, cursor: "pointer" }) }, "\u{1F4CE} attach")) : /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: C.muted } }, "NO"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setMedCardCust(c);
-    }, style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 9, border: "1px solid " + C.border, cursor: "pointer" }) }, "\u{1F4CE} attach"))), c.lastPurchase && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u{1F6D2} Last: ", c.lastPurchase), c.tags && c.tags !== "nan" && c.tags !== "" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, display: "flex", flexWrap: "wrap", gap: 3 } }, String(c.tags || "").split(";").filter((t2) => t2.trim()).map((tag, ti) => /* @__PURE__ */ React.createElement("span", { key: ti, style: __spreadProps(__spreadValues({}, gs.badge("rgba(201,168,76,0.15)", "#c9a84c")), { fontSize: 8 }) }, tag.trim()))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 7 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.accent } }, "\u2B50", (+c.points || 0).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "POINTS")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.green } }, "\u0E3F", ((+c.totalSpent || 0) / 1e3).toFixed(1), "K"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "SPENT")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.blue } }, +c.visits || 0), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "VISITS")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.gold } }, "\u0E3F", (+c.balance || 0).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "BALANCE \u{1F4B0}")), (+c.creditLimit || 0) > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.red } }, "\u0E3F", (+c.creditLimit).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "CREDIT LIMIT \u{1F9FE}"))), nt && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 7 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 8, color: C.muted, marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", null, tier.name), /* @__PURE__ */ React.createElement("span", null, "\u0E3F", ((nt.min - c.totalSpent) / 1e3).toFixed(1), "K to ", nt.name)), /* @__PURE__ */ React.createElement("div", { style: { background: C.border, borderRadius: 3, height: 3 } }, /* @__PURE__ */ React.createElement("div", { style: { background: tier.col, height: 3, borderRadius: 3, width: `${Math.min(pct, 100)}%` } })))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 }, onClick: function(e) {
+    }, style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 9, border: "1px solid " + C.border, cursor: "pointer" }) }, "\u{1F4CE} attach"))), c.lastPurchase && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u{1F6D2} Last: ", c.lastPurchase), c.tags && c.tags !== "nan" && c.tags !== "" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, display: "flex", flexWrap: "wrap", gap: 3 } }, String(c.tags || "").split(";").filter((t2) => t2.trim()).map((tag, ti) => /* @__PURE__ */ React.createElement("span", { key: ti, style: __spreadProps(__spreadValues({}, gs.badge("rgba(201,168,76,0.15)", "#c9a84c")), { fontSize: 8 }) }, tag.trim()))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 7 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.accent } }, "\u2B50", (+c.points || 0).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "POINTS")), (function() {
+      var _st = statsFor(c);
+      var _sp = Math.max(+c.totalSpent || 0, _st.spent);
+      var _vi = Math.max(+c.visits || 0, _st.visits);
+      return /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.green } }, "\u0E3F", (_sp / 1e3).toFixed(1), "K"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "SPENT", _st.spent > (+c.totalSpent || 0) ? " \xB7\u0E08\u0E32\u0E01\u0E1A\u0E34\u0E25" : "")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.blue } }, _vi), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "VISITS")));
+    })(), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.gold } }, "\u0E3F", (+c.balance || 0).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "BALANCE \u{1F4B0}")), (+c.creditLimit || 0) > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.red } }, "\u0E3F", (+c.creditLimit).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "CREDIT LIMIT \u{1F9FE}"))), nt && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 7 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 8, color: C.muted, marginBottom: 2 } }, /* @__PURE__ */ React.createElement("span", null, tier.name), /* @__PURE__ */ React.createElement("span", null, "\u0E3F", ((nt.min - c.totalSpent) / 1e3).toFixed(1), "K to ", nt.name)), /* @__PURE__ */ React.createElement("div", { style: { background: C.border, borderRadius: 3, height: 3 } }, /* @__PURE__ */ React.createElement("div", { style: { background: tier.col, height: 3, borderRadius: 3, width: `${Math.min(pct, 100)}%` } })))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 }, onClick: function(e) {
       e.stopPropagation();
     } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setCustDetailView(c);
