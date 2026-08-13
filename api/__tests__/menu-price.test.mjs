@@ -39,5 +39,25 @@ const tiers = groupTiers([
 is(tiers.length, 1, "grouping keeps the single product");
 is(tiers[0].price, 200, "tier price is VAT-inclusive");
 
+/* ── the storefront was calling an onion ring a Hybrid ──────────────────────
+ * parseType() defaulted to "Hybrid" for everything and mapCategory() had no
+ * Food case, so the customer menu showed "onion ring · HYBRID · THC —".
+ */
+const food = normalize({ id: "f1", sku: "onion-ring", name: "onion ring", unitPrice: 126.16822429906541 }, {});
+is(food.category, "Food", "onion ring is Food, not a strain");
+is(food.type, "", "food carries no Indica/Sativa/Hybrid");
+is(food.thcLabel, "", "food carries no THC label");
+is(food.thc, 0, "food carries no THC number");
+is(food.price, 135, "food price is VAT-inclusive and round");
+
+for (const [name, cat] of [
+  ["French Fried", "Food"], ["Chicken Karaage", "Food"], ["Ice Cream Cone", "Food"],
+  ["Crispy Boy lager Can", "Beer"], ["Clipper Jet Lighter", "Accessories"],
+]) is(normalize({ id: name, sku: name, name }, {}).category, cat, `${name} -> ${cat}`);
+
+const bud = normalize({ id: "b1", sku: "og-kush", name: "OG Kush Hybrid THC 24%", unitPrice: 400 }, {});
+is(bud.type, "Hybrid", "real flower keeps its strain type");
+is(bud.thcLabel, "24%", "real flower keeps its THC label");
+
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
