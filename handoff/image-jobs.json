@@ -1,0 +1,763 @@
+{
+ "what": "Product artwork jobs for Dank Cannabis Clinic, in the shop BOTANICAL LEGENDS card style.",
+ "howToUse": [
+  "Use promptB_artOnly for the app and the website. It is 1:1 with no lettering, because the POS draws the name and price over the tile itself.",
+  "promptA_fullCard is 3:2 with the text baked in - for Instagram, menu boards and posters only.",
+  "Save each result under the exact `file` name. The apply script matches on the filename, not on the picture.",
+  "Copy styleBlock verbatim when writing a prompt for a product that is not in this list."
+ ],
+ "styleBlock": "Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer.",
+ "noTextBlock": "NO text, NO letters, NO logo, NO watermark anywhere in the image - artwork only. Square 1:1 crop with the character centred.",
+ "output": {
+  "aspect": "1:1",
+  "minSize": "1024x1024",
+  "format": "jpg",
+  "folder": "assets/products/"
+ },
+ "doNot": [
+  "Do not draw real trademarked characters or logos. Cookie Monster, Coco Chanel and KAWS are written as originally-designed characters on purpose.",
+  "Do not put any lettering in the variant B artwork, not even the strain name.",
+  "Do not improve or reword the style block for individual items - that is what keeps the set looking like one series."
+ ],
+ "count": 41,
+ "jobs": [
+  {
+   "id": "crunch-berrie",
+   "name": "Crunch Berrie",
+   "category": "Exotics",
+   "file": "crunch-berrie.jpg",
+   "saveTo": "assets/products/crunch-berrie.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6890.png?v=1782732640",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Berry · Sweet · Cream",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "BERRY · SWEET · CREAM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Crunch Berrie\". A cereal-mascot character made of berries, in a varsity jacket and cap, holding a bowl of glowing berry cereal, purple and hot-pink palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Crunch Berrie\". A cereal-mascot character made of berries, in a varsity jacket and cap, holding a bowl of glowing berry cereal, purple and hot-pink palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"BERRY · SWEET · CREAM\". Landscape 3:2."
+  },
+  {
+   "id": "alien-mint",
+   "name": "Alien Mint",
+   "category": "Exotics",
+   "file": "alien-mint.jpg",
+   "saveTo": "assets/products/alien-mint.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6888.png?v=1782731863",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Mint · Gas · Cookies",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "MINT · GAS · COOKIES"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Alien Mint\". A friendly green alien in a chrome bomber jacket and round shades, sipping a mint milkshake, mint-green and silver palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Alien Mint\". A friendly green alien in a chrome bomber jacket and round shades, sipping a mint milkshake, mint-green and silver palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"MINT · GAS · COOKIES\". Landscape 3:2."
+  },
+  {
+   "id": "cookie-monster",
+   "name": "Cookie Monster",
+   "category": "Exotics",
+   "file": "cookie-monster.jpg",
+   "saveTo": "assets/products/cookie-monster.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6884.jpg?v=1782730860",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Indica",
+    "taste": "Cookies · Sweet · Earthy",
+    "feeling": "Relaxed, Sleepy, Happy",
+    "bestFor": "Movie nights & deep sleep",
+    "tagline": "COOKIES · SWEET · EARTHY"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Cookie Monster\". An original shaggy blue-green monster character (NOT any existing TV character) with big googly eyes, clutching a stack of cookies, teal and brown palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Cookie Monster\". An original shaggy blue-green monster character (NOT any existing TV character) with big googly eyes, clutching a stack of cookies, teal and brown palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"COOKIES · SWEET · EARTHY\". Landscape 3:2."
+  },
+  {
+   "id": "d-lish",
+   "name": "D-Lish",
+   "category": "Exotics",
+   "file": "d-lish.jpg",
+   "saveTo": "assets/products/d-lish.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6883.png?v=1782730523",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Fruity · Candy",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "FRUITY · CANDY · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"D-Lish\". A candy-shop character in a striped apron holding a swirl of fruit candy, pink, lime and orange palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"D-Lish\". A candy-shop character in a striped apron holding a swirl of fruit candy, pink, lime and orange palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"FRUITY · CANDY · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "black-cherry",
+   "name": "Black Cherry",
+   "category": "Exotics",
+   "file": "black-cherry.jpg",
+   "saveTo": "assets/products/black-cherry.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6879.jpg?v=1782729302",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Indica",
+    "taste": "Cherry · Sweet · Earthy",
+    "feeling": "Relaxed, Sleepy, Calm",
+    "bestFor": "Movie nights & deep sleep",
+    "tagline": "CHERRY · SWEET · EARTHY"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Black Cherry\". A goth cherry-headed character in a black leather jacket and dark shades, holding a cherry cocktail, deep crimson and near-black palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Black Cherry\". A goth cherry-headed character in a black leather jacket and dark shades, holding a cherry cocktail, deep crimson and near-black palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"CHERRY · SWEET · EARTHY\". Landscape 3:2."
+  },
+  {
+   "id": "orange-z",
+   "name": "Orange Z",
+   "category": "Exotics",
+   "file": "orange-z.jpg",
+   "saveTo": "assets/products/orange-z.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6878.jpg?v=1782729032",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Orange · Citrus · Zkittlez",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "ORANGE · CITRUS · ZKITTLEZ"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Orange Z\". A citrus-headed character in an orange tracksuit and gold chain, holding a fresh orange juice, vivid orange and lime palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Orange Z\". A citrus-headed character in an orange tracksuit and gold chain, holding a fresh orange juice, vivid orange and lime palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"ORANGE · CITRUS · ZKITTLEZ\". Landscape 3:2."
+  },
+  {
+   "id": "giraffe-puzzy",
+   "name": "Giraffe Puzzy",
+   "category": "Exotics",
+   "file": "giraffe-puzzy.jpg",
+   "saveTo": "assets/products/giraffe-puzzy.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6876.jpg?v=1782725629",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Exotic · Funky · Sweet",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "EXOTIC · FUNKY · SWEET"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Giraffe Puzzy\". A stylish cartoon giraffe in a patterned bucket hat and shades, tall neck curving through the neon smoke, amber and lime palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Giraffe Puzzy\". A stylish cartoon giraffe in a patterned bucket hat and shades, tall neck curving through the neon smoke, amber and lime palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"EXOTIC · FUNKY · SWEET\". Landscape 3:2."
+  },
+  {
+   "id": "blue-nerdz",
+   "name": "Blue Nerdz",
+   "category": "Exotics",
+   "file": "blue-nerdz.jpg",
+   "saveTo": "assets/products/blue-nerdz.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6875.jpg?v=1782723699",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Blueberry · Candy",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "BLUEBERRY · CANDY · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Blue Nerdz\". A candy-punk character covered in tiny blue and pink candy pebbles, oversized glasses, blue-violet and magenta palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Blue Nerdz\". A candy-punk character covered in tiny blue and pink candy pebbles, oversized glasses, blue-violet and magenta palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"BLUEBERRY · CANDY · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "thai-orange-tea",
+   "name": "Thai Orange Tea",
+   "category": "Exotics",
+   "file": "thai-orange-tea.jpg",
+   "saveTo": "assets/products/thai-orange-tea.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6873.jpg?v=1782722872",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Thai Tea · Orange · Sweet",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "THAI TEA · ORANGE · SWEET"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Thai Orange Tea\". A Thai woman in traditional gold-embroidered dress and headdress wearing round shades, sipping Thai iced tea, orange and gold palette, Thai temple silhouette behind. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Thai Orange Tea\". A Thai woman in traditional gold-embroidered dress and headdress wearing round shades, sipping Thai iced tea, orange and gold palette, Thai temple silhouette behind. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"THAI TEA · ORANGE · SWEET\". Landscape 3:2."
+  },
+  {
+   "id": "red-hot",
+   "name": "Red Hot",
+   "category": "Exotics",
+   "file": "red-hot.jpg",
+   "saveTo": "assets/products/red-hot.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6090.jpg?v=1781096752",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Spice · Sweet · Gas",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "SPICE · SWEET · GAS"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Red Hot\". A fire-elemental character with flame hair in a red bomber jacket, holding a chilli, scarlet and orange palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Red Hot\". A fire-elemental character with flame hair in a red bomber jacket, holding a chilli, scarlet and orange palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"SPICE · SWEET · GAS\". Landscape 3:2."
+  },
+  {
+   "id": "coco-chanel",
+   "name": "Coco Chanel",
+   "category": "Exotics",
+   "file": "coco-chanel.jpg",
+   "saveTo": "assets/products/coco-chanel.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/CB952B9D-5F70-4968-B268-A766D1893BCE.png?v=1780143593",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Cocoa · Floral · Gas",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "COCOA · FLORAL · GAS"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Coco Chanel\". An elegant high-fashion character in a black and gold quilted coat with pearls and dark shades (original design, no real brand marks), black and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Coco Chanel\". An elegant high-fashion character in a black and gold quilted coat with pearls and dark shades (original design, no real brand marks), black and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"COCOA · FLORAL · GAS\". Landscape 3:2."
+  },
+  {
+   "id": "pink-zugar",
+   "name": "Pink Zugar",
+   "category": "Exotics",
+   "file": "pink-zugar.jpg",
+   "saveTo": "assets/products/pink-zugar.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-5581.png?v=1780144311",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Sugar · Berry · Floral",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "SUGAR · BERRY · FLORAL"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Pink Zugar\". A sugar-spun character with candyfloss hair in a pastel tracksuit, holding a sugar cone, pink and lavender palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Pink Zugar\". A sugar-spun character with candyfloss hair in a pastel tracksuit, holding a sugar cone, pink and lavender palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"SUGAR · BERRY · FLORAL\". Landscape 3:2."
+  },
+  {
+   "id": "lcg-rx11",
+   "name": "LCG RX11",
+   "category": "Exotics",
+   "file": "lcg-rx11.jpg",
+   "saveTo": "assets/products/lcg-rx11.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-5253.png?v=1779642559",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Gelato · Cherry · Gas",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "GELATO · CHERRY · GAS"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"LCG RX11\". A cyber-medic character in a neon lab coat with a glowing prescription vial, teal and forest-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"LCG RX11\". A cyber-medic character in a neon lab coat with a glowing prescription vial, teal and forest-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"GELATO · CHERRY · GAS\". Landscape 3:2."
+  },
+  {
+   "id": "toad-venom",
+   "name": "Toad Venom",
+   "category": "Exotics",
+   "file": "toad-venom.jpg",
+   "saveTo": "assets/products/toad-venom.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-5254.png?v=1779642336",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Gas · Earthy · Pungent",
+    "feeling": "Euphoric, Relaxed, Sleepy",
+    "bestFor": "Movie nights & deep sleep",
+    "tagline": "GAS · EARTHY · PUNGENT"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Toad Venom\". A big cartoon toad in a gold chain and shades, neon slime dripping, emerald and acid-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Toad Venom\". A big cartoon toad in a gold chain and shades, neon slime dripping, emerald and acid-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"GAS · EARTHY · PUNGENT\". Landscape 3:2."
+  },
+  {
+   "id": "lemon-cherry-gelato",
+   "name": "Lemon Cherry Gelato",
+   "category": "Exotics",
+   "file": "lemon-cherry-gelato.jpg",
+   "saveTo": "assets/products/lemon-cherry-gelato.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/48E8E325-A1F7-43F4-8777-6520094BA6C9.png?v=1780151539",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Lemon · Cherry · Gelato",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "LEMON · CHERRY · GELATO"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Lemon Cherry Gelato\". A gelato-vendor character holding a two-scoop cone of lemon and cherry gelato, yellow and deep-red palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Lemon Cherry Gelato\". A gelato-vendor character holding a two-scoop cone of lemon and cherry gelato, yellow and deep-red palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"LEMON · CHERRY · GELATO\". Landscape 3:2."
+  },
+  {
+   "id": "gelato-x",
+   "name": "Gelato X",
+   "category": "Exotics",
+   "file": "gelato-x.jpg",
+   "saveTo": "assets/products/gelato-x.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/5BC567FD-D2D3-40DD-9E61-C184268D134C.png?v=1780151537",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Indica",
+    "taste": "Gelato · Cream · Sweet",
+    "feeling": "Relaxed, Happy, Sleepy",
+    "bestFor": "Movie nights & deep sleep",
+    "tagline": "GELATO · CREAM · SWEET"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Gelato X\". A street-style character in a purple hoodie and cap holding a swirled gelato cone, purple and mint palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Gelato X\". A street-style character in a purple hoodie and cap holding a swirled gelato cone, purple and mint palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"GELATO · CREAM · SWEET\". Landscape 3:2."
+  },
+  {
+   "id": "og-zkittlez",
+   "name": "OG Kush × Zkittlez",
+   "category": "Topshelf",
+   "file": "og-zkittlez.jpg",
+   "saveTo": "assets/products/og-zkittlez.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6880.jpg?v=1782729487",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "OG · Zkittlez · Fruit",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "OG · ZKITTLEZ · FRUIT"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"OG Kush × Zkittlez\". A classic old-school character in a tracksuit surrounded by rainbow candy rain, green and rainbow palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"OG Kush × Zkittlez\". A classic old-school character in a tracksuit surrounded by rainbow candy rain, green and rainbow palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"OG · ZKITTLEZ · FRUIT\". Landscape 3:2."
+  },
+  {
+   "id": "ztupid",
+   "name": "Ztupid",
+   "category": "Topshelf",
+   "file": "ztupid.jpg",
+   "saveTo": "assets/products/ztupid.jpg",
+   "currentImage": "https://dank-medical-pos-app.vercel.app/assets/products/ztupid.jpg",
+   "alreadyOwnArtwork": true,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Z · Fruity · Sweet",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "Z · FRUITY · SWEET"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Ztupid\". A goofy cartoon character with a lopsided grin and oversized shades, bright multi-colour palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Ztupid\". A goofy cartoon character with a lopsided grin and oversized shades, bright multi-colour palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"Z · FRUITY · SWEET\". Landscape 3:2."
+  },
+  {
+   "id": "sherb-tank",
+   "name": "Sherb Tank",
+   "category": "Topshelf",
+   "file": "sherb-tank.jpg",
+   "saveTo": "assets/products/sherb-tank.jpg",
+   "currentImage": "https://dank-medical-pos-app.vercel.app/assets/products/sherb-tank.jpg",
+   "alreadyOwnArtwork": true,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Sherbet · Cream · Gas",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "SHERBET · CREAM · GAS"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Sherb Tank\". A scuba-diver character in a sherbet-coloured wetsuit beside a glowing fish tank, pastel orange and teal palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Sherb Tank\". A scuba-diver character in a sherbet-coloured wetsuit beside a glowing fish tank, pastel orange and teal palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"SHERBET · CREAM · GAS\". Landscape 3:2."
+  },
+  {
+   "id": "king-cherry",
+   "name": "King Cherry",
+   "category": "Topshelf",
+   "file": "king-cherry.jpg",
+   "saveTo": "assets/products/king-cherry.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/6A808D23-ABAB-45D5-B098-B58A737A0113.png?v=1780144616",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Cherry · Sweet",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "CHERRY · SWEET · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"King Cherry\". A crowned cherry king on a throne in a velvet robe, deep red and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"King Cherry\". A crowned cherry king on a throne in a velvet robe, deep red and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"CHERRY · SWEET · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "baby-cake",
+   "name": "Baby Cake",
+   "category": "Topshelf",
+   "file": "baby-cake.jpg",
+   "saveTo": "assets/products/baby-cake.jpg",
+   "currentImage": "https://dank-medical-pos-app.vercel.app/assets/products/baby-cake.jpg",
+   "alreadyOwnArtwork": true,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Cake · Vanilla · Sweet",
+    "feeling": "Relaxed, Happy, Calm",
+    "bestFor": "Winding down & good company",
+    "tagline": "CAKE · VANILLA · SWEET"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Baby Cake\". A chubby cartoon baker character holding a layered cake, cream and pastel-pink palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Baby Cake\". A chubby cartoon baker character holding a layered cake, cream and pastel-pink palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"CAKE · VANILLA · SWEET\". Landscape 3:2."
+  },
+  {
+   "id": "zkittles-top",
+   "name": "Zkittles",
+   "category": "Topshelf",
+   "file": "zkittles-top.jpg",
+   "saveTo": "assets/products/zkittles-top.jpg",
+   "currentImage": "https://dank-medical-pos-app.vercel.app/assets/products/zkittles-top.jpg",
+   "alreadyOwnArtwork": true,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Tropical · Berry · Candy",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "TROPICAL · BERRY · CANDY"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Zkittles\". A rainbow-candy character in a colour-blocked jacket, taste-the-rainbow energy, full rainbow palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Zkittles\". A rainbow-candy character in a colour-blocked jacket, taste-the-rainbow energy, full rainbow palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"TROPICAL · BERRY · CANDY\". Landscape 3:2."
+  },
+  {
+   "id": "mac1",
+   "name": "Mac1",
+   "category": "Midgrade",
+   "file": "mac1.jpg",
+   "saveTo": "assets/products/mac1.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-6886.png?v=1782731272",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Cream · Citrus · Diesel",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "CREAM · CITRUS · DIESEL"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Mac1\". A mechanic character in overalls with a chrome wrench, silver and pale-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Mac1\". A mechanic character in overalls with a chrome wrench, silver and pale-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"CREAM · CITRUS · DIESEL\". Landscape 3:2."
+  },
+  {
+   "id": "superboof",
+   "name": "Superboof",
+   "category": "Midgrade",
+   "file": "superboof.jpg",
+   "saveTo": "assets/products/superboof.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-5258.png?v=1779643656",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Citrus · Funk · Sweet",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "CITRUS · FUNK · SWEET"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Superboof\". A superhero character in a cape mid-flight, bold orange and green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Superboof\". A superhero character in a cape mid-flight, bold orange and green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"CITRUS · FUNK · SWEET\". Landscape 3:2."
+  },
+  {
+   "id": "thai-durian",
+   "name": "Thailand Durian",
+   "category": "Midgrade",
+   "file": "thai-durian.jpg",
+   "saveTo": "assets/products/thai-durian.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/83C2F813-6C1F-4A98-BCBB-B53C99E3634D.jpg?v=1779643290",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Durian · Tropical · Funky",
+    "feeling": "Relaxed, Happy, Social",
+    "bestFor": "Winding down & good company",
+    "tagline": "DURIAN · TROPICAL · FUNKY"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Thailand Durian\". A durian-headed character in a Thai fisherman's shirt, spiky shell, gold and jungle-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Thailand Durian\". A durian-headed character in a Thai fisherman's shirt, spiky shell, gold and jungle-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"DURIAN · TROPICAL · FUNKY\". Landscape 3:2."
+  },
+  {
+   "id": "pineapple-express",
+   "name": "Snow Brands Pineapple Express",
+   "category": "Premium",
+   "file": "pineapple-express.jpg",
+   "saveTo": "assets/products/pineapple-express.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/F8CDE9E5-64B9-4526-B65C-9E13833140ED.jpg?v=1776872037",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Sativa",
+    "taste": "Pineapple · Tropical",
+    "feeling": "Energetic, Euphoric, Creative",
+    "bestFor": "Daytime activities & creative flow",
+    "tagline": "PINEAPPLE · TROPICAL · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"Snow Brands Pineapple Express\". A snowboarder character with a pineapple strapped to the board, snow-white and pineapple-yellow palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"Snow Brands Pineapple Express\". A snowboarder character with a pineapple strapped to the board, snow-white and pineapple-yellow palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"PINEAPPLE · TROPICAL · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "kaws-rocks",
+   "name": "KAWS Moon Rocks",
+   "category": "Premium",
+   "file": "kaws-rocks.jpg",
+   "saveTo": "assets/products/kaws-rocks.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-3052.jpg?v=1734773931",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Hybrid",
+    "taste": "Hash · Earthy",
+    "feeling": "Euphoric, Relaxed, Sleepy",
+    "bestFor": "Movie nights & deep sleep",
+    "tagline": "HASH · EARTHY · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis strain \"KAWS Moon Rocks\". An original astronaut character (no real artist's characters) holding a glittering moon rock, deep space-navy and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis strain card for \"KAWS Moon Rocks\". An original astronaut character (no real artist's characters) holding a glittering moon rock, deep space-navy and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"HASH · EARTHY · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "zooties",
+   "name": "Zooties Premium Joint",
+   "category": "Joints",
+   "file": "zooties.jpg",
+   "saveTo": "assets/products/zooties.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/18974187-610E-4BB3-8149-5F9240AEBA54.png?v=1692912822",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Joints",
+    "taste": "Exotic",
+    "feeling": "Relaxed, Happy, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "EXOTIC · SMOOTH · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Zooties Premium Joint\". A zoot-suited character lighting an oversized pre-roll, purple and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Zooties Premium Joint\". A zoot-suited character lighting an oversized pre-roll, purple and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"EXOTIC · SMOOTH · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "backwoods",
+   "name": "Backwoods (Single)",
+   "category": "Joints",
+   "file": "backwoods.jpg",
+   "saveTo": "assets/products/backwoods.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/E6E24816-9C5D-4224-BED4-E4EE198728EE.jpg?v=1722467143",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Joints",
+    "taste": "Original · Russian Cream · Berry",
+    "feeling": "Balanced and easy",
+    "bestFor": "Winding down & good company",
+    "tagline": "ORIGINAL · RUSSIAN CREAM · BERRY"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Backwoods (Single)\". A lumberjack character in a plaid shirt in a misty forest, dark brown and forest-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Backwoods (Single)\". A lumberjack character in a plaid shirt in a misty forest, dark brown and forest-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"ORIGINAL · RUSSIAN CREAM · BERRY\". Landscape 3:2."
+  },
+  {
+   "id": "sour-belts",
+   "name": "Sour Belts 3000mg",
+   "category": "Edibles",
+   "file": "sour-belts.jpg",
+   "saveTo": "assets/products/sour-belts.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/60A4B51E-20C4-491D-8DB1-F249A9A17F19.jpg?v=1722974672",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Edibles",
+    "taste": "Strawberry · Rainbow · Watermelon · Blueberry",
+    "feeling": "Euphoric, Happy, Relaxed",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "STRAWBERRY · RAINBOW · WATERMELON"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Sour Belts 3000mg\". A candy-punk character wrapped in giant sour belts, rainbow and neon-yellow palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Sour Belts 3000mg\". A candy-punk character wrapped in giant sour belts, rainbow and neon-yellow palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"STRAWBERRY · RAINBOW · WATERMELON\". Landscape 3:2."
+  },
+  {
+   "id": "gummies-500",
+   "name": "Gummies 500mg",
+   "category": "Edibles",
+   "file": "gummies-500.jpg",
+   "saveTo": "assets/products/gummies-500.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/B6FCB2C5-67B8-48BE-8624-E5B5ED21ADD0.jpg?v=1774365683",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Edibles",
+    "taste": "Mixed Fruit",
+    "feeling": "Relaxed, Happy",
+    "bestFor": "Winding down & good company",
+    "tagline": "MIXED FRUIT · SMOOTH · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Gummies 500mg\". A gummy-bear character made of translucent jelly, glowing from inside, red and orange palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Gummies 500mg\". A gummy-bear character made of translucent jelly, glowing from inside, red and orange palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"MIXED FRUIT · SMOOTH · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "wacky-worms",
+   "name": "Wacky Worms Gummies",
+   "category": "Edibles",
+   "file": "wacky-worms.jpg",
+   "saveTo": "assets/products/wacky-worms.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/B05B1BFE-3324-4490-9E53-DD30A3A804B5.jpg?v=1774365826",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Edibles",
+    "taste": "Sour · Fruity",
+    "feeling": "Happy, Giggly",
+    "bestFor": "Winding down & good company",
+    "tagline": "SOUR · FRUITY · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Wacky Worms Gummies\". A cartoon worm character in shades popping out of a candy jar, lime and magenta palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Wacky Worms Gummies\". A cartoon worm character in shades popping out of a candy jar, lime and magenta palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"SOUR · FRUITY · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "dank-cookie",
+   "name": "Dank Cookie 50mg",
+   "category": "Edibles",
+   "file": "dank-cookie.jpg",
+   "saveTo": "assets/products/dank-cookie.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/19BDC7A2-8DF2-4408-A427-3E36AA5CE49C.jpg?v=1774364851",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Edibles",
+    "taste": "Cookie · Chocolate",
+    "feeling": "Relaxed, Happy",
+    "bestFor": "Winding down & good company",
+    "tagline": "COOKIE · CHOCOLATE · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Dank Cookie 50mg\". A cookie-headed character in a chef's hat holding a warm cookie, golden-brown palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Dank Cookie 50mg\". A cookie-headed character in a chef's hat holding a warm cookie, golden-brown palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"COOKIE · CHOCOLATE · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "brownies",
+   "name": "Cannabis Brownies 50mg",
+   "category": "Edibles",
+   "file": "brownies.jpg",
+   "saveTo": "assets/products/brownies.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/D4BA6F7A-1C40-4F24-9DF0-3ADD1D365C47.png?v=1693553371",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Edibles",
+    "taste": "Chocolate · Fudge",
+    "feeling": "Relaxed, Sleepy",
+    "bestFor": "Movie nights & deep sleep",
+    "tagline": "CHOCOLATE · FUDGE · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Cannabis Brownies 50mg\". A baker character holding a tray of fudge brownies, chocolate-brown and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Cannabis Brownies 50mg\". A baker character holding a tray of fudge brownies, chocolate-brown and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"CHOCOLATE · FUDGE · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "muhameds-ed",
+   "name": "Muhameds Edible",
+   "category": "Edibles",
+   "file": "muhameds-ed.jpg",
+   "saveTo": "assets/products/muhameds-ed.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/581081B6-E329-4DA3-9474-6DC414060F6E.jpg?v=1774365587",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Edibles",
+    "taste": "Candy",
+    "feeling": "Euphoric, Relaxed",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "CANDY · SMOOTH · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Muhameds Edible\". A market-trader character offering a tray of glossy sweets, warm amber palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Muhameds Edible\". A market-trader character offering a tray of glossy sweets, warm amber palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"CANDY · SMOOTH · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "hidden-hills",
+   "name": "Hidden Hills Resin Jelly 1000mg",
+   "category": "Edibles",
+   "file": "hidden-hills.jpg",
+   "saveTo": "assets/products/hidden-hills.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/93EC5B80-F590-46E5-96BD-F72CA565FB73.jpg?v=1774364815",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Edibles",
+    "taste": "Bombsicle · Watermelon · ZAZA Blast · White Gummy",
+    "feeling": "Euphoric, Relaxed",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "BOMBSICLE · WATERMELON · ZAZA BLAST"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Hidden Hills Resin Jelly 1000mg\". A mountain-hermit character holding a glowing jelly cube, misty blue-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Hidden Hills Resin Jelly 1000mg\". A mountain-hermit character holding a glowing jelly cube, misty blue-green palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"BOMBSICLE · WATERMELON · ZAZA BLAST\". Landscape 3:2."
+  },
+  {
+   "id": "muhameds-vape",
+   "name": "Muhameds Live Resin Disposable 2g",
+   "category": "Vapes",
+   "file": "muhameds-vape.jpg",
+   "saveTo": "assets/products/muhameds-vape.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-0764.jpg?v=1766923400",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Vapes",
+    "taste": "11 strains",
+    "feeling": "Euphoric, Relaxed",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "11 STRAINS · SMOOTH · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Muhameds Live Resin Disposable 2g\". A neon-lit tech character holding a glowing vape pen, electric blue and violet palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Muhameds Live Resin Disposable 2g\". A neon-lit tech character holding a glowing vape pen, electric blue and violet palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"11 STRAINS · SMOOTH · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "tre-rosin",
+   "name": "TRE Live Rosin Disposable 3.5g",
+   "category": "Vapes",
+   "file": "tre-rosin.jpg",
+   "saveTo": "assets/products/tre-rosin.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/IMG-0857.jpg?v=1726907546",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Vapes",
+    "taste": "Blueberry Slushie · Frosted Guava · Peach Cobbler · Watermelon Gushers · Grape Guava · Blue Cereal",
+    "feeling": "Euphoric, Relaxed",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "BLUEBERRY SLUSHIE · FROSTED GUAVA · PEACH COBBLER"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"TRE Live Rosin Disposable 3.5g\". A chrome-armoured character with a glowing rosin pen, silver and amber palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"TRE Live Rosin Disposable 3.5g\". A chrome-armoured character with a glowing rosin pen, silver and amber palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"BLUEBERRY SLUSHIE · FROSTED GUAVA · PEACH COBBLER\". Landscape 3:2."
+  },
+  {
+   "id": "live-resin",
+   "name": "Live Resin / Rosin 1g",
+   "category": "Vapes",
+   "file": "live-resin.jpg",
+   "saveTo": "assets/products/live-resin.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/F65C3592-4891-46E4-8DFD-F934040771D3.jpg?v=1693211965",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Vapes",
+    "taste": "Watermelon · Candy Apple · Peach Ring",
+    "feeling": "Relaxed, Euphoric",
+    "bestFor": "Anytime enjoyment & social moments",
+    "tagline": "WATERMELON · CANDY APPLE · PEACH RING"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Live Resin / Rosin 1g\". An alchemist character pouring golden resin from a jar, amber and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Live Resin / Rosin 1g\". An alchemist character pouring golden resin from a jar, amber and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"WATERMELON · CANDY APPLE · PEACH RING\". Landscape 3:2."
+  },
+  {
+   "id": "diamond-wax",
+   "name": "Diamond Wax 98%",
+   "category": "Vapes",
+   "file": "diamond-wax.jpg",
+   "saveTo": "assets/products/diamond-wax.jpg",
+   "currentImage": "https://cdn.shopify.com/s/files/1/0812/7053/8528/files/490898B9-C7EB-4156-847A-80AA80C3CD7E.jpg?v=1722975003",
+   "alreadyOwnArtwork": false,
+   "cardText": {
+    "type": "Vapes",
+    "taste": "Pure",
+    "feeling": "Very Potent",
+    "bestFor": "Winding down & good company",
+    "tagline": "PURE · SMOOTH · PREMIUM"
+   },
+   "promptB_artOnly": "Character artwork for the cannabis product \"Diamond Wax 98%\". A jeweller character holding glittering crystal shards with tweezers, ice-white and diamond-blue palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" cannabis product card for \"Diamond Wax 98%\". A jeweller character holding glittering crystal shards with tweezers, ice-white and diamond-blue palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"PURE · SMOOTH · PREMIUM\". Landscape 3:2."
+  },
+  {
+   "id": "crispyboy",
+   "name": "Crispy Boy Lager Can",
+   "category": "Beer",
+   "file": "crispyboy.jpg",
+   "saveTo": "assets/products/crispyboy.jpg",
+   "currentImage": "https://dank-medical-pos-app.vercel.app/assets/products/crispyboy.jpg",
+   "alreadyOwnArtwork": true,
+   "cardText": {
+    "type": "Beer",
+    "taste": "Crisp · Malt · Hoppy",
+    "feeling": "Refreshing, Social",
+    "bestFor": "Winding down & good company",
+    "tagline": "CRISP · MALT · HOPPY"
+   },
+   "promptB_artOnly": "Character artwork for the drink \"Crispy Boy Lager Can\". A cool cartoon character in a bucket hat cracking open a frosty lager can, ice-blue and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. NO text, NO letters, NO logo, NO watermark anywhere in the image — artwork only. Square 1:1 crop with the character centred.",
+   "promptA_fullCard": "A \"Botanical Legends\" product card for \"Crispy Boy Lager Can\". A cool cartoon character in a bucket hat cracking open a frosty lager can, ice-blue and gold palette. Style: hyper-saturated neon comic / airbrush street-art poster. Thick glowing magenta-purple neon border with a melted drip along the top edge, rounded corners, black background. Volumetric neon smoke, sparkles and glow throughout. Bold high-contrast cel shading with heavy black outlines. Vertical composition weight on the right for the character, left side kept clearer. Header centred at the top in small white caps between two cannabis-leaf glyphs: \"BOTANICAL LEGENDS\". Below it the product name in a huge bold graffiti display font with a thick outline and drop shadow. Under the name a tagline in gold caps separated by dots. Bottom strip: a dark translucent bar for product details, and a gold circular medallion with a cannabis leaf in the bottom-right corner. Tagline: \"CRISP · MALT · HOPPY\". Landscape 3:2."
+  }
+ ]
+}

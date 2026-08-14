@@ -996,7 +996,7 @@
    "Candy"
   ],
   "description": "Taste the rainbow — award-winning candy strain at topshelf price.",
-  "image": "https://dank-medical-pos-app.vercel.app/assets/products/zkittles.jpg",
+  "image": "https://dank-medical-pos-app.vercel.app/assets/products/zkittles-top.jpg",
   "priceTiers": [
    {
     "label": "½g",
@@ -1603,7 +1603,7 @@
    "Hoppy"
   ],
   "description": "Crispy Boy by The Brewing Project — a 5.0% Helles lager in a 490ml can. Clean, crisp and malty. Contains alcohol, no cannabis. 20+ only.",
-  "image": "https://dank-medical-pos-app.vercel.app/assets/products/crispy-boy-lager.jpg",
+  "image": "https://dank-medical-pos-app.vercel.app/assets/products/crispyboy.jpg",
   "price": 220,
   "member": 198,
   "code": "BER-01",
