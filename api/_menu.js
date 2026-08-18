@@ -19,6 +19,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getJSON, setJSON } from "./_store.js";
 import { shConfigured, fetchStoreHubProducts } from "./_storehub.js";
+import { applyPhotos } from "./_photos.js";
 
 const TTL = Number(process.env.MENU_TTL_SECONDS || 30) * 1000;
 const FEED = process.env.MENU_FEED_URL || "";
@@ -180,6 +181,9 @@ export async function getMenu(force = false) {
   if (!force && cached && now - cached.at < TTL) return cached;
 
   let { data, source } = await fetchUpstream();
+  /* photos before overrides: the catalogue decides the picture whichever
+     upstream answered, but an owner who set one by hand still wins */
+  data = await applyPhotos(data);
   data = await applyOverrides(data);
   const rev = revOf(data);
   const changedAt = cached && cached.rev === rev ? cached.changedAt : now;

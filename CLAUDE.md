@@ -6,7 +6,8 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
 1. **BRYAN POS** — THIS repo (github.com/bryank31172-web/dank-medical-pos-app, public).
    Live: https://dank-medical-pos-app.vercel.app · deploy = commit `index.html` to repo root, Vercel auto-deploys.
 2. **Customer website** — dankbkk-site repo (PRIVATE, separate; owner uploads via GitHub web UI).
-   Live: https://dankbkk-site.vercel.app · static html + /api serverless functions.
+   Live: **www.dankbangkok.com** (Vercel project `dankbkk-site`, also at dankbkk-site.vercel.app)
+   · static html + /api serverless functions.
 
 ## POS build pipeline (pos/)
 - **Source of truth: `pos/app.fixed.jsx`** (~1.4MB, ES5-style React, one component `GreenPOS`).
@@ -90,7 +91,10 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   totals Manhattan at 178; its ingredients are 163 (two Matcha Forest rows bled in) — the app
   uses 163 and says so.
 - Till shows the website's product photos, matched by a normalised name; a failed photo falls
-  back to the item's category emoji.
+  back to the item's category emoji. `api/_photos.js` applies the same map to every menu read
+  in `_menu.js`, so the picture no longer depends on which upstream answered — its
+  normalisation is a deliberate copy of `webKey()` in the JSX and `photo-match.test.mjs`
+  fails if the two drift.
 - Over-count is a mismatch, not OK. Scale prints exactly (0.039 stays 0.039).
 - `inkOn()` in the token layer keeps light text off light fills — found two real contrast bugs
   by measuring every tab, including product names at 1.05:1.
