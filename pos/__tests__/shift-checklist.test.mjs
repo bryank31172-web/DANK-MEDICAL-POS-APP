@@ -1,4 +1,8 @@
+import fs from 'node:fs';
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+/* screenshots are test debris, not deliverables - keep them out of the repo root */
+const OUT=new URL('out/',import.meta.url).pathname;
+fs.mkdirSync(OUT,{recursive:true});
 const errs=[],fails=[];
 const ok=(n,c)=>{console.log((c?'✓ ':'✗ ')+n); if(!c)fails.push(n);};
 const b=await chromium.launch();
@@ -19,7 +23,7 @@ ok('checklist shows before the stock count', /ทำแล้ว 0\/|ติ๊�
 ok('  it lists the open-shift tasks', /นับเงินทอนตั้งต้น/.test(t)&&/ต่อและทดสอบเครื่องชั่ง/.test(t));
 ok('  each task carries a how-to', /Cash Count on the sell screen|บันทึกที่ปุ่ม Cash Count/.test(t));
 ok('  close-shift tasks are NOT shown here', !/บันทึกของเสีย/.test(t));
-await p.screenshot({path:'shift-tasks.png'});
+await p.screenshot({path:OUT+'shift-tasks.png'});
 
 const btn=await p.$('button:has-text("ต่อไป → นับสต็อก")');
 ok('continue button exists', !!btn);
@@ -31,7 +35,7 @@ t=await p.evaluate(()=>document.body.innerText);
 ok('ticking all shows the done state', /ครบแล้ว \/ All done/.test(t));
 const btn2=await p.$('button:has-text("ต่อไป → นับสต็อก")');
 ok('  continue is now enabled', btn2 ? !(await btn2.isDisabled()) : false);
-await p.screenshot({path:'shift-tasks-done.png'});
+await p.screenshot({path:OUT+'shift-tasks-done.png'});
 
 await btn2.click();
 await p.waitForTimeout(1200);
