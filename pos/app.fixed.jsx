@@ -761,6 +761,9 @@ function GreenPOS() {
   const [stores,setStores]=useState([]);
   const [activeBranch,setActiveBranch]=useState("all");
   const [dashPeriod,setDashPeriod]=useState("all");
+  // how many periods back the dashboard is looking: 0 = the one containing
+  // today, -1 = yesterday / last month / last quarter / last year.
+  const [dashOffset,setDashOffset]=useState(0);
   const [dashCustomFrom,setDashCustomFrom]=useState("");
   const [dashCustomTo,setDashCustomTo]=useState("");
   const [showDashCustomPicker,setShowDashCustomPicker]=useState(false);
@@ -1403,9 +1406,36 @@ function GreenPOS() {
   const _expMonthly=(_branchKey&&EXPENSE_TARGETS.byBranch&&EXPENSE_TARGETS.byBranch[_branchKey])?EXPENSE_TARGETS.byBranch[_branchKey].monthly:EXPENSE_TARGETS.monthly;
   const _bkkNow=new Date(Date.now()+7*3600*1000);
   const _dashToday=_bkkNow.toISOString().slice(0,10);
-  const _inDashPeriod=function(ds){if(dashPeriod==="all")return true;var d=new Date(ds+"T00:00:00Z");var y=_bkkNow.getUTCFullYear(),mo=_bkkNow.getUTCMonth();if(dashPeriod==="day")return ds===_dashToday;if(dashPeriod==="month")return d.getUTCFullYear()===y&&d.getUTCMonth()===mo;if(dashPeriod==="quarter")return d.getUTCFullYear()===y&&Math.floor(d.getUTCMonth()/3)===Math.floor(mo/3);if(dashPeriod==="year")return d.getUTCFullYear()===y;if(dashPeriod==="custom"){if(!dashCustomFrom&&!dashCustomTo)return true;if(dashCustomFrom&&ds<dashCustomFrom)return false;if(dashCustomTo&&ds>dashCustomTo)return false;return true;}return true;};
+  // Everything below used to compare against "now", so the dashboard could only
+  // ever show the period containing today — no way to look at yesterday's
+  // takings, which is the first thing anyone asks on a morning shift. The
+  // anchor moves by whole periods instead, and every KPI follows because they
+  // all read it through _inDashPeriod.
+  const _dashSteppable=(dashPeriod==="day"||dashPeriod==="month"||dashPeriod==="quarter"||dashPeriod==="year");
+  const _dashAnchor=(function(){
+    var d=new Date(_bkkNow.getTime());
+    if(!dashOffset||!_dashSteppable)return d;
+    if(dashPeriod==="day"){d.setUTCDate(d.getUTCDate()+dashOffset);return d;}
+    // set the day to the 1st first: stepping a month from the 31st would
+    // otherwise skid into the month after next
+    if(dashPeriod==="month"){d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+dashOffset);return d;}
+    if(dashPeriod==="quarter"){d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+dashOffset*3);return d;}
+    if(dashPeriod==="year"){d.setUTCDate(1);d.setUTCFullYear(d.getUTCFullYear()+dashOffset);return d;}
+    return d;
+  })();
+  const _dashAnchorDay=_dashAnchor.toISOString().slice(0,10);
+  const _dashStepLabel=(function(){
+    if(!_dashSteppable)return "";
+    var y=_dashAnchor.getUTCFullYear(),mo=_dashAnchor.getUTCMonth();
+    if(dashPeriod==="day")return _dashAnchorDay;
+    if(dashPeriod==="month")return _dashAnchor.toLocaleDateString("en-GB",{month:"short",year:"numeric",timeZone:"UTC"});
+    if(dashPeriod==="quarter")return "Q"+(Math.floor(mo/3)+1)+" "+y;
+    return String(y);
+  })();
+  const _inDashPeriod=function(ds){if(dashPeriod==="all")return true;var d=new Date(ds+"T00:00:00Z");var y=_dashAnchor.getUTCFullYear(),mo=_dashAnchor.getUTCMonth();if(dashPeriod==="day")return ds===_dashAnchorDay;if(dashPeriod==="month")return d.getUTCFullYear()===y&&d.getUTCMonth()===mo;if(dashPeriod==="quarter")return d.getUTCFullYear()===y&&Math.floor(d.getUTCMonth()/3)===Math.floor(mo/3);if(dashPeriod==="year")return d.getUTCFullYear()===y;if(dashPeriod==="custom"){if(!dashCustomFrom&&!dashCustomTo)return true;if(dashCustomFrom&&ds<dashCustomFrom)return false;if(dashCustomTo&&ds>dashCustomTo)return false;return true;}return true;};
   const _dashSales=dashPeriod==="all"?salesData:salesData.filter(function(d){return _inDashPeriod(d.date);});
-  const _dashPeriodLabel=dashPeriod==="custom"?("📅 "+(dashCustomFrom||"…")+" – "+(dashCustomTo||"…")):null;
+  const _dashPeriodLabel=dashPeriod==="custom"?("📅 "+(dashCustomFrom||"…")+" – "+(dashCustomTo||"…"))
+    :(dashOffset&&_dashSteppable?_dashStepLabel:null);
   const totalRev=_dashSales.reduce((s,d)=>s+d.sales,0);
   const totalBills=_dashSales.reduce((s,d)=>s+d.bills,0);
   const avgBasket=totalBills?totalRev/totalBills:0;
@@ -5587,8 +5617,22 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           </div>
           <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:5,marginBottom:showDashCustomPicker?0:5,alignItems:"center"}}>
             <span style={{fontSize:9,color:C.muted,fontWeight:800,whiteSpace:"nowrap"}}>ช่วงเวลา</span>
+            {_dashSteppable&&(function(){
+              var stepBtn=function(delta,label,disabled){return (
+                <button key={label} disabled={disabled} aria-label={delta<0?"ก่อนหน้า / previous":"ถัดไป / next"}
+                  onClick={function(){setDashOffset(function(v){return v+delta;});}}
+                  style={{background:C.card2,border:"1px solid "+C.border,borderRadius:16,minWidth:34,minHeight:30,
+                    color:disabled?C.border:C.text,cursor:disabled?"default":"pointer",fontSize:13,fontWeight:800,
+                    flexShrink:0,opacity:disabled?0.45:1}}>{label}</button>
+              );};
+              return [
+                stepBtn(-1,"◀",false),
+                (dashOffset?<button key="now" onClick={function(){setDashOffset(0);}} style={{background:C.card3,border:"1px solid "+C.border,borderRadius:16,padding:"5px 10px",color:C.green,cursor:"pointer",fontSize:10,fontWeight:800,whiteSpace:"nowrap",flexShrink:0,minHeight:30}}>{_dashStepLabel} ✕</button>:null),
+                stepBtn(1,"▶",dashOffset>=0),
+              ];
+            })()}
             {[["day","วันนี้"],["month","เดือนนี้"],["quarter","ไตรมาส"],["year","ปีนี้"],["all","ทั้งหมด"]].map(function(pr){var on=dashPeriod===pr[0];return (
-              <button key={pr[0]} onClick={function(){setDashPeriod(pr[0]);setShowDashCustomPicker(false);}} style={{background:on?C.blue:C.card2,border:"1px solid "+(on?C.blue:C.border),borderRadius:16,padding:"5px 12px",color:on?"#000":C.muted,cursor:"pointer",fontSize:10.5,fontWeight:800,whiteSpace:"nowrap",flexShrink:0}}>{pr[1]}</button>
+              <button key={pr[0]} onClick={function(){setDashPeriod(pr[0]);setDashOffset(0);setShowDashCustomPicker(false);}} style={{background:on?C.blue:C.card2,border:"1px solid "+(on?C.blue:C.border),borderRadius:16,padding:"5px 12px",color:on?"#000":C.muted,cursor:"pointer",fontSize:10.5,fontWeight:800,whiteSpace:"nowrap",flexShrink:0}}>{pr[1]}</button>
             );})}
             <button onClick={function(){setShowDashCustomPicker(function(v){return !v;});}} style={{background:dashPeriod==="custom"?C.blue:C.card2,border:"1px solid "+(dashPeriod==="custom"?C.blue:C.border),borderRadius:16,padding:"5px 12px",color:dashPeriod==="custom"?"#000":C.muted,cursor:"pointer",fontSize:10.5,fontWeight:800,whiteSpace:"nowrap",flexShrink:0}}>📅 {dashPeriod==="custom"?(dashCustomFrom||dashCustomTo?(dashCustomFrom+" – "+dashCustomTo):"เลือกวันที่"):"เลือกวันที่ / Custom"}</button>
           </div>

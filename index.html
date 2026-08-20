@@ -1092,6 +1092,7 @@ function GreenPOS() {
   const [stores, setStores] = useState([]);
   const [activeBranch, setActiveBranch] = useState("all");
   const [dashPeriod, setDashPeriod] = useState("all");
+  const [dashOffset, setDashOffset] = useState(0);
   const [dashCustomFrom, setDashCustomFrom] = useState("");
   const [dashCustomTo, setDashCustomTo] = useState("");
   const [showDashCustomPicker, setShowDashCustomPicker] = useState(false);
@@ -2459,11 +2460,45 @@ function GreenPOS() {
   const _expMonthly = _branchKey && EXPENSE_TARGETS.byBranch && EXPENSE_TARGETS.byBranch[_branchKey] ? EXPENSE_TARGETS.byBranch[_branchKey].monthly : EXPENSE_TARGETS.monthly;
   const _bkkNow = new Date(Date.now() + 7 * 3600 * 1e3);
   const _dashToday = _bkkNow.toISOString().slice(0, 10);
+  const _dashSteppable = dashPeriod === "day" || dashPeriod === "month" || dashPeriod === "quarter" || dashPeriod === "year";
+  const _dashAnchor = (function() {
+    var d = new Date(_bkkNow.getTime());
+    if (!dashOffset || !_dashSteppable) return d;
+    if (dashPeriod === "day") {
+      d.setUTCDate(d.getUTCDate() + dashOffset);
+      return d;
+    }
+    if (dashPeriod === "month") {
+      d.setUTCDate(1);
+      d.setUTCMonth(d.getUTCMonth() + dashOffset);
+      return d;
+    }
+    if (dashPeriod === "quarter") {
+      d.setUTCDate(1);
+      d.setUTCMonth(d.getUTCMonth() + dashOffset * 3);
+      return d;
+    }
+    if (dashPeriod === "year") {
+      d.setUTCDate(1);
+      d.setUTCFullYear(d.getUTCFullYear() + dashOffset);
+      return d;
+    }
+    return d;
+  })();
+  const _dashAnchorDay = _dashAnchor.toISOString().slice(0, 10);
+  const _dashStepLabel = (function() {
+    if (!_dashSteppable) return "";
+    var y = _dashAnchor.getUTCFullYear(), mo = _dashAnchor.getUTCMonth();
+    if (dashPeriod === "day") return _dashAnchorDay;
+    if (dashPeriod === "month") return _dashAnchor.toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+    if (dashPeriod === "quarter") return "Q" + (Math.floor(mo / 3) + 1) + " " + y;
+    return String(y);
+  })();
   const _inDashPeriod = function(ds) {
     if (dashPeriod === "all") return true;
     var d = /* @__PURE__ */ new Date(ds + "T00:00:00Z");
-    var y = _bkkNow.getUTCFullYear(), mo = _bkkNow.getUTCMonth();
-    if (dashPeriod === "day") return ds === _dashToday;
+    var y = _dashAnchor.getUTCFullYear(), mo = _dashAnchor.getUTCMonth();
+    if (dashPeriod === "day") return ds === _dashAnchorDay;
     if (dashPeriod === "month") return d.getUTCFullYear() === y && d.getUTCMonth() === mo;
     if (dashPeriod === "quarter") return d.getUTCFullYear() === y && Math.floor(d.getUTCMonth() / 3) === Math.floor(mo / 3);
     if (dashPeriod === "year") return d.getUTCFullYear() === y;
@@ -2478,7 +2513,7 @@ function GreenPOS() {
   const _dashSales = dashPeriod === "all" ? salesData : salesData.filter(function(d) {
     return _inDashPeriod(d.date);
   });
-  const _dashPeriodLabel = dashPeriod === "custom" ? "\u{1F4C5} " + (dashCustomFrom || "\u2026") + " \u2013 " + (dashCustomTo || "\u2026") : null;
+  const _dashPeriodLabel = dashPeriod === "custom" ? "\u{1F4C5} " + (dashCustomFrom || "\u2026") + " \u2013 " + (dashCustomTo || "\u2026") : dashOffset && _dashSteppable ? _dashStepLabel : null;
   const totalRev = _dashSales.reduce((s, d) => s + d.sales, 0);
   const totalBills = _dashSales.reduce((s, d) => s + d.bills, 0);
   const avgBasket = totalBills ? totalRev / totalBills : 0;
@@ -8601,10 +8636,48 @@ function GreenPOS() {
     askTabAI("dashboard");
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10, padding: "4px 10px" }) }, "\u{1F916} AI \u0E27\u0E34\u0E40\u0E04\u0E23\u0E32\u0E30\u0E2B\u0E4C"), /* @__PURE__ */ React.createElement("button", { onClick: downloadSalesCSV, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, C.green)), { fontSize: 10, padding: "4px 10px", border: "1px solid " + C.border }) }, "\u2B07 \u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E33\u0E44\u0E23\u0E17\u0E38\u0E01 SKU"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setShowProdProfit(true);
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 10, padding: "4px 10px" }) }, "\u{1F4CB} \u0E01\u0E33\u0E44\u0E23\u0E15\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, ((_a = stores.find((s) => s.id === activeBranch)) == null ? void 0 : _a.name) || "All", " \xB7 Live StoreHub"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 5, marginBottom: showDashCustomPicker ? 0 : 5, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 800, whiteSpace: "nowrap" } }, "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32"), [["day", "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49"], ["month", "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49"], ["quarter", "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A"], ["year", "\u0E1B\u0E35\u0E19\u0E35\u0E49"], ["all", "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"]].map(function(pr) {
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 10, padding: "4px 10px" }) }, "\u{1F4CB} \u0E01\u0E33\u0E44\u0E23\u0E15\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, ((_a = stores.find((s) => s.id === activeBranch)) == null ? void 0 : _a.name) || "All", " \xB7 Live StoreHub"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 5, marginBottom: showDashCustomPicker ? 0 : 5, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 800, whiteSpace: "nowrap" } }, "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32"), _dashSteppable && (function() {
+    var stepBtn = function(delta, label, disabled) {
+      return /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          key: label,
+          disabled,
+          "aria-label": delta < 0 ? "\u0E01\u0E48\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32 / previous" : "\u0E16\u0E31\u0E14\u0E44\u0E1B / next",
+          onClick: function() {
+            setDashOffset(function(v) {
+              return v + delta;
+            });
+          },
+          style: {
+            background: C.card2,
+            border: "1px solid " + C.border,
+            borderRadius: 16,
+            minWidth: 34,
+            minHeight: 30,
+            color: disabled ? C.border : C.text,
+            cursor: disabled ? "default" : "pointer",
+            fontSize: 13,
+            fontWeight: 800,
+            flexShrink: 0,
+            opacity: disabled ? 0.45 : 1
+          }
+        },
+        label
+      );
+    };
+    return [
+      stepBtn(-1, "\u25C0", false),
+      dashOffset ? /* @__PURE__ */ React.createElement("button", { key: "now", onClick: function() {
+        setDashOffset(0);
+      }, style: { background: C.card3, border: "1px solid " + C.border, borderRadius: 16, padding: "5px 10px", color: C.green, cursor: "pointer", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0, minHeight: 30 } }, _dashStepLabel, " \u2715") : null,
+      stepBtn(1, "\u25B6", dashOffset >= 0)
+    ];
+  })(), [["day", "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49"], ["month", "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49"], ["quarter", "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A"], ["year", "\u0E1B\u0E35\u0E19\u0E35\u0E49"], ["all", "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"]].map(function(pr) {
     var on = dashPeriod === pr[0];
     return /* @__PURE__ */ React.createElement("button", { key: pr[0], onClick: function() {
       setDashPeriod(pr[0]);
+      setDashOffset(0);
       setShowDashCustomPicker(false);
     }, style: { background: on ? C.blue : C.card2, border: "1px solid " + (on ? C.blue : C.border), borderRadius: 16, padding: "5px 12px", color: on ? "#000" : C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 } }, pr[1]);
   }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
