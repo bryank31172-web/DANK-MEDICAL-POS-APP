@@ -473,6 +473,113 @@ const ONLINE_ORDERS_INIT = [
   { id: "ON-1041", customerName: "Nina K.", phone: "089-333-4444", address: "Condo One Sathorn, Tower B", time: "16 Jul, 19:22", branchId: 2, note: "Leave at lobby", items: [{ name: "THC Vape Cart 1ml", qty: 1 }], dist: 1.4, fee: 30, total: 900, status: "delivered", isMedical: false }
 ];
 const { useState, useEffect, useRef, useCallback } = React;
+function skuMarginRows(products, txs, costOf, opts) {
+  opts = opts || {};
+  var inPeriod = opts.inPeriod || function() {
+    return true;
+  };
+  var nameOf = opts.nameOf || function(p) {
+    return String(p && p.name || "");
+  };
+  var thin = opts.thinPct == null ? 15 : opts.thinPct;
+  var discount = opts.discountPct == null ? 10 : opts.discountPct;
+  var sold = {};
+  (txs || []).forEach(function(t2) {
+    if (!t2) return;
+    var d = String(t2.transactionTime || "").slice(0, 10);
+    if (d && !inPeriod(d)) return;
+    var st = String(t2.status || "").toLowerCase();
+    if (st.indexOf("void") >= 0 || st.indexOf("return") >= 0 || st.indexOf("refund") >= 0) return;
+    (t2.items || []).forEach(function(it) {
+      if (!it || it.productId == null) return;
+      var k = String(it.productId);
+      if (!sold[k]) sold[k] = { q: 0, rev: 0 };
+      sold[k].q += +it.quantity || 0;
+      sold[k].rev += +it.total || 0;
+    });
+  });
+  var totalRev = 0;
+  Object.keys(sold).forEach(function(k) {
+    totalRev += sold[k].rev;
+  });
+  var rows = (products || []).filter(Boolean).map(function(p) {
+    var a = sold[String(p.id)] || { q: 0, rev: 0 };
+    var list = +p.price || +p.unitPrice || 0;
+    var rawCost = +p.cost || 0;
+    var cost = +costOf(p) || 0;
+    var estimated = !(rawCost > 0 && rawCost <= list);
+    var avg = a.q > 0 ? a.rev / a.q : 0;
+    var effective = a.q > 0 ? avg : list;
+    var cogs = a.q * cost;
+    var profit = a.rev - cogs;
+    var unitMargin = effective - cost;
+    var marginPct = effective > 0 ? unitMargin / effective * 100 : 0;
+    var issues = [];
+    if (list <= 0) issues.push("no-price");
+    if (estimated) issues.push("no-cost");
+    if (unitMargin < 0) issues.push("loss");
+    else if (marginPct < thin) issues.push("thin");
+    if (a.q === 0) issues.push("never-sold");
+    else if (list > 0 && avg < list * (1 - discount / 100)) issues.push("discounted");
+    return {
+      id: p.id,
+      name: nameOf(p),
+      cat: p.cat || p.category || "Other",
+      biz: p.biz || p.business || "",
+      unit: p.unit || "pc",
+      listPrice: Math.round(list),
+      avgPrice: Math.round(avg),
+      cost: Math.round(cost),
+      costEstimated: estimated,
+      units: Math.round(a.q * 100) / 100,
+      revenue: Math.round(a.rev),
+      cogs: Math.round(cogs),
+      profit: Math.round(profit),
+      marginBaht: Math.round(unitMargin),
+      marginPct: Math.round(marginPct * 10) / 10,
+      pctOfSales: totalRev > 0 ? Math.round(a.rev / totalRev * 1e3) / 10 : 0,
+      issues
+    };
+  });
+  rows.sort(function(a, b) {
+    if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+    return String(a.name).localeCompare(String(b.name));
+  });
+  var t = {
+    products: rows.length,
+    sold: 0,
+    neverSold: 0,
+    units: 0,
+    revenue: 0,
+    cogs: 0,
+    profit: 0,
+    estimatedCost: 0,
+    loss: 0,
+    thin: 0,
+    discounted: 0,
+    noPrice: 0
+  };
+  rows.forEach(function(r) {
+    if (r.units > 0) t.sold++;
+    else t.neverSold++;
+    t.units += r.units;
+    t.revenue += r.revenue;
+    t.cogs += r.cogs;
+    t.profit += r.profit;
+    if (r.costEstimated) t.estimatedCost++;
+    if (r.issues.indexOf("loss") >= 0) t.loss++;
+    if (r.issues.indexOf("thin") >= 0) t.thin++;
+    if (r.issues.indexOf("discounted") >= 0) t.discounted++;
+    if (r.issues.indexOf("no-price") >= 0) t.noPrice++;
+  });
+  t.units = Math.round(t.units * 100) / 100;
+  t.marginPct = t.revenue > 0 ? Math.round(t.profit / t.revenue * 1e3) / 10 : 0;
+  t.revenueOnEstimatedCost = rows.reduce(function(s, r) {
+    return s + (r.costEstimated ? r.revenue : 0);
+  }, 0);
+  t.trust = t.revenue > 0 ? Math.round((1 - t.revenueOnEstimatedCost / t.revenue) * 1e3) / 10 : 0;
+  return { rows, totals: t };
+}
 function webKey(name) {
   return String(name || "").toLowerCase().replace(/^\s*\([^)]*\)\s*/, "").replace(/\b(joint|blunt|pre-?roll|preroll|cone|stick|bud|flower)\b/g, " ").replace(/\b\d+(\.\d+)?\s*(g|gram|grams|mg|ml|pc|pcs|pack|x)\b/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
 }
@@ -3557,85 +3664,117 @@ function GreenPOS() {
   };
   const downloadSalesCSV = function() {
     try {
-      var agg = {};
-      (_txScoped || []).forEach(function(t2) {
-        (t2.items || []).forEach(function(it) {
-          if (!it.productId) return;
-          if (!agg[it.productId]) agg[it.productId] = { q: 0, rev: 0 };
-          agg[it.productId].q += +it.quantity || 0;
-          agg[it.productId].rev += +it.total || 0;
-        });
-      });
       var esc = function(v) {
         var x = String(v == null ? "" : v);
         return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x;
       };
-      var totalRev2 = 0;
-      Object.keys(agg).forEach(function(k) {
-        totalRev2 += agg[k].rev;
+      var out = skuMarginRows(products, _txScoped, function(p) {
+        return _cogsMap.get(p.id) || 0;
+      }, {
+        inPeriod: _inDashPeriod,
+        nameOf: function(p) {
+          return p && p.name ? cleanName(p).short : "#" + String(p && p.id).slice(-6);
+        }
       });
-      var rows = Object.keys(agg).map(function(pid) {
-        var p = (products || []).find(function(x) {
-          return String(x.id) === String(pid);
-        }) || {};
-        var a2 = agg[pid];
-        var cost = +p.cost || 0;
-        var avg = a2.q > 0 ? Math.round(a2.rev / a2.q) : 0;
-        var cogs = a2.q * cost;
-        var profit = a2.rev - cogs;
-        var margin = a2.rev > 0 ? Math.round(profit / a2.rev * 100) : 0;
-        var pct = totalRev2 > 0 ? Math.round(a2.rev / totalRev2 * 1e3) / 10 : 0;
-        return { name: p.name ? cleanName(p).short : "#" + pid, cat: p.cat || "", biz: p.name ? bizOf(p) : "", price: +p.price || 0, avg, cost, q: a2.q, rev: Math.round(a2.rev), cogs: Math.round(cogs), profit: Math.round(profit), margin, pct };
-      });
-      rows.sort(function(a2, b) {
-        return b.rev - a2.rev;
-      });
-      var head = ["Product", "Category", "Business", "List Price", "Avg Sell Price", "Cost", "Units Sold", "Revenue", "COGS", "Profit", "Margin %", "% of Sales"];
+      var rows = out.rows, T2 = out.totals;
+      var head = [
+        "Product",
+        "Category",
+        "Business",
+        "Unit",
+        "List Price",
+        "Avg Sell Price",
+        "Cost",
+        "Cost Source",
+        "Margin/Unit (THB)",
+        "Margin %",
+        "Units Sold",
+        "Revenue",
+        "COGS",
+        "Profit",
+        "% of Sales",
+        "Needs attention"
+      ];
       var lines = [head.join(",")];
       rows.forEach(function(r) {
-        lines.push([r.name, r.cat, r.biz, r.price, r.avg, r.cost, Math.round(r.q * 100) / 100, r.rev, r.cogs, r.profit, r.margin + "%", r.pct + "%"].map(esc).join(","));
-      });
-      var tUnits = 0, tProfit = 0, tCogs = 0;
-      rows.forEach(function(r) {
-        tUnits += r.q;
-        tProfit += r.profit;
-        tCogs += r.cogs;
+        lines.push([
+          r.name,
+          r.cat,
+          r.biz,
+          r.unit,
+          r.listPrice,
+          r.avgPrice,
+          r.cost,
+          r.costEstimated ? "ESTIMATED" : "StoreHub",
+          r.marginBaht,
+          r.marginPct + "%",
+          r.units,
+          r.revenue,
+          r.cogs,
+          r.profit,
+          r.pctOfSales + "%",
+          r.issues.join(" ")
+        ].map(esc).join(","));
       });
       var byCat = {};
       rows.forEach(function(r) {
-        if (!byCat[r.cat]) byCat[r.cat] = { rev: 0, profit: 0 };
-        byCat[r.cat].rev += r.rev;
+        if (!byCat[r.cat]) byCat[r.cat] = { rev: 0, profit: 0, n: 0 };
+        byCat[r.cat].rev += r.revenue;
         byCat[r.cat].profit += r.profit;
+        byCat[r.cat].n++;
       });
       lines.push("");
       lines.push("BY CATEGORY / \u0E41\u0E22\u0E01\u0E15\u0E32\u0E21\u0E2B\u0E21\u0E27\u0E14");
-      lines.push("Category,Revenue,Profit");
+      lines.push("Category,SKUs,Revenue,Profit,Margin %");
       Object.keys(byCat).sort(function(a2, b) {
         return byCat[b].rev - byCat[a2].rev;
       }).forEach(function(c) {
-        lines.push(esc(c) + "," + Math.round(byCat[c].rev) + "," + Math.round(byCat[c].profit));
+        var d = byCat[c];
+        lines.push([
+          c,
+          d.n,
+          Math.round(d.rev),
+          Math.round(d.profit),
+          (d.rev > 0 ? Math.round(d.profit / d.rev * 1e3) / 10 : 0) + "%"
+        ].map(esc).join(","));
       });
       lines.push("");
       lines.push("SUMMARY / \u0E2A\u0E23\u0E38\u0E1B");
       var S = function(k, v) {
         lines.push(esc(k) + "," + esc(v));
       };
-      S("Products sold / \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E02\u0E32\u0E22", rows.length);
-      S("Total units / \u0E08\u0E33\u0E19\u0E27\u0E19\u0E02\u0E32\u0E22", Math.round(tUnits));
-      S("Total revenue / \u0E23\u0E32\u0E22\u0E44\u0E14\u0E49\u0E23\u0E27\u0E21", Math.round(totalRev2));
-      S("Total COGS / \u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E02\u0E32\u0E22", Math.round(tCogs));
-      S("Total profit / \u0E01\u0E33\u0E44\u0E23\u0E23\u0E27\u0E21", Math.round(tProfit));
-      S("Best seller / \u0E02\u0E32\u0E22\u0E14\u0E35\u0E2A\u0E38\u0E14", rows[0] ? rows[0].name : "-");
+      S("SKUs in catalogue / \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", T2.products);
+      S("Sold in period / \u0E02\u0E32\u0E22\u0E44\u0E14\u0E49", T2.sold);
+      S("Never sold / \u0E44\u0E21\u0E48\u0E21\u0E35\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22", T2.neverSold);
+      S("Total units / \u0E08\u0E33\u0E19\u0E27\u0E19\u0E02\u0E32\u0E22", T2.units);
+      S("Total revenue / \u0E23\u0E32\u0E22\u0E44\u0E14\u0E49\u0E23\u0E27\u0E21", T2.revenue);
+      S("Total COGS / \u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E02\u0E32\u0E22", T2.cogs);
+      S("Total profit / \u0E01\u0E33\u0E44\u0E23\u0E23\u0E27\u0E21", T2.profit);
+      S("Blended margin / \u0E21\u0E32\u0E23\u0E4C\u0E08\u0E34\u0E49\u0E19\u0E23\u0E27\u0E21", T2.marginPct + "%");
+      S("Figures from real costs / \u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E08\u0E23\u0E34\u0E07", T2.trust + "% of revenue");
+      S("Best seller / \u0E02\u0E32\u0E22\u0E14\u0E35\u0E2A\u0E38\u0E14", rows[0] && rows[0].revenue > 0 ? rows[0].name : "-");
       S("Branch / \u0E2A\u0E32\u0E02\u0E32", (stores.find(function(x) {
         return x.id === activeBranch;
       }) || { name: "All" }).name);
       S("Generated", (/* @__PURE__ */ new Date()).toLocaleString());
+      lines.push("");
+      lines.push("NEEDS ATTENTION / \u0E15\u0E49\u0E2D\u0E07\u0E41\u0E01\u0E49");
+      lines.push("Issue,Count,What it means,What to do");
+      var A = function(k, n, mean, todo) {
+        if (n > 0) lines.push([k, n, mean, todo].map(esc).join(","));
+      };
+      A("loss", T2.loss, "Selling under cost", "Raise the price or stop stocking it");
+      A("no-cost", T2.estimatedCost, "No cost in StoreHub - margin is an estimate", "Enter the real cost in StoreHub");
+      A("thin", T2.thin, "Margin under 15%", "Re-price, or renegotiate with the supplier");
+      A("discounted", T2.discounted, "Average sale is 10%+ under list", "Check the discounting on the floor");
+      A("never-sold", T2.neverSold, "No sales in this period", "Promote, discount to clear, or delist");
+      A("no-price", T2.noPrice, "No price set", "Set a price - it cannot be sold properly");
       var csv = "\uFEFF" + lines.join("\n");
       var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       var url = URL.createObjectURL(blob);
       var a = document.createElement("a");
       a.href = url;
-      a.download = "bryan-sales-" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) + ".csv";
+      a.download = "bryan-sku-margin-" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) + ".csv";
       document.body.appendChild(a);
       a.click();
       setTimeout(function() {
@@ -3645,8 +3784,8 @@ function GreenPOS() {
         } catch (_e) {
         }
       }, 1200);
-      addAudit("EXPORT", "Sales CSV (" + rows.length + " products)", currentStaff && currentStaff.name);
-      notify("\u2B07 \u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 CSV \u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22 + \u0E2A\u0E23\u0E38\u0E1B\u0E41\u0E25\u0E49\u0E27");
+      addAudit("EXPORT", "SKU margin CSV (" + T2.products + " SKUs, " + T2.sold + " sold)", currentStaff && currentStaff.name);
+      notify("\u2B07 \u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 CSV \u0E41\u0E25\u0E49\u0E27 \u2014 " + T2.products + " SKU, \u0E15\u0E49\u0E2D\u0E07\u0E41\u0E01\u0E49 " + (T2.loss + T2.thin + T2.estimatedCost) + " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23");
     } catch (e) {
       notify("Export error: " + (e && e.message), "error");
     }
@@ -8460,7 +8599,7 @@ function GreenPOS() {
     })));
   })(), activeTab === "dashboard" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900 } }, "\u{1F4CA} Dashboard"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
     askTabAI("dashboard");
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10, padding: "4px 10px" }) }, "\u{1F916} AI \u0E27\u0E34\u0E40\u0E04\u0E23\u0E32\u0E30\u0E2B\u0E4C"), /* @__PURE__ */ React.createElement("button", { onClick: downloadSalesCSV, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, C.green)), { fontSize: 10, padding: "4px 10px", border: "1px solid " + C.border }) }, "\u2B07 Sales CSV"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 10, padding: "4px 10px" }) }, "\u{1F916} AI \u0E27\u0E34\u0E40\u0E04\u0E23\u0E32\u0E30\u0E2B\u0E4C"), /* @__PURE__ */ React.createElement("button", { onClick: downloadSalesCSV, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, C.green)), { fontSize: 10, padding: "4px 10px", border: "1px solid " + C.border }) }, "\u2B07 \u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E33\u0E44\u0E23\u0E17\u0E38\u0E01 SKU"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setShowProdProfit(true);
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 10, padding: "4px 10px" }) }, "\u{1F4CB} \u0E01\u0E33\u0E44\u0E23\u0E15\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, ((_a = stores.find((s) => s.id === activeBranch)) == null ? void 0 : _a.name) || "All", " \xB7 Live StoreHub"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 5, marginBottom: showDashCustomPicker ? 0 : 5, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, fontWeight: 800, whiteSpace: "nowrap" } }, "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32"), [["day", "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49"], ["month", "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49"], ["quarter", "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A"], ["year", "\u0E1B\u0E35\u0E19\u0E35\u0E49"], ["all", "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"]].map(function(pr) {
     var on = dashPeriod === pr[0];
