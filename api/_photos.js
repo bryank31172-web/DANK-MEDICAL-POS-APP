@@ -59,6 +59,31 @@ export async function photoMap() {
 /* exported for the tests, and for a future admin action that edits the file */
 export function resetPhotoCache() { cache = null; }
 
+/* Exact key first, then the longest catalogue name contained in the till name
+ * (or the reverse), so "OG Kush x Zkittlez" still finds "OG Kush".
+ *
+ * This second step is the half that is easy to leave out, and leaving it out
+ * is what made the two disagree: the till has always done the containment
+ * fallback, so it showed a picture where the server — matching on the exact
+ * key alone — found nothing, and the same product appeared with artwork on the
+ * counter and bare on the website. Mirror of webImgFor() in pos/app.fixed.jsx,
+ * iteration order included: both build their map from products.json in file
+ * order, first entry winning, so "longest match, earliest on a tie" resolves
+ * to the same picture on both sides. */
+export function photoFor(name, m) {
+  const k = photoKey(name);
+  if (!k) return "";
+  if (m.has(k)) return m.get(k);
+  let best = "", bestLen = 0;
+  for (const [wk, img] of m) {
+    if (wk.length < 4) continue;                       // too short to mean anything
+    if (k === wk || k.indexOf(wk) >= 0 || wk.indexOf(k) >= 0) {
+      if (wk.length > bestLen) { bestLen = wk.length; best = img; }
+    }
+  }
+  return best;
+}
+
 /** Give every item the catalogue's picture, keeping its own where we have none. */
 export async function applyPhotos(data) {
   if (!Array.isArray(data) || !data.length) return data;
@@ -66,7 +91,7 @@ export async function applyPhotos(data) {
   if (!m.size) return data;
   return data.map((p) => {
     if (!p || typeof p !== "object") return p;
-    const pick = m.get(photoKey(p.name));
+    const pick = photoFor(p.name, m);
     if (!pick || pick === p.image) return p;
     return { ...p, image: pick };
   });

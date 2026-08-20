@@ -93,8 +93,10 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
 - Till shows the website's product photos, matched by a normalised name; a failed photo falls
   back to the item's category emoji. `api/_photos.js` applies the same map to every menu read
   in `_menu.js`, so the picture no longer depends on which upstream answered — its
-  normalisation is a deliberate copy of `webKey()` in the JSX and `photo-match.test.mjs`
-  fails if the two drift.
+  normalisation is a deliberate copy of `webKey()`/`webImgFor()` in the JSX — exact key
+  first, then the longest catalogue name contained in the till name. Leaving that second
+  step off the server was itself the mismatch. `photo-match.test.mjs` runs both
+  implementations over 430 real name shapes and fails if they ever disagree.
 - Over-count is a mismatch, not OK. Scale prints exactly (0.039 stays 0.039).
 - `inkOn()` in the token layer keeps light text off light fills — found two real contrast bugs
   by measuring every tab, including product names at 1.05:1.
