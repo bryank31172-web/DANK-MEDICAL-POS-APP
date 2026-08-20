@@ -149,6 +149,26 @@ export default async function handler(req, res) {
     } catch (e) { results.push(false); }
   }
 
+  /* 0a-STOCK) Book the sale in StoreHub. This is the step that actually moves
+     stock, so it runs before the alert goes out: staff must be told in the same
+     message whether the shelf count already came down or whether they have to
+     do it by hand. Silently skipping it, which is what used to happen when a
+     line carried no StoreHub id, meant the website could keep selling stock the
+     shop no longer had. */
+  let stock = { status: "failed", reason: "unknown" };
+  try {
+    const r = await pushTransaction(o, orderId);
+    if (r && r.ok) { stock = { status: "cut", lines: r.lines, unmatched: r.unmatched || [] }; results.push(true); }
+    else if (r && r.skipped) stock = { status: "skipped", reason: r.reason, unmatched: r.unmatched || [] };
+    else stock = { status: "failed", reason: (r && r.reason) || "push failed", unmatched: (r && r.unmatched) || [] };
+  } catch (e) { stock = { status: "failed", reason: e.message }; }
+  if (stock.unmatched && stock.unmatched.length) stock.needsManualCount = stock.unmatched;
+  o.stock = stock;
+  /* the order was stored a moment ago without this; rewrite it so the Orders
+     tab shows what happened rather than the staff having to guess */
+  try { await setJSON("order:" + orderId, { ...o, orderId, at: Date.now(), status: "new" }); }
+  catch (e) { console.error("order stock-state save failed:", e.message); }
+
   // 0b-LINE) Same alert pushed to LINE (Bryan / staff group) if LINE_TO is set
   try {
     const host = req.headers?.["x-forwarded-host"] || req.headers?.host || "dankbkk.com";
@@ -156,14 +176,18 @@ export default async function handler(req, res) {
     const where = o.fulfilment === "delivery"
       ? `🚚 Delivery — ${o.delivery?.zone || ""} ${o.delivery?.address || ""}`
       : `🏬 Pickup — ${o.pickup?.branch || ""} ${o.pickup?.time || ""}`;
+    /* the line staff act on: green means the count already moved, anything else
+       means somebody deducts by hand before the next customer is told it is in
+       stock */
+    const stockLine = stock.status === "cut"
+      ? "\u2705 Stock cut in StoreHub"
+      : "\u26a0\ufe0f STOCK NOT CUT (" + (stock.reason || stock.status) + ") \u2014 \u0e15\u0e31\u0e14\u0e2a\u0e15\u0e47\u0e2d\u0e01\u0e40\u0e2d\u0e07"
+        + (stock.needsManualCount ? "\n   \u2192 " + stock.needsManualCount.join(", ") : "");
     const r = await notifyStaffLine(
-      `🛒 NEW ORDER ${orderId} — dankbkk.com\n\n${lines}\n\nTotal: ฿${o.total ?? o.subtotal}\nPay: ${o.payment}\n${where}\nCustomer: ${o.customer?.name || "-"} · ${o.customer?.phone}\n➡️ https://${host}/staff.html#orders`
+      `🛒 NEW ORDER ${orderId} — dankbkk.com\n\n${lines}\n\nTotal: ฿${o.total ?? o.subtotal}\nPay: ${o.payment}\n${stockLine}\n${where}\nCustomer: ${o.customer?.name || "-"} · ${o.customer?.phone}\n➡️ https://${host}/staff.html#orders`
     );
     if (r.ok) results.push(true);
   } catch (e) { /* non-fatal */ }
-
-  // 0c) Push into StoreHub as an online transaction (optional; STOREHUB_PUSH_ORDERS=1)
-  try { const r = await pushTransaction(o, orderId); if (r && r.ok) results.push(true); } catch (e) { /* non-fatal */ }
 
   // 1) Forward into the POS flow
   if (process.env.ORDER_FORWARD_URL) {
