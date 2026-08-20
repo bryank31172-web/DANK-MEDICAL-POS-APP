@@ -346,6 +346,102 @@ const ONLINE_ORDERS_INIT=[
 // by a shorter name — "Zkittles" there is "Zkittles Blunt" or "Zkittles Joint"
 // on the till. webKey() strips the branch prefix, the format word and the pack
 // size so the two names meet in the middle.
+// ——— SKU margin block ———————————————————————————————————————————————————
+// One row per product the shop actually stocks, not per product that happened
+// to sell. A strain with zero sales this month is the row the owner most needs
+// to see, and building the table from the transaction list alone hides exactly
+// those. So the product list is the spine and sales are joined onto it.
+//
+// costOf() is passed in rather than read off p.cost, because a StoreHub product
+// with no cost recorded would otherwise come through as cost 0 and report a
+// beautiful 100% margin. The caller hands over the same estimate-aware lookup
+// the dashboard uses, and every row says which of the two it got, so nobody
+// mistakes a guess for a measurement.
+function skuMarginRows(products, txs, costOf, opts){
+  opts=opts||{};
+  var inPeriod=opts.inPeriod||function(){return true;};
+  var nameOf=opts.nameOf||function(p){return String(p&&p.name||"");};
+  var thin=opts.thinPct==null?15:opts.thinPct;      // below this a row is "thin"
+  var discount=opts.discountPct==null?10:opts.discountPct;  // avg this far under list
+
+  var sold={};
+  (txs||[]).forEach(function(t){
+    if(!t)return;
+    var d=String(t.transactionTime||"").slice(0,10);
+    if(d&&!inPeriod(d))return;
+    var st=String(t.status||"").toLowerCase();
+    if(st.indexOf("void")>=0||st.indexOf("return")>=0||st.indexOf("refund")>=0)return;
+    (t.items||[]).forEach(function(it){
+      if(!it||it.productId==null)return;
+      var k=String(it.productId);
+      if(!sold[k])sold[k]={q:0,rev:0};
+      sold[k].q+=(+it.quantity||0);
+      sold[k].rev+=(+it.total||0);
+    });
+  });
+
+  var totalRev=0;
+  Object.keys(sold).forEach(function(k){totalRev+=sold[k].rev;});
+
+  var rows=(products||[]).filter(Boolean).map(function(p){
+    var a=sold[String(p.id)]||{q:0,rev:0};
+    var list=+p.price||+p.unitPrice||0;
+    var rawCost=+p.cost||0;
+    var cost=+costOf(p)||0;
+    var estimated=!(rawCost>0&&rawCost<=list);   // no cost, or a cost above the price
+    var avg=a.q>0?a.rev/a.q:0;
+    var effective=a.q>0?avg:list;                // never sold? judge it on the list price
+    var cogs=a.q*cost;
+    var profit=a.rev-cogs;
+    var unitMargin=effective-cost;
+    var marginPct=effective>0?(unitMargin/effective*100):0;
+
+    var issues=[];
+    if(list<=0)issues.push("no-price");
+    if(estimated)issues.push("no-cost");
+    if(unitMargin<0)issues.push("loss");
+    else if(marginPct<thin)issues.push("thin");
+    if(a.q===0)issues.push("never-sold");
+    else if(list>0&&avg<list*(1-discount/100))issues.push("discounted");
+
+    return {
+      id:p.id, name:nameOf(p), cat:p.cat||p.category||"Other", biz:p.biz||p.business||"",
+      unit:p.unit||"pc", listPrice:Math.round(list),
+      avgPrice:Math.round(avg), cost:Math.round(cost), costEstimated:estimated,
+      units:Math.round(a.q*100)/100, revenue:Math.round(a.rev),
+      cogs:Math.round(cogs), profit:Math.round(profit),
+      marginBaht:Math.round(unitMargin), marginPct:Math.round(marginPct*10)/10,
+      pctOfSales:totalRev>0?Math.round(a.rev/totalRev*1000)/10:0,
+      issues:issues,
+    };
+  });
+
+  rows.sort(function(a,b){
+    if(b.revenue!==a.revenue)return b.revenue-a.revenue;   // earners first
+    return String(a.name).localeCompare(String(b.name));   // then stable by name
+  });
+
+  var t={products:rows.length,sold:0,neverSold:0,units:0,revenue:0,cogs:0,profit:0,
+         estimatedCost:0,loss:0,thin:0,discounted:0,noPrice:0};
+  rows.forEach(function(r){
+    if(r.units>0)t.sold++;else t.neverSold++;
+    t.units+=r.units;t.revenue+=r.revenue;t.cogs+=r.cogs;t.profit+=r.profit;
+    if(r.costEstimated)t.estimatedCost++;
+    if(r.issues.indexOf("loss")>=0)t.loss++;
+    if(r.issues.indexOf("thin")>=0)t.thin++;
+    if(r.issues.indexOf("discounted")>=0)t.discounted++;
+    if(r.issues.indexOf("no-price")>=0)t.noPrice++;
+  });
+  t.units=Math.round(t.units*100)/100;
+  t.marginPct=t.revenue>0?Math.round(t.profit/t.revenue*1000)/10:0;
+  // the blended margin is only as trustworthy as the costs behind it
+  t.revenueOnEstimatedCost=rows.reduce(function(s,r){return s+(r.costEstimated?r.revenue:0);},0);
+  t.trust=t.revenue>0?Math.round((1-t.revenueOnEstimatedCost/t.revenue)*1000)/10:0;
+
+  return {rows:rows,totals:t};
+}
+// ——— end of the SKU margin block ———————————————————————————————————————————
+
 function webKey(name){
   return String(name||"")
     .toLowerCase()
@@ -2029,32 +2125,59 @@ function GreenPOS() {
   };
   const downloadSalesCSV=function(){
     try{
-      var agg={};(_txScoped||[]).forEach(function(t){(t.items||[]).forEach(function(it){if(!it.productId)return;if(!agg[it.productId])agg[it.productId]={q:0,rev:0};agg[it.productId].q+=(+it.quantity||0);agg[it.productId].rev+=(+it.total||0);});});
       var esc=function(v){var x=String(v==null?"":v);return /[",\n]/.test(x)?('"'+x.replace(/"/g,'""')+'"'):x;};
-      var totalRev=0;Object.keys(agg).forEach(function(k){totalRev+=agg[k].rev;});
-      var rows=Object.keys(agg).map(function(pid){var p=(products||[]).find(function(x){return String(x.id)===String(pid);})||{};var a=agg[pid];var cost=+p.cost||0;var avg=a.q>0?Math.round(a.rev/a.q):0;var cogs=a.q*cost;var profit=a.rev-cogs;var margin=a.rev>0?Math.round(profit/a.rev*100):0;var pct=totalRev>0?Math.round(a.rev/totalRev*1000)/10:0;return {name:p.name?cleanName(p).short:("#"+pid),cat:p.cat||"",biz:p.name?bizOf(p):"",price:+p.price||0,avg:avg,cost:cost,q:a.q,rev:Math.round(a.rev),cogs:Math.round(cogs),profit:Math.round(profit),margin:margin,pct:pct};});
-      rows.sort(function(a,b){return b.rev-a.rev;});
-      var head=["Product","Category","Business","List Price","Avg Sell Price","Cost","Units Sold","Revenue","COGS","Profit","Margin %","% of Sales"];
+      // the same estimate-aware cost the dashboard uses — a product with no cost
+      // in StoreHub must not export as a 100% margin
+      var out=skuMarginRows(products,_txScoped,function(p){return _cogsMap.get(p.id)||0;},{
+        inPeriod:_inDashPeriod,
+        nameOf:function(p){return p&&p.name?cleanName(p).short:("#"+String(p&&p.id).slice(-6));},
+      });
+      var rows=out.rows,T=out.totals;
+      var head=["Product","Category","Business","Unit","List Price","Avg Sell Price","Cost","Cost Source",
+                "Margin/Unit (THB)","Margin %","Units Sold","Revenue","COGS","Profit","% of Sales","Needs attention"];
       var lines=[head.join(",")];
-      rows.forEach(function(r){lines.push([r.name,r.cat,r.biz,r.price,r.avg,r.cost,Math.round(r.q*100)/100,r.rev,r.cogs,r.profit,r.margin+"%",r.pct+"%"].map(esc).join(","));});
-      var tUnits=0,tProfit=0,tCogs=0;rows.forEach(function(r){tUnits+=r.q;tProfit+=r.profit;tCogs+=r.cogs;});
-      var byCat={};rows.forEach(function(r){if(!byCat[r.cat])byCat[r.cat]={rev:0,profit:0};byCat[r.cat].rev+=r.rev;byCat[r.cat].profit+=r.profit;});
-      lines.push("");lines.push("BY CATEGORY / \u0e41\u0e22\u0e01\u0e15\u0e32\u0e21\u0e2b\u0e21\u0e27\u0e14");lines.push("Category,Revenue,Profit");
-      Object.keys(byCat).sort(function(a,b){return byCat[b].rev-byCat[a].rev;}).forEach(function(c){lines.push(esc(c)+","+Math.round(byCat[c].rev)+","+Math.round(byCat[c].profit));});
-      lines.push("");lines.push("SUMMARY / \u0e2a\u0e23\u0e38\u0e1b");
+      rows.forEach(function(r){lines.push([r.name,r.cat,r.biz,r.unit,r.listPrice,r.avgPrice,r.cost,
+        r.costEstimated?"ESTIMATED":"StoreHub",r.marginBaht,r.marginPct+"%",r.units,r.revenue,r.cogs,r.profit,
+        r.pctOfSales+"%",r.issues.join(" ")].map(esc).join(","));});
+
+      var byCat={};rows.forEach(function(r){if(!byCat[r.cat])byCat[r.cat]={rev:0,profit:0,n:0};
+        byCat[r.cat].rev+=r.revenue;byCat[r.cat].profit+=r.profit;byCat[r.cat].n++;});
+      lines.push("");lines.push("BY CATEGORY / แยกตามหมวด");
+      lines.push("Category,SKUs,Revenue,Profit,Margin %");
+      Object.keys(byCat).sort(function(a,b){return byCat[b].rev-byCat[a].rev;}).forEach(function(c){
+        var d=byCat[c];lines.push([c,d.n,Math.round(d.rev),Math.round(d.profit),
+          (d.rev>0?Math.round(d.profit/d.rev*1000)/10:0)+"%"].map(esc).join(","));});
+
+      lines.push("");lines.push("SUMMARY / สรุป");
       var S=function(k,v){lines.push(esc(k)+","+esc(v));};
-      S("Products sold / \u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32\u0e17\u0e35\u0e48\u0e02\u0e32\u0e22",rows.length);
-      S("Total units / \u0e08\u0e33\u0e19\u0e27\u0e19\u0e02\u0e32\u0e22",Math.round(tUnits));
-      S("Total revenue / \u0e23\u0e32\u0e22\u0e44\u0e14\u0e49\u0e23\u0e27\u0e21",Math.round(totalRev));
-      S("Total COGS / \u0e15\u0e49\u0e19\u0e17\u0e38\u0e19\u0e02\u0e32\u0e22",Math.round(tCogs));
-      S("Total profit / \u0e01\u0e33\u0e44\u0e23\u0e23\u0e27\u0e21",Math.round(tProfit));
-      S("Best seller / \u0e02\u0e32\u0e22\u0e14\u0e35\u0e2a\u0e38\u0e14",rows[0]?rows[0].name:"-");
-      S("Branch / \u0e2a\u0e32\u0e02\u0e32",(stores.find(function(x){return x.id===activeBranch;})||{name:"All"}).name);
+      S("SKUs in catalogue / สินค้าทั้งหมด",T.products);
+      S("Sold in period / ขายได้",T.sold);
+      S("Never sold / ไม่มียอดขาย",T.neverSold);
+      S("Total units / จำนวนขาย",T.units);
+      S("Total revenue / รายได้รวม",T.revenue);
+      S("Total COGS / ต้นทุนขาย",T.cogs);
+      S("Total profit / กำไรรวม",T.profit);
+      S("Blended margin / มาร์จิ้นรวม",T.marginPct+"%");
+      S("Figures from real costs / ต้นทุนจริง",T.trust+"% of revenue");
+      S("Best seller / ขายดีสุด",rows[0]&&rows[0].revenue>0?rows[0].name:"-");
+      S("Branch / สาขา",(stores.find(function(x){return x.id===activeBranch;})||{name:"All"}).name);
       S("Generated",new Date().toLocaleString());
-      var csv="\uFEFF"+lines.join("\n");
-      var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="bryan-sales-"+new Date().toISOString().slice(0,10)+".csv";document.body.appendChild(a);a.click();setTimeout(function(){try{URL.revokeObjectURL(url);a.remove();}catch(_e){}},1200);
-      addAudit("EXPORT","Sales CSV ("+rows.length+" products)",currentStaff&&currentStaff.name);
-      notify("\u2b07 \u0e14\u0e32\u0e27\u0e19\u0e4c\u0e42\u0e2b\u0e25\u0e14 CSV \u0e22\u0e2d\u0e14\u0e02\u0e32\u0e22 + \u0e2a\u0e23\u0e38\u0e1b\u0e41\u0e25\u0e49\u0e27");
+
+      // what to actually do about it, worst first
+      lines.push("");lines.push("NEEDS ATTENTION / ต้องแก้");
+      lines.push("Issue,Count,What it means,What to do");
+      var A=function(k,n,mean,todo){if(n>0)lines.push([k,n,mean,todo].map(esc).join(","));};
+      A("loss",T.loss,"Selling under cost","Raise the price or stop stocking it");
+      A("no-cost",T.estimatedCost,"No cost in StoreHub - margin is an estimate","Enter the real cost in StoreHub");
+      A("thin",T.thin,"Margin under 15%","Re-price, or renegotiate with the supplier");
+      A("discounted",T.discounted,"Average sale is 10%+ under list","Check the discounting on the floor");
+      A("never-sold",T.neverSold,"No sales in this period","Promote, discount to clear, or delist");
+      A("no-price",T.noPrice,"No price set","Set a price - it cannot be sold properly");
+
+      var csv="﻿"+lines.join("\n");
+      var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="bryan-sku-margin-"+new Date().toISOString().slice(0,10)+".csv";document.body.appendChild(a);a.click();setTimeout(function(){try{URL.revokeObjectURL(url);a.remove();}catch(_e){}},1200);
+      addAudit("EXPORT","SKU margin CSV ("+T.products+" SKUs, "+T.sold+" sold)",currentStaff&&currentStaff.name);
+      notify("⬇ ดาวน์โหลด CSV แล้ว — "+T.products+" SKU, ต้องแก้ "+(T.loss+T.thin+T.estimatedCost)+" รายการ");
     }catch(e){notify("Export error: "+(e&&e.message),"error");}
   };
   // ── COGS guard ──────────────────────────────────────────────────────────
@@ -5460,7 +5583,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
         <div style={gs.sec}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
             <div style={{fontSize:mob?15:17,fontWeight:900}}>📊 Dashboard</div>
-            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><button onClick={function(){askTabAI("dashboard");}} style={{...gs.btn(C.blue,"#000"),fontSize:10,padding:"4px 10px"}}>🤖 AI วิเคราะห์</button><button onClick={downloadSalesCSV} style={{...gs.btn(C.card2,C.green),fontSize:10,padding:"4px 10px",border:"1px solid "+C.border}}>⬇ Sales CSV</button><button onClick={function(){setShowProdProfit(true);}} style={{...gs.btn(C.gold,"#000"),fontSize:10,padding:"4px 10px"}}>📋 กำไรต่อสินค้า</button><div style={{fontSize:10,color:C.muted}}>{stores.find(s=>s.id===activeBranch)?.name||"All"} · Live StoreHub</div></div>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><button onClick={function(){askTabAI("dashboard");}} style={{...gs.btn(C.blue,"#000"),fontSize:10,padding:"4px 10px"}}>🤖 AI วิเคราะห์</button><button onClick={downloadSalesCSV} style={{...gs.btn(C.card2,C.green),fontSize:10,padding:"4px 10px",border:"1px solid "+C.border}}>⬇ ตารางกำไรทุก SKU</button><button onClick={function(){setShowProdProfit(true);}} style={{...gs.btn(C.gold,"#000"),fontSize:10,padding:"4px 10px"}}>📋 กำไรต่อสินค้า</button><div style={{fontSize:10,color:C.muted}}>{stores.find(s=>s.id===activeBranch)?.name||"All"} · Live StoreHub</div></div>
           </div>
           <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:5,marginBottom:showDashCustomPicker?0:5,alignItems:"center"}}>
             <span style={{fontSize:9,color:C.muted,fontWeight:800,whiteSpace:"nowrap"}}>ช่วงเวลา</span>
