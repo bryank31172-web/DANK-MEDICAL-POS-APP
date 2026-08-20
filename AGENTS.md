@@ -20,7 +20,14 @@ one component, `GreenPOS`. Edit the JSX, then rebuild:
 
 ```bash
 bash pos/build.sh          # needs esbuild: npm i -g esbuild
+npm run pos:build          # the same thing
 ```
+
+The script is deliberately **not** called `build`. Vercel runs an npm `build`
+script automatically if one exists, and esbuild is not installed on the build
+image, so naming it that fails the deploy with exit 127. There is nothing to
+build at deploy time — `index.html` is committed already compiled — and
+`vercel.json` pins `buildCommand: ""` to say so.
 
 That compiles the JSX and concatenates it into `index.html` (the deployed app)
 and `pos/testrun/test2.html` (the offline test harness). A hand-edit to
