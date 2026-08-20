@@ -1,5 +1,9 @@
 {
+  "buildCommand": "",
   "crons": [
-    { "path": "/api/line-summary", "schedule": "0 15 * * *" }
+    {
+      "path": "/api/line-summary",
+      "schedule": "0 15 * * *"
+    }
   ]
 }
