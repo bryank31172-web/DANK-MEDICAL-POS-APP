@@ -1,4 +1,8 @@
+import fs from 'node:fs';
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+/* screenshots are test debris, not deliverables - keep them out of the repo root */
+const OUT=new URL('out/',import.meta.url).pathname;
+fs.mkdirSync(OUT,{recursive:true});
 const errs=[],fails=[];
 const ok=(n,c)=>{console.log((c?'✓ ':'✗ ')+n); if(!c)fails.push(n);};
 const b=await chromium.launch();
@@ -18,7 +22,7 @@ ok('bar tab opens', /Bar recipes & cost/.test(t));
 ok('  lists classic cocktails', /Margarita/.test(t)&&/Negroni/.test(t)&&/Long Island/.test(t));
 ok('  lists signature cocktails', /Matcha Forest/.test(t)&&/Dank Fireball/.test(t)&&/Lost Cherry/.test(t));
 ok('  shows the bottle cost table', /Tanqueray Gin/.test(t)&&/\/ml/.test(t));
-await p.screenshot({path:'bar-list.png'});
+await p.screenshot({path:OUT+'bar-list.png'});
 
 await p.click('button:has-text("Margarita")');
 await p.waitForTimeout(800);
@@ -28,7 +32,7 @@ ok('  shows method steps', /Shake all with ice/.test(t));
 ok('  shows the garnish', /Salt rim/.test(t));
 const serve=await p.$('button:has-text("ติ๊กให้ครบก่อน")');
 ok('  serve button is disabled until ticked', serve ? await serve.isDisabled() : false);
-await p.screenshot({path:'bar-recipe.png'});
+await p.screenshot({path:OUT+'bar-recipe.png'});
 
 // tick every step — re-query each time so a re-render can't hand us a stale row
 for(let i=0;i<40;i++){
@@ -47,7 +51,7 @@ for(let i=0;i<40;i++){
 await p.waitForTimeout(500);
 t=await p.evaluate(()=>document.body.innerText);
 ok('ticking everything shows ready', /พร้อมเสิร์ฟ \/ Ready to serve/.test(t));
-await p.screenshot({path:'bar-done.png'});
+await p.screenshot({path:OUT+'bar-done.png'});
 
 // Manhattan carries the sheet-error note
 await p.keyboard.press('Escape').catch(()=>{});
