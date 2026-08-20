@@ -1,8 +1,9 @@
 /* The website and the till must show the same picture for the same product.
    node api/__tests__/photo-match.test.mjs */
 import { readFileSync } from "node:fs";
-import { photoKey, photoMap, applyPhotos, resetPhotoCache } from "../_photos.js";
+import { photoKey, photoMap, photoFor, applyPhotos, resetPhotoCache } from "../_photos.js";
 
+const catalogue = JSON.parse(readFileSync(new URL("../../products.json", import.meta.url), "utf8"));
 let pass = 0, fail = 0;
 const ok = (name, cond, extra) => {
   console.log((cond ? "  ✓ " : "  ✗ ") + name + (cond || extra === undefined ? "" : "  → " + extra));
@@ -52,13 +53,53 @@ if (m) {
   ok("identical output on real product names", same, culprit);
 }
 
+/* The whole point is that the counter and the website show one picture, so the
+   check that matters is not "does each side look sensible" but "do they return
+   the identical URL for the same product name". Run both, compare. */
+console.log("\nthe till and the server pick the same picture");
+{
+  const mm = jsx.match(/function webImgFor\(name, map\)\{([\s\S]*?)\n\}/);
+  ok("webImgFor() still exists in the POS source", !!mm);
+  if (mm) {
+    const keyFn = jsx.match(/function webKey\(name\)\{([\s\S]*?)\n\}/)[1];
+    const tillPick = new Function("name", "map",
+      "function webKey(name){" + keyFn + "}\n" + mm[1]);
+
+    const m = await photoMap();
+    const plain = Object.fromEntries(m);        // the till holds a plain object
+    /* names in the shapes the live feed actually produces, not tidy ones */
+    const names = [];
+    for (const p of catalogue) {
+      names.push(p.name, `( Bar ) ${p.name}`, `${p.name} 1g`, `${p.name} 3.5g`,
+        p.name.toUpperCase(), `  ${p.name}  `,
+        /* suffixed and prefixed shapes the counter names carry, which only the
+           containment fallback can resolve */
+        `${p.name} Indoor`, `Premium ${p.name}`);
+    }
+    names.push("OG Kush x Zkittlez", "Something Nobody Sells", "", "   ",
+      "( Equipment ) Bong XL ( 50 cm )", "Gelato X 1g joint");
+
+    let mismatches = [];
+    for (const n of names) {
+      const a = tillPick(n, plain), b = photoFor(n, m);
+      if (a !== b) mismatches.push(`${JSON.stringify(n)}: till ${JSON.stringify(a)} vs server ${JSON.stringify(b)}`);
+    }
+    ok(`identical picture for all ${names.length} name shapes`, mismatches.length === 0,
+      mismatches.slice(0, 3).join(" | "));
+
+    /* the containment fallback is the half that was missing server-side */
+    const fuzzy = names.filter((n) => photoKey(n) && !m.has(photoKey(n)) && photoFor(n, m));
+    ok("the containment fallback actually fires (so it is really being tested)", fuzzy.length > 0, fuzzy.length);
+    ok("a product nobody sells still gets no picture", photoFor("Something Nobody Sells", m) === "");
+  }
+}
+
 console.log("\ncatalogue map");
 const map = await photoMap();
 ok("the catalogue produced a map", map.size > 0, map.size);
 ok("a known strain resolves", !!map.get(photoKey("Crunch Berrie")));
 ok("photos are usable URLs", [...map.values()].every((v) => /^(https?:|data:image|\/)/.test(v)));
 
-const catalogue = JSON.parse(readFileSync(new URL("../../products.json", import.meta.url), "utf8"));
 const withImage = catalogue.filter((p) => p.image);
 ok("every catalogue product with a photo is reachable by name",
   withImage.every((p) => map.has(photoKey(p.name))),
