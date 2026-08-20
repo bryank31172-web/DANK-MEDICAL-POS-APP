@@ -39,8 +39,15 @@ function normalize(list) {
     if (!p || typeof p !== "object" || !p.name) continue;
     const price = num(p.price);
     const member = num(p.member) || Math.round(price * 0.9);
+    /* The POS's own product ids ARE StoreHub product ids - it pulls its
+       catalogue from StoreHub - so carrying one through as shId is what lets a
+       website order be booked against the right product and cut its stock.
+       Dropping it here is why online orders never moved any stock: every item
+       reached pushTransaction() with no id to book against, and was skipped. */
+    const shId = String(p.shId ?? p.sku ?? p.id ?? "");
     const item = {
       id: String(p.id ?? p.sku ?? "pos-" + i),
+      shId: shId || undefined,
       name: String(p.name),
       category: String(p.category || "Other"),
       type: ["Indica", "Sativa", "Hybrid"].includes(p.type) ? p.type : "Hybrid",

@@ -54,6 +54,9 @@ function normItem(x, i) {
   stock = posNum(stock); if (stock === undefined) stock = 99;
   const out = {
     id, name: String(name),
+    /* without this the storefront cart has nothing to book a sale against, so
+       the order lands with no stock movement - see pos-feed.js */
+    shId: String(x.shId ?? x.sku ?? x.storehubId ?? id),
     category: String(x.category ?? x.categoryName ?? x.category_name ?? x.group ?? "Specials"),
     type: String(x.strainType ?? x.strain_type ?? x.type ?? x.variety ?? "Hybrid"),
     thc: posNum(x.thc) ?? 0,

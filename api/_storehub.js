@@ -188,15 +188,26 @@ export function groupTiers(list) {
 function stripTierMeta(p) { const { _weight, _base, rawName, ...rest } = p; return rest; }
 
 /* ---- optional: push an online order into StoreHub as a transaction ---- */
+/* Booking the sale in StoreHub is what moves the stock, so "did this happen"
+   is an operational question, not a debugging one: if it did not, somebody has
+   to deduct by hand before the next customer is told the item is in stock.
+   Every exit therefore names itself, and the caller records the answer on the
+   order rather than dropping it. */
 export async function pushTransaction(order, orderId) {
-  if (!shConfigured() || process.env.STOREHUB_PUSH_ORDERS !== "1") return { skipped: true };
+  if (!shConfigured()) return { skipped: true, reason: "StoreHub not configured" };
+  if (process.env.STOREHUB_PUSH_ORDERS !== "1") return { skipped: true, reason: "STOREHUB_PUSH_ORDERS is not 1" };
   let storeId = STORE_ID_ENV;
   if (!storeId) { try { const s = await shGet("/stores"); storeId = s?.[0]?.id; } catch (_) {} }
-  if (!storeId) return { skipped: true };
-  const items = (order.items || []).filter((i) => i.shId).map((i) => ({
+  if (!storeId) return { skipped: true, reason: "no store id" };
+  const all = order.items || [];
+  const usable = all.filter((i) => i && i.shId);
+  const items = usable.map((i) => ({
     productId: i.shId, quantity: i.qty, unitPrice: i.price, total: i.lineTotal,
   }));
-  if (!items.length) return { skipped: true, reason: "no productId mapping" };
+  if (!items.length) {
+    return { skipped: true, reason: "no StoreHub id on any line",
+             unmatched: all.map((i) => i && i.name).filter(Boolean) };
+  }
   const body = {
     refId: orderId, storeId, transactionType: "Sale",
     transactionTime: new Date().toISOString(),
@@ -212,5 +223,9 @@ export async function pushTransaction(order, orderId) {
     headers: { Authorization: auth, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return { ok: r.ok, status: r.status };
+  /* a partial push still moves some stock, and the lines it missed are exactly
+     what staff need to deduct by hand */
+  const unmatched = all.filter((i) => !(i && i.shId)).map((i) => i && i.name).filter(Boolean);
+  return { ok: r.ok, status: r.status, lines: items.length, unmatched,
+           reason: r.ok ? undefined : "StoreHub rejected the transaction (HTTP " + r.status + ")" };
 }

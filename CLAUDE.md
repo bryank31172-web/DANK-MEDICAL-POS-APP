@@ -46,6 +46,18 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   Known pending: add Vercel env `POS_FEED_PATHS=/__no_pos_feed__` on dankbkk-site to prefer StoreHub
   (health endpoint currently reports source:"pos").
 
+## Website order → stock (dankbangkok.com → POS)
+- `/api/order` stores the order, books it in StoreHub (**that is what cuts stock**), alerts
+  LINE, forwards to `ORDER_FORWARD_URL`, emails. The order record now carries
+  `stock:{status:"cut"|"skipped"|"failed", reason, needsManualCount[]}` and the LINE alert
+  says which — a skip used to be silent, so the site kept selling stock the shop had sold.
+- **The cut needs `STOREHUB_PUSH_ORDERS=1` in Vercel.** Without it every order is
+  `skipped: "STOREHUB_PUSH_ORDERS is not 1"` and no stock moves. This is an env setting,
+  not code.
+- Stock is booked per line against `item.shId`. The feed normalisers in `pos-feed.js` and
+  `_menu.js` were dropping it, so every online order arrived with nothing to book against.
+  A line with no `shId` still lands in `needsManualCount` for staff to deduct by hand.
+
 ## Pending — in the order they should be done
 1. **Set `MASTER_PIN` in Vercel (new number — 110114 is public and burned), then Redeploy.**
    Still the one blocker: nobody can log in without it, and until it is set the claim-PIN
