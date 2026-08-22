@@ -103,6 +103,73 @@ const LOGO="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAM0AAADcCAYAAADTNiVXAA
 // does, the steps staff actually take there, and the words they ask with.
 // The same text feeds both the canned answers and the AI's system prompt, so
 // the bot can never invent a feature the app doesn't have.
+// ——— team workload block —————————————————————————————————————————————
+// The board could say which jobs were late but not who was carrying them, so
+// the two questions a manager actually asks — who is doing well, and who is
+// buried — had no answer on screen. One row per person, counted from the same
+// task list the board already renders.
+//
+// "On time" needs doneAt: a job marked done tells you nothing about whether it
+// landed before its deadline, and a rate computed from the jobs that happen to
+// still have a deadline in the future would flatter everyone. Jobs finished
+// before doneAt existed are counted as done but left out of the rate, and the
+// row says how many those were rather than quietly averaging them in.
+function teamWorkload(tasks, staff, today){
+  var rows={},order=[];
+  var touch=function(id,name){
+    if(!rows[id]){rows[id]={id:id,name:name||"—",open:0,overdue:0,dueSoon:0,done:0,onTime:0,late:0,unknown:0,issues:0};order.push(id);}
+    if(name&&rows[id].name==="—")rows[id].name=name;
+    return rows[id];
+  };
+  (staff||[]).forEach(function(s){if(s&&s.approved!==false)touch(s.id,s.name);});
+
+  var soon=(function(){var d=new Date(today+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+2);return d.toISOString().slice(0,10);})();
+
+  (tasks||[]).forEach(function(t){
+    if(!t)return;
+    var r=touch(t.assigneeId||"unassigned",t.assigneeName||(t.assigneeId?null:"ยังไม่มอบหมาย"));
+    if((t.updates||[]).some(function(u){return u&&u.type==="issue"&&!u.resolved;}))r.issues++;
+    if(t.status==="done"){
+      r.done++;
+      if(!t.deadline||!t.doneAt)r.unknown++;
+      else if(t.doneAt<=t.deadline)r.onTime++;
+      else r.late++;
+      return;
+    }
+    r.open++;
+    if(t.deadline&&t.deadline<today)r.overdue++;
+    else if(t.deadline&&t.deadline<=soon)r.dueSoon++;
+  });
+
+  var out=order.map(function(id){
+    var r=rows[id];
+    var rated=r.onTime+r.late;
+    r.rated=rated;
+    r.onTimePct=rated?Math.round(r.onTime/rated*100):null;   // null = nothing to judge on yet
+    r.total=r.open+r.done;
+    return r;
+  });
+  /* the busiest and the most behind float up; someone with nothing to do sinks */
+  out.sort(function(a,b){
+    return (b.overdue-a.overdue)||(b.issues-a.issues)||(b.open-a.open)||String(a.name).localeCompare(String(b.name));
+  });
+  /* "too much on" is relative to this team on this day, not an invented number.
+     Compared against the average of the OTHERS, because when one person is
+     holding most of the work their own load drags the average up and hides
+     exactly the case worth flagging. The absolute floor stops a two-versus-zero
+     board from being called an overload, and the unassigned pile is a queue,
+     not a person, so it is neither flagged nor averaged in. */
+  var people=out.filter(function(r){return r.id!=="unassigned";});
+  out.forEach(function(r){
+    if(r.id==="unassigned"){r.overloaded=false;return;}
+    var others=people.filter(function(o){return o.id!==r.id;});
+    var avg=others.length?others.reduce(function(s,o){return s+o.open;},0)/others.length:0;
+    r.overloaded=(r.open>=3&&r.open>Math.max(2,avg*2));
+  });
+  return out;
+}
+// ——— end of the team workload block ————————————————————————————————
+
 // ——— assistant lookup block ————————————————————————————————————————————
 // Staff ask about one product by name far more often than they ask anything
 // else — "gelato เหลือเท่าไหร่", "ราคา sour belts". None of that was answerable:
@@ -850,7 +917,7 @@ function GreenPOS() {
   const [issueFor,setIssueFor]=useState(null);
   const [issueText,setIssueText]=useState("");
   const taskUpdate=function(tid,patch,logEntry){
-    setTasks(function(p){return p.map(function(t2){if(t2.id!==tid)return t2;var n=Object.assign({},t2,patch);if(logEntry)n.updates=(t2.updates||[]).concat([Object.assign({at:new Date().toISOString(),by:currentStaff&&currentStaff.name||"?"},logEntry)]);return n;});});
+    setTasks(function(p){return p.map(function(t2){if(t2.id!==tid)return t2;var n=Object.assign({},t2,patch);if(n.status==="done"&&!n.doneAt)n.doneAt=new Date(Date.now()+7*3600*1000).toISOString().slice(0,10);if(n.status!=="done"&&n.doneAt)delete n.doneAt;if(logEntry)n.updates=(t2.updates||[]).concat([Object.assign({at:new Date().toISOString(),by:currentStaff&&currentStaff.name||"?"},logEntry)]);return n;});});
   };
   const gcalLink=function(t2){var d=(t2.deadline||"").replace(/-/g,"");if(!d)return "#";var nd=new Date(t2.deadline);nd.setDate(nd.getDate()+1);var d2=nd.toISOString().slice(0,10).replace(/-/g,"");
     return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent("DANK: "+t2.title+" ("+t2.assigneeName+")")+"&dates="+d+"/"+d2+"&details="+encodeURIComponent((t2.instructions||"")+(t2.fileLink?("\nFile: "+t2.fileLink):"")+"\nDANK POS Work Task");};
@@ -7061,12 +7128,49 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             {canEdit&&<button onClick={function(){setAssignForm({title:"",assigneeId:"",deadline:today,instructions:"",fileLink:""});setShowAssign(true);}} style={{...gs.btn(C.green),fontSize:11,marginLeft:"auto"}}>+ มอบหมายงาน Assign</button>}
           </div>
           <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
-            {[["all","ทั้งหมด "+cAll],["open","ค้างอยู่ "+cOpen],["mine","ของฉัน"],["over","เลยกำหนด "+cOver],["issues","🚩 มีปัญหา "+cIss],["done","เสร็จ "+cDone]].map(function(f2){var on=workFilter===f2[0];return (
+            {[["all","ทั้งหมด "+cAll],["open","ค้างอยู่ "+cOpen],["mine","ของฉัน"],["over","เลยกำหนด "+cOver],["issues","🚩 มีปัญหา "+cIss],["done","เสร็จ "+cDone]].concat(canEdit?[["team","👥 ทีม Team"]]:[]).map(function(f2){var on=workFilter===f2[0];return (
               <button key={f2[0]} onClick={function(){setWorkFilter(f2[0]);}} style={{...gs.btn(on?(f2[0]==="over"?C.red:f2[0]==="issues"?C.gold:C.accent):C.card2,on?(f2[0]==="over"?"#fff":"#000"):"#9ca3af"),fontSize:10,padding:"4px 11px",border:"1px solid "+C.border,whiteSpace:"nowrap",flexShrink:0}}>{f2[1]}</button>
             );})}
           </div>
-          {list.length===0&&<div style={{...gs.card,fontSize:11,color:C.muted,textAlign:"center",padding:24}}>ยังไม่มีงานในมุมมองนี้{canEdit?" — กด + มอบหมายงาน":""}</div>}
-          {list.map(function(t2){
+          {workFilter==="team"&&canEdit&&(function(){
+            var rows=teamWorkload(tasks,staff,today);
+            if(!rows.length)return <div style={{...gs.card,fontSize:11,color:C.muted,textAlign:"center",padding:24}}>ยังไม่มีพนักงานในระบบ</div>;
+            return (
+            <div>
+              <div style={{fontSize:10,color:C.muted,marginBottom:8,lineHeight:1.5}}>
+                ใครงานล้น ใครงานค้าง ใครส่งตรงเวลา — เรียงคนที่ต้องเข้าไปคุยก่อนไว้บนสุด<br/>
+                <span style={{opacity:.75}}>Who is overloaded, who is behind, who delivers on time — the people to talk to first are at the top.</span>
+              </div>
+              {rows.map(function(r){
+                var flag=r.overdue>0?C.red:r.issues>0?C.gold:r.overloaded?C.blue:C.border;
+                return (
+                <div key={r.id} style={{...gs.card,marginBottom:8,borderLeft:"3px solid "+flag}}>
+                  <div style={{display:"flex",alignItems:"baseline",gap:8,flexWrap:"wrap",marginBottom:6}}>
+                    <div style={{fontSize:12.5,fontWeight:800}}>{r.name}</div>
+                    {r.overloaded&&<span style={{...gs.badge(C.blue),fontSize:9}}>งานล้น / heavy load</span>}
+                    {r.overdue>0&&<span style={{...gs.badge(C.red),fontSize:9}}>เลยกำหนด {r.overdue}</span>}
+                    {r.issues>0&&<span style={{...gs.badge(C.gold),fontSize:9}}>🚩 ติดปัญหา {r.issues}</span>}
+                    <div style={{marginLeft:"auto",fontSize:11,color:C.muted}}>
+                      {r.onTimePct===null?"ยังไม่มีข้อมูลตรงเวลา":("ส่งตรงเวลา "+r.onTimePct+"%")}
+                      {r.rated>0&&<span style={{opacity:.7}}> ({r.onTime}/{r.rated})</span>}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:14,flexWrap:"wrap",fontSize:11}}>
+                    <span>ค้างอยู่ <b style={{fontSize:13}}>{r.open}</b></span>
+                    <span style={{color:r.dueSoon?C.gold:C.muted}}>ใกล้ครบกำหนด <b>{r.dueSoon}</b></span>
+                    <span style={{color:r.overdue?C.red:C.muted}}>เลยกำหนด <b>{r.overdue}</b></span>
+                    <span style={{color:C.green}}>เสร็จแล้ว <b>{r.done}</b></span>
+                    {r.late>0&&<span style={{color:C.muted}}>ส่งช้า {r.late}</span>}
+                  </div>
+                  {r.unknown>0&&<div style={{fontSize:9.5,color:C.muted,marginTop:5}}>
+                    {r.unknown} งานเสร็จก่อนระบบเริ่มบันทึกวันที่ส่ง — ไม่ได้นับในเปอร์เซ็นต์ตรงเวลา
+                  </div>}
+                </div>);
+              })}
+            </div>);
+          })()}
+          {workFilter!=="team"&&list.length===0&&<div style={{...gs.card,fontSize:11,color:C.muted,textAlign:"center",padding:24}}>ยังไม่มีงานในมุมมองนี้{canEdit?" — กด + มอบหมายงาน":""}</div>}
+          {workFilter!=="team"&&list.map(function(t2){
             var over=isOver(t2),iss=hasIssue(t2),exp=expandedTask===t2.id;
             return (
             <div key={t2.id} style={{...gs.card,marginBottom:9,border:"1px solid "+(iss?"rgba(245,158,11,0.5)":over?"rgba(244,63,94,0.5)":t2.status==="done"?"rgba(74,222,128,0.3)":C.border)}}>
