@@ -9,6 +9,10 @@ already done, what is still pending. **Read it before making non-trivial
 changes.** This file is the short version plus the rules that break the build
 if you get them wrong.
 
+**`docs/NEXT-FOR-CODEX.md` is the work queue** — what to pick up next, in
+order, each with a measurable pass mark and a note on what is the owner's job
+rather than a coding one.
+
 ---
 
 ## The one rule that matters most
