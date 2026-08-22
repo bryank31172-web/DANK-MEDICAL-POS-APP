@@ -103,6 +103,39 @@ const LOGO="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAM0AAADcCAYAAADTNiVXAA
 // does, the steps staff actually take there, and the words they ask with.
 // The same text feeds both the canned answers and the AI's system prompt, so
 // the bot can never invent a feature the app doesn't have.
+// ——— assistant lookup block ————————————————————————————————————————————
+// Staff ask about one product by name far more often than they ask anything
+// else — "gelato เหลือเท่าไหร่", "ราคา sour belts". None of that was answerable:
+// the canned replies never looked a product up, and the AI was handed seven
+// lines of headline totals with no per-product data in them, so neither half
+// could answer and the question fell through to a shrug.
+//
+// Matching is deliberately dumb and predictable: strip the noise a till name
+// carries, then take the LONGEST catalogue name contained in the question, so
+// "gelato x" wins over "gelato" when both appear. A two-character match is
+// noise, so the floor is three.
+function asstNorm(s){
+  return String(s||"").toLowerCase()
+    /* every bracket, not just a leading one: the catalogue calls it
+       "Bong XL ( 50 cm )" and nobody types the size when they ask */
+    .replace(/\([^)]*\)/g," ")
+    .replace(/\b\d+(\.\d+)?\s*(g|gram|grams|mg|ml|pc|pcs|pack)\b/g," ")
+    .replace(/[^a-z0-9฀-๿]+/g," ")
+    .trim();
+}
+function asstMatchIndex(question, names){
+  var q=asstNorm(question);
+  if(!q)return -1;
+  var best=-1,bestLen=0;
+  for(var i=0;i<names.length;i++){
+    var n=asstNorm(names[i]);
+    if(n.length<3)continue;
+    if(q.indexOf(n)>=0&&n.length>bestLen){bestLen=n.length;best=i;}
+  }
+  return best;
+}
+// ——— end of the assistant lookup block ————————————————————————————————
+
 const TAB_GUIDE=[
   {id:"shift",name:"🕐 Shift — เข้า/ออกกะ + นับสต๊อก",kw:["เข้ากะ","ออกกะ","ปิดกะ","เปิดกะ","clock","นับสต๊อก","นับของ","เช็คสต๊อก","inventory check"],
    steps:"• เข้ากะ: กดปุ่มเขียว ▶ เข้ากะ → เช็คเครื่องชั่ง (🧪 Test scale) → นับ/ชั่งของทุก SKU — แตะชื่อสินค้าเพื่อเปิดหน้าชั่งทีละตัว หรือกด ⚖ ดึงค่าจากเครื่องชั่ง → ครบแล้วกด ✅ Complete Check\n• ปิดกะ: กดปุ่มแดง ⏹ ปิดกะ → นับ/ชั่งเหมือนเดิม → รายการที่ขาด/เกินต้องเลือกเหตุผลทุกรายการ → ดู Shift Report แล้วยืนยัน\n• ✅ OK = ตรงเป๊ะเท่านั้น · ➕ Over = เกิน · ⚠ Short = ขาด · ขาดเกินกำหนดต้องใส่ Manager PIN"},
@@ -4203,13 +4236,54 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   const asstGreetRef=useRef(false);
   useEffect(function(){if(screen==="main"&&!asstGreetRef.current){asstGreetRef.current=true;var tm=setTimeout(function(){setAsstIntro(true);},1800);return function(){clearTimeout(tm);};}},[screen]);
   const asstBestSellers=function(){var agg={};(_txScoped||[]).forEach(function(t){(t.items||[]).forEach(function(it){var pid=it.productId;if(!pid)return;if(!agg[pid])agg[pid]={s:0,r:0,pid:pid};agg[pid].s+=(+it.quantity||0);agg[pid].r+=(+it.total||0);});});return Object.values(agg).sort(function(a,b){return b.r-a.r;}).slice(0,5).map(function(x){var pr=products.find(function(p){return p.id===x.pid;});return (pr?cleanName(pr).short:("#"+x.pid))+" (฿"+Math.round(x.r).toLocaleString()+")";});};
+  // one product by name: stock, price, margin, and where to go next
+  const asstProductAnswer=function(q){
+    if(!products||!products.length)return null;
+    var names=products.map(function(p){return cleanName(p).short||p.name||"";});
+    var i=asstMatchIndex(q,names);
+    if(i<0)return null;
+    var p=products[i],nm=names[i];
+    var stock=+p.stock||0;
+    var price=+p.price||0;
+    var cost=_cogsMap.get(p.id)||0;
+    var estimated=!(+p.cost>0&&+p.cost<=price);
+    var back=(backstock&&backstock[p.id])?(+backstock[p.id]||0):0;
+    var L=["📦 "+nm];
+    L.push("• คงเหลือขายได้ / sellable: "+fmtW(stock)+" "+(p.unit||"pc")+(stock<=0?"  ⚠ หมด":""));
+    if(back>0)L.push("• สต็อกหลังร้าน (ยังไม่เข้าขาย): "+fmtW(back)+" "+(p.unit||"pc"));
+    if(price>0)L.push("• ราคา: ฿"+price.toLocaleString()+" /"+(p.unit||"pc"));
+    if(price>0&&cost>0){
+      var m=price-cost,pct=Math.round(m/price*1000)/10;
+      L.push("• ต้นทุน ฿"+Math.round(cost).toLocaleString()+" → กำไร ฿"+Math.round(m).toLocaleString()+" ("+pct+"%)"+(estimated?"  ⚠ ต้นทุนเป็นค่าประมาณ ยังไม่ได้ใส่ใน StoreHub":""));
+    } else if(price>0){
+      L.push("• ยังไม่มีต้นทุนในระบบ — กำไรคำนวณไม่ได้");
+    }
+    if(p.cat)L.push("• หมวด: "+p.cat);
+    return {text:L.join("\n")+"\n\n👇 กดดูในหน้าสต็อก",nav:"inventory"};
+  };
+  // one cocktail by name, from the bar's own cost sheets
+  const asstRecipeAnswer=function(q){
+    var i=asstMatchIndex(q,BAR_RECIPES.map(function(r){return r.name;}));
+    if(i<0)return null;
+    var r=BAR_RECIPES[i];
+    var L=["🍸 "+r.name+"  ·  ต้นทุน ฿"+r.cost+"  ·  แก้ว: "+r.glass];
+    L.push("");
+    r.ing.forEach(function(x){L.push("• "+x[0]+" — "+x[1]+(x[2]?("  (฿"+x[2]+")"):""));});
+    L.push("");
+    r.method.forEach(function(m,k){L.push((k+1)+". "+m);});
+    if(r.garnish)L.push("🌿 "+r.garnish);
+    if(r.note)L.push("\n⚠ "+r.note);
+    return {text:L.join("\n")+"\n\n👇 เปิดหน้าบาร์เพื่อติ๊กตามขั้นตอน",nav:"bar"};
+  };
   const asstAnswer=function(qq){
     var q=String(qq||"").toLowerCase();
     var has=function(){for(var i=0;i<arguments.length;i++){if(q.indexOf(arguments[i])>=0)return true;}return false;};
     var today=new Date(Date.now()+7*3600*1000).toISOString().slice(0,10);
     var td=(salesData||[]).find(function(d){return d.date===today;});
     var perLbl=_dashPeriodLabel||({day:"วันนี้",month:"เดือนนี้",quarter:"ไตรมาส",year:"ปีนี้",all:"ทั้งหมด"})[dashPeriod];
-    if(has("ยอดขาย","รายได้","sales","revenue","ขายได้","วันนี้","today"))
+    // "วันนี้"/"today" alone used to land here, so "วันนี้ใครเข้ากะ" answered
+    // with a sales card. The question has to actually be about takings.
+    if(has("ยอดขาย","รายได้","sales","revenue","ขายได้","ยอดวันนี้","ได้เท่าไหร่"))
       return "📊 ยอดขาย ("+((stores.find(function(s){return s.id===activeBranch;})||{name:"ทุกสาขา"}).name)+")\n• วันนี้: ฿"+Math.round(td?td.sales:0).toLocaleString()+" ("+(td?td.bills:0)+" บิล)\n• รวม "+perLbl+": ฿"+Math.round(totalRev).toLocaleString()+" · "+totalBills+" บิล · เฉลี่ย ฿"+avgBasket.toFixed(0)+"/บิล\nดูละเอียดที่แท็บ Dashboard — เลือกช่วงเวลา/สาขาได้";
     if(has("ใกล้หมด","สต็อก","stock","reorder","restock","สั่งของ","ของหมด","low"))
       return "📦 สต็อกใกล้หมด/หมด: "+lowStock.length+" รายการ"+(lowStock.length?"\n"+lowStock.slice(0,8).map(function(p){return "• "+cleanName(p).short+" — เหลือ "+p.stock+(p.unit||"")+" (เตือนที่ "+p.alert+")";}).join("\n"):"\n✅ ไม่มีของใกล้หมด")+"\nไป Stock → Reorder เพื่อสั่ง หรือ 📥 Receive รับของเข้า";
@@ -4240,10 +4314,47 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       return "🤖 ฉันช่วยได้เรื่องเหล่านี้ — ลองกดเลย:\n• 'ยอดขายวันนี้'\n• 'สต็อกใกล้หมด'\n• 'สินค้าขายดี'\n• 'วิธีปิดกะ' / 'วิธีเข้ากะ'\n• 'วิธีรับของ'\n• 'ส่วนลดสมาชิก' · 'VAT'\nหรือถามอะไรก็ได้ แล้วกด 📋 ถาม Grok";
     return null;
   };
+  // What the AI is told about the shop. This used to be seven lines of
+  // headline totals, which is why it could not answer most of what staff
+  // actually ask: no profit, no expenses, no per-product stock or price, no
+  // idea who was on shift. It was being asked to run the shop through a
+  // keyhole. The product list is the expensive part, so it is capped and
+  // ordered by what matters — anything out of stock or running low first,
+  // since that is what gets asked about.
   const asstBuildContext=function(){
     var today=new Date(Date.now()+7*3600*1000).toISOString().slice(0,10);
     var td=(salesData||[]).find(function(d){return d.date===today;});
-    return "ข้อมูลร้าน CLINICWORKS (Dank Cannabis Bangkok):\n- สาขา: "+((stores.find(function(s){return s.id===activeBranch;})||{name:"ทุกสาขา"}).name)+"\n- ยอดขายวันนี้: ฿"+Math.round(td?td.sales:0).toLocaleString()+" ("+(td?td.bills:0)+" บิล)\n- ยอดรวม("+dashPeriod+"): ฿"+Math.round(totalRev).toLocaleString()+", "+totalBills+" บิล, เฉลี่ย ฿"+avgBasket.toFixed(0)+"/บิล\n- สินค้า: "+products.length+" รายการ, ใกล้หมด "+lowStock.length+"\n- ลูกค้า "+customers.length+", พนักงาน "+staff.filter(function(s){return s.approved!==false;}).length+"\n- ขายดี: "+asstBestSellers().slice(0,5).join(", ");
+    var perLbl=_dashPeriodLabel||({day:"วันนี้",month:"เดือนนี้",quarter:"ไตรมาส",year:"ปีนี้",all:"ทั้งหมด"})[dashPeriod];
+    var branch=(stores.find(function(s){return s.id===activeBranch;})||{name:"ทุกสาขา"}).name;
+    var onShift=(shifts||[]).filter(function(x){return !x.outAt;});
+    var L=[];
+    L.push("ข้อมูลร้าน CLINICWORKS (Dank Cannabis Bangkok) ณ "+new Date(Date.now()+7*3600*1000).toISOString().slice(0,16).replace("T"," "));
+    L.push("สาขาที่กำลังดู: "+branch+" · ช่วงเวลา: "+perLbl);
+    L.push("");
+    L.push("ยอดขาย/กำไร:");
+    L.push("- วันนี้: ฿"+Math.round(td?td.sales:0).toLocaleString()+" ("+(td?td.bills:0)+" บิล)");
+    L.push("- รวมช่วงที่เลือก: ฿"+Math.round(totalRev).toLocaleString()+", "+totalBills+" บิล, เฉลี่ย ฿"+avgBasket.toFixed(0)+"/บิล");
+    L.push("- กำไรขั้นต้น (ขาย−ทุน): ฿"+Math.round(_netProfit).toLocaleString()+" · ต้นทุนขาย ฿"+Math.round(_cogsTotal).toLocaleString());
+    L.push("- ค่าใช้จ่ายคงที่ที่ตั้งไว้: ฿"+Math.round(_expMonthly||0).toLocaleString()+"/เดือน");
+    L.push("");
+    L.push("คน:");
+    L.push("- กำลังเข้ากะ: "+(onShift.length?onShift.map(function(x){return x.staffName||x.name||"?";}).join(", "):"ไม่มีใครเข้ากะ"));
+    L.push("- พนักงานทั้งหมด "+staff.filter(function(s2){return s2.approved!==false;}).length+" คน · ลูกค้าในระบบ "+customers.length+" คน");
+    L.push("");
+    L.push("สินค้าขายดี: "+asstBestSellers().slice(0,5).join(", "));
+    L.push("");
+    /* out of stock first, then low, then the rest — the tail is what gets cut */
+    var rank=function(p){var st=+p.stock||0;var lo=+p.alert||0;if(st<=0)return 0;if(lo>0&&st<=lo)return 1;return 2;};
+    var listed=products.slice().sort(function(a,b){var r=rank(a)-rank(b);return r||String(cleanName(a).short).localeCompare(String(cleanName(b).short));}).slice(0,120);
+    L.push("สินค้า "+products.length+" รายการ (ใกล้หมด/หมด "+lowStock.length+") — แสดง "+listed.length+" รายการแรก, ชื่อ | คงเหลือ | ราคา | ต้นทุน:");
+    listed.forEach(function(p){
+      var c=_cogsMap.get(p.id)||0;
+      L.push("- "+cleanName(p).short+" | "+fmtW(+p.stock||0)+(p.unit||"pc")+" | ฿"+Math.round(+p.price||0)+" | ฿"+Math.round(c)+((+p.cost>0&&+p.cost<=(+p.price||0))?"":" (ประมาณ)"));
+    });
+    if(products.length>listed.length)L.push("- (อีก "+(products.length-listed.length)+" รายการไม่ได้แสดง — ถ้าถามถึงชื่อที่ไม่อยู่ในนี้ ให้บอกว่าไม่แน่ใจ อย่าเดาตัวเลข)");
+    L.push("");
+    L.push("เมนูบาร์ที่มีสูตร: "+BAR_RECIPES.map(function(r){return r.name+" (฿"+r.cost+")";}).join(", "));
+    return L.join("\n");
   };
   const buildFullSummary=function(){
     var today=new Date(Date.now()+7*3600*1000).toISOString().slice(0,10);var td=(salesData||[]).find(function(d){return d.date===today;});
@@ -4292,7 +4403,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   };
   const asstSend=function(text){
     var q=String(text!==undefined?text:asstQ||"").trim(); if(!q)return;
-    var ans=asstAnswer(q);
+    var ans=asstProductAnswer(q)||asstRecipeAnswer(q)||asstAnswer(q);
     if(typeof ans==="string")ans={text:ans,nav:asstGotoFor(ans)};
     setAsstQ("");
     if(ans){setAsstMsgs(function(p){return p.concat([{role:"user",text:q},{role:"bot",text:ans.text,nav:ans.nav}]);});return;}
