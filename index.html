@@ -8061,7 +8061,23 @@ function GreenPOS() {
       });
     } }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 12, lineHeight: 1.6 } }, "\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2B\u0E49\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2B\u0E23\u0E37\u0E2D CEO \u0E43\u0E2A\u0E48 PIN \u0E02\u0E2D\u0E07\u0E40\u0E02\u0E32\u0E40\u0E2D\u0E07\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 \xB7 A manager or the owner must enter their own PIN to approve this."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRegister(false), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { onClick: handleClaimPin, disabled: claimBusy, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { flex: 1 }) }, "\u{1F511} \u0E15\u0E31\u0E49\u0E07 PIN + \u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19"))) : /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.muted, marginBottom: 12, padding: "10px 12px", background: C.card2, borderRadius: 8, textAlign: "center" } }, '\u0E17\u0E38\u0E01\u0E04\u0E19\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E21\u0E35 PIN \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E16\u0E49\u0E32\u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48 \u0E01\u0E14 "\u{1F195} \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E2B\u0E21\u0E48 New" \u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1A\u0E31\u0E0D\u0E0A\u0E35'), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRegister(false), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { width: "100%", border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14"));
   })()))));
-  return /* @__PURE__ */ React.createElement("div", { key: lang, style: gs.app }, notif && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", top: 14, right: 14, background: notif.type === "error" ? C.red : C.accent, color: "#000", padding: "10px 16px", borderRadius: 11, fontWeight: 700, zIndex: 9999, fontSize: 13, boxShadow: `0 8px 28px ${notif.type === "error" ? "rgba(244,63,94,0.4)" : "rgba(74,222,128,0.4)"}`, maxWidth: 290 } }, notif.msg), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(13,20,16,0.95)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}`, padding: mob ? "9px 12px" : "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } }, /* @__PURE__ */ React.createElement(CWMark, { size: mob ? 40 : 48 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: mob ? 13.5 : 15, letterSpacing: "0.015em" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "#f2f5f3" } }, "CLINIC"), /* @__PURE__ */ React.createElement("span", { style: { color: "#4ade80" } }, "WORKS")), !mob && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 7.5, color: "#7f9c86", letterSpacing: "0.18em", textTransform: "uppercase" } }, "CANNABIS POS")), stores.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginLeft: 8, overflowX: "auto", maxWidth: mob ? 150 : 430 } }, [{ id: "all", name: "All" }].concat(stores).map(function(b) {
+  return /* @__PURE__ */ React.createElement("div", { key: lang, style: gs.app }, notif && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", top: 14, right: 14, background: notif.type === "error" ? C.red : C.accent, color: "#000", padding: "10px 16px", borderRadius: 11, fontWeight: 700, zIndex: 9999, fontSize: 13, boxShadow: `0 8px 28px ${notif.type === "error" ? "rgba(244,63,94,0.4)" : "rgba(74,222,128,0.4)"}`, maxWidth: 290 } }, notif.msg), /* @__PURE__ */ React.createElement("div", { style: {
+    background: "rgba(13,20,16,0.95)",
+    backdropFilter: "blur(12px)",
+    borderBottom: `1px solid ${C.border}`,
+    padding: mob ? "9px 12px" : "11px 18px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    position: "sticky",
+    top: 0,
+    zIndex: 100,
+    /* the two groups below hold more than 390px of controls; letting the row
+       wrap keeps every one of them reachable, where nowrap pushed the whole
+       document sideways and hid the ones on the right */
+    flexWrap: mob ? "wrap" : "nowrap",
+    rowGap: mob ? 7 : 0
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, minWidth: 0, flexShrink: 1 } }, /* @__PURE__ */ React.createElement(CWMark, { size: mob ? 40 : 48 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: mob ? 13.5 : 15, letterSpacing: "0.015em" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "#f2f5f3" } }, "CLINIC"), /* @__PURE__ */ React.createElement("span", { style: { color: "#4ade80" } }, "WORKS")), !mob && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 7.5, color: "#7f9c86", letterSpacing: "0.18em", textTransform: "uppercase" } }, "CANNABIS POS")), stores.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginLeft: 8, overflowX: "auto", maxWidth: mob ? 150 : 430 } }, [{ id: "all", name: "All" }].concat(stores).map(function(b) {
     var on = activeBranch === b.id;
     var lbl = String(b.name || "").replace(/^dank\s*/i, "") || b.name;
     return /* @__PURE__ */ React.createElement("button", { key: b.id, onClick: function() {
@@ -8078,7 +8094,7 @@ function GreenPOS() {
     color: C.accent,
     fontWeight: 700,
     cursor: "pointer"
-  }, onClick: () => setActiveTab("orders") }, "\u{1F310} ", orders.filter((o) => o.status === "pending").length, " New Orders")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7 } }, /* @__PURE__ */ React.createElement("select", { value: lang, onChange: (e) => setLang(e.target.value), style: { background: C.card2, border: `1px solid ${C.border}`, borderRadius: 7, padding: "3px 6px", color: C.text, fontSize: 11, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("option", { value: "en" }, "\u{1F1EC}\u{1F1E7} English"), /* @__PURE__ */ React.createElement("option", { value: "th" }, "\u{1F1F9}\u{1F1ED} \u0E44\u0E17\u0E22"), /* @__PURE__ */ React.createElement("option", { value: "my" }, "\u{1F1F2}\u{1F1F2} \u1019\u103C\u1014\u103A\u1019\u102C"), /* @__PURE__ */ React.createElement("option", { value: "zh" }, "\u{1F1E8}\u{1F1F3} \u4E2D\u6587"), /* @__PURE__ */ React.createElement("option", { value: "ja" }, "\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, background: C.card2, borderRadius: 9, padding: "4px 9px", border: `1px solid ${C.border}` } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13 } }, currentStaff == null ? void 0 : currentStaff.avatar), !mob && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700 } }, currentStaff == null ? void 0 : currentStaff.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.accent, textTransform: "capitalize" } }, currentStaff == null ? void 0 : currentStaff.role))), /* @__PURE__ */ React.createElement("button", { onClick: syncStorehub, title: "StoreHub Sync", style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${C.border}` }) }, syncStatus === "syncing" ? "\u23F3" : "\u{1F504}"), /* @__PURE__ */ React.createElement("button", { title: "Age Verification Log", onClick: () => setShowAgeVerif(true), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${ageVerifLog.length > 0 ? "rgba(74,222,128,0.3)" : C.border}`, position: "relative" }) }, "\u{1FAAA}", ageVerifLog.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: -4, right: -4, background: C.green, color: "#000", borderRadius: "50%", width: 14, height: 14, fontSize: 8, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" } }, ageVerifLog.length)), /* @__PURE__ */ React.createElement("button", { title: "Sync with StoreHub", style: __spreadProps(__spreadValues({}, gs.btn(syncStatus === "syncing" ? C.card2 : syncStatus === "success" ? "rgba(74,222,128,0.15)" : C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${syncStatus === "success" ? "rgba(74,222,128,0.3)" : C.border}` }) }, syncStatus === "syncing" ? "\u23F3" : syncStatus === "success" ? "\u2705" : "\u{1F504}"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  }, onClick: () => setActiveTab("orders") }, "\u{1F310} ", orders.filter((o) => o.status === "pending").length, " New Orders")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexShrink: 1, flexWrap: mob ? "wrap" : "nowrap" } }, /* @__PURE__ */ React.createElement("select", { value: lang, onChange: (e) => setLang(e.target.value), style: { background: C.card2, border: `1px solid ${C.border}`, borderRadius: 7, padding: "3px 6px", color: C.text, fontSize: 11, cursor: "pointer", maxWidth: mob ? 70 : void 0, minHeight: 32 } }, /* @__PURE__ */ React.createElement("option", { value: "en" }, "\u{1F1EC}\u{1F1E7} English"), /* @__PURE__ */ React.createElement("option", { value: "th" }, "\u{1F1F9}\u{1F1ED} \u0E44\u0E17\u0E22"), /* @__PURE__ */ React.createElement("option", { value: "my" }, "\u{1F1F2}\u{1F1F2} \u1019\u103C\u1014\u103A\u1019\u102C"), /* @__PURE__ */ React.createElement("option", { value: "zh" }, "\u{1F1E8}\u{1F1F3} \u4E2D\u6587"), /* @__PURE__ */ React.createElement("option", { value: "ja" }, "\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, background: C.card2, borderRadius: 9, padding: "4px 9px", border: `1px solid ${C.border}` } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13 } }, currentStaff == null ? void 0 : currentStaff.avatar), !mob && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700 } }, currentStaff == null ? void 0 : currentStaff.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.accent, textTransform: "capitalize" } }, currentStaff == null ? void 0 : currentStaff.role))), /* @__PURE__ */ React.createElement("button", { onClick: syncStorehub, title: "StoreHub Sync", style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${C.border}` }) }, syncStatus === "syncing" ? "\u23F3" : "\u{1F504}"), /* @__PURE__ */ React.createElement("button", { title: "Age Verification Log", onClick: () => setShowAgeVerif(true), style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${ageVerifLog.length > 0 ? "rgba(74,222,128,0.3)" : C.border}`, position: "relative" }) }, "\u{1FAAA}", ageVerifLog.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: -4, right: -4, background: C.green, color: "#000", borderRadius: "50%", width: 14, height: 14, fontSize: 8, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" } }, ageVerifLog.length)), /* @__PURE__ */ React.createElement("button", { title: "Sync with StoreHub", style: __spreadProps(__spreadValues({}, gs.btn(syncStatus === "syncing" ? C.card2 : syncStatus === "success" ? "rgba(74,222,128,0.15)" : C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${syncStatus === "success" ? "rgba(74,222,128,0.3)" : C.border}` }) }, syncStatus === "syncing" ? "\u23F3" : syncStatus === "success" ? "\u2705" : "\u{1F504}"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
     setCurrentStaff(null);
     setScreen("login");
     setCart([]);
@@ -8087,14 +8103,16 @@ function GreenPOS() {
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { padding: "5px 9px", fontSize: 11, border: `1px solid ${C.border}` }) }, "\u23CF"))), (function() {
     var HIDDEN_IDS = { rewards: 1, medical: 1, affiliate: 1, notif: 1, aisum: 1 };
     var MORE_IDS = { kitchen: 1, api: 1, scale: 1, marketing: 1, bar: 1 };
+    var MOB_PRIMARY = { pos: 1, inventory: 1, crm: 1, shift: 1 };
     var visibleTabs = TABS.filter(function(t2) {
       return !HIDDEN_IDS[t2.id];
     });
-    var primaryTabs = visibleTabs.filter(function(t2) {
-      return !MORE_IDS[t2.id];
-    });
+    var isPrimary = function(t2) {
+      return mob ? !!MOB_PRIMARY[t2.id] : !MORE_IDS[t2.id];
+    };
+    var primaryTabs = visibleTabs.filter(isPrimary);
     var moreTabs = visibleTabs.filter(function(t2) {
-      return MORE_IDS[t2.id];
+      return !isPrimary(t2);
     });
     var moreActive = moreTabs.some(function(t2) {
       return t2.id === activeTab;
@@ -8115,16 +8133,25 @@ function GreenPOS() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 1,
+        gap: 2,
         transition: "color 0.15s",
-        minWidth: mob ? 48 : void 0
-      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 16 : 15 } }, tab2.icon), /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 8 : 10, fontWeight: activeTab === tab2.id ? 700 : 500, letterSpacing: "0.01em", lineHeight: 1.2 } }, tab2.label), tab2.id === "work" && currentStaff && tasks.filter(function(t2) {
+        minWidth: mob ? 0 : void 0,
+        flex: mob ? "1 1 0" : void 0,
+        minHeight: mob ? 46 : void 0
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 17 : 15 } }, tab2.icon), /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 11 : 10, fontWeight: activeTab === tab2.id ? 700 : 500, letterSpacing: "0.01em", lineHeight: 1.2 } }, tab2.label), tab2.id === "work" && currentStaff && tasks.filter(function(t2) {
         return t2.assigneeId === currentStaff.id && t2.status !== "done";
       }).length > 0 && /* @__PURE__ */ React.createElement("span", { style: { background: C.gold, color: "#000", borderRadius: "50%", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800 } }, tasks.filter(function(t2) {
         return t2.assigneeId === currentStaff.id && t2.status !== "done";
       }).length), tab2.id === "orders" && orders.filter((o) => o.status === "pending").length > 0 && /* @__PURE__ */ React.createElement("span", { style: { background: C.accent, color: "#08130c", borderRadius: "50%", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800 } }, orders.filter((o) => o.status === "pending").length));
     };
-    return /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { background: C.card, borderBottom: `1px solid ${C.border}`, display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } }, primaryTabs.map(renderTabBtn), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMoreMenu(function(v) {
+    return /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: {
+      background: C.card,
+      borderBottom: `1px solid ${C.border}`,
+      display: "flex",
+      overflowX: mob ? "visible" : "auto",
+      WebkitOverflowScrolling: "touch",
+      scrollbarWidth: "none"
+    } }, primaryTabs.map(renderTabBtn), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMoreMenu(function(v) {
       return !v;
     }), style: {
       background: "none",
@@ -8138,16 +8165,36 @@ function GreenPOS() {
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      gap: 1,
+      gap: 2,
       transition: "color 0.15s",
-      minWidth: mob ? 48 : void 0
-    } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 16 : 15 } }, "\u22EF"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 8 : 10, fontWeight: moreActive ? 700 : 500, letterSpacing: "0.01em", lineHeight: 1.2 } }, "More"))), showMoreMenu && /* @__PURE__ */ React.createElement("div", { onClick: () => setShowMoreMenu(false), style: { position: "fixed", inset: 0, zIndex: 998 } }, /* @__PURE__ */ React.createElement("div", { onClick: function(e) {
+      minWidth: mob ? 0 : void 0,
+      flex: mob ? "1 1 0" : void 0,
+      minHeight: mob ? 46 : void 0
+    } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 17 : 15 } }, "\u22EF"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: mob ? 11 : 10, fontWeight: moreActive ? 700 : 500, letterSpacing: "0.01em", lineHeight: 1.2 } }, "More"))), showMoreMenu && /* @__PURE__ */ React.createElement("div", { onClick: () => setShowMoreMenu(false), style: { position: "fixed", inset: 0, zIndex: 998 } }, /* @__PURE__ */ React.createElement("div", { onClick: function(e) {
       e.stopPropagation();
-    }, style: { position: "absolute", top: mob ? 92 : 104, right: mob ? 8 : 16, zIndex: 999, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 10px 30px rgba(0,0,0,0.4)", display: "grid", gridTemplateColumns: mob ? "repeat(3,1fr)" : "repeat(5,1fr)", gap: 2, padding: 8, minWidth: mob ? 260 : 360 } }, moreTabs.map(function(tab2) {
+    }, style: {
+      position: "absolute",
+      top: mob ? 92 : 104,
+      right: mob ? 8 : 16,
+      zIndex: 999,
+      background: C.card,
+      border: `1px solid ${C.border}`,
+      borderRadius: 12,
+      boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
+      display: "grid",
+      gridTemplateColumns: mob ? "repeat(3,1fr)" : "repeat(5,1fr)",
+      gap: 2,
+      padding: 8,
+      minWidth: mob ? 260 : 360,
+      maxWidth: mob ? "calc(100vw - 16px)" : void 0,
+      /* the menu now holds most of the app, so it has to be able to scroll */
+      maxHeight: "calc(100vh - 140px)",
+      overflowY: "auto"
+    } }, moreTabs.map(function(tab2) {
       return /* @__PURE__ */ React.createElement("button", { key: tab2.id, onClick: () => {
         setActiveTab(tab2.id);
         setShowMoreMenu(false);
-      }, style: { background: activeTab === tab2.id ? "rgba(74,222,128,0.12)" : "none", border: "none", borderRadius: 9, padding: "8px 4px", color: activeTab === tab2.id ? C.accentBright : C.text, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 18 } }, tab2.icon), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, fontWeight: activeTab === tab2.id ? 700 : 500, textAlign: "center", lineHeight: 1.2 } }, tab2.label));
+      }, style: { background: activeTab === tab2.id ? "rgba(74,222,128,0.12)" : "none", border: "none", borderRadius: 9, padding: "8px 4px", color: activeTab === tab2.id ? C.accentBright : C.text, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minHeight: 56 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 19 } }, tab2.icon), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, fontWeight: activeTab === tab2.id ? 700 : 500, textAlign: "center", lineHeight: 1.2 } }, tab2.label));
     }))));
   })(), activeTab === "shift" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900, marginBottom: 4 } }, "\u{1F550} \u0E01\u0E30\u0E17\u0E33\u0E07\u0E32\u0E19 \xB7 Shift Clock In / Out"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginBottom: 12, lineHeight: 1.7 } }, "\u0E40\u0E02\u0E49\u0E32\u0E01\u0E30 = \u0E19\u0E31\u0E1A/\u0E0A\u0E31\u0E48\u0E07\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E17\u0E38\u0E01 SKU \u0E01\u0E48\u0E2D\u0E19\u0E40\u0E23\u0E34\u0E48\u0E21\u0E07\u0E32\u0E19 \xB7 \u0E1B\u0E34\u0E14\u0E01\u0E30 = \u0E19\u0E31\u0E1A/\u0E0A\u0E31\u0E48\u0E07\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u2192 \u0E23\u0E30\u0E1A\u0E1A\u0E42\u0E0A\u0E27\u0E4C\u0E2A\u0E48\u0E27\u0E19\u0E15\u0E48\u0E32\u0E07\u0E2A\u0E15\u0E4A\u0E2D\u0E01 \u2192 \u0E01\u0E23\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19 + \u0E04\u0E27\u0E32\u0E21\u0E04\u0E34\u0E14\u0E40\u0E2B\u0E47\u0E19 \u2192 \u0E01\u0E14\u0E1B\u0E34\u0E14\u0E01\u0E30"), currentStaff && (function() {
     var op = openShiftOf(currentStaff.id);
