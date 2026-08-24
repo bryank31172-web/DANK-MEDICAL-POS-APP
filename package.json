@@ -12,9 +12,12 @@
     "docs:pack": "node docs/build-briefing-pack.cjs",
     "ux:audit": "node docs/ux-audit.mjs",
     "ux:brief": "node docs/build-ux-brief.cjs",
-    "docs:sku": "node docs/build-sku-summary.cjs"
+    "docs:sku": "node docs/build-sku-summary.cjs",
+    "docs:whatsleft": "node docs/build-what-is-left.cjs",
+    "docs:whatsleft:shots": "node docs/deck-shots/capture.mjs"
   },
   "devDependencies": {
-    "marked": "^18.0.9"
+    "marked": "^18.0.9",
+    "pptxgenjs": "^4.0.1"
   }
 }
