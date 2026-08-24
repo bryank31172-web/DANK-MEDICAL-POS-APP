@@ -77,16 +77,33 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
    website — the POS draws the name and price over the tile, so a card with baked-in text
    double-prints. Variant A (3:2, with text) is for IG and menu boards. The till pulls photos
    from `products.json` by name, so adding them there lights up POS and website at once.
-5. Petchaboon/Phuket fixed-cost budgets are 0 — owner sets them in-app (Finance → 💸 → ✏ แก้งบ).
-6. Delete the duplicate Vercel project `dankbkk-site-4jrn` once the live domain is confirmed
+5. **Set `STOREHUB_PUSH_ORDERS=1` on `dankbkk-site`.** The order code is done and tested;
+   without the variable every website order records `stock:{status:"skipped"}` and the shop
+   keeps selling what the site already sold. One setting, not a code change.
+6. **Enter the real costs in StoreHub, best sellers first.** The app now reports what share
+   of revenue rests on real costs rather than estimates — every margin, the net profit and
+   any pricing decision is only as good as that number. `docs/sku-summary.pdf` is the
+   worksheet; the in-app export's `no-cost` flag names the rows still missing one. This is
+   the highest-value item on the list and it is data entry, not development.
+7. Petchaboon/Phuket fixed-cost budgets are 0 — owner sets them in-app (Finance → 💸 → ✏ แก้งบ).
+8. Delete the duplicate Vercel project `dankbkk-site-4jrn` once the live domain is confirmed
    to point at `dankbkk-site` — otherwise every env var has to be set twice, forever.
-7. Root HTML pages that belong to the customer site — `staff.html`, `build-your-joint.html`,
+9. Root HTML pages that belong to the customer site — `staff.html`, `build-your-joint.html`,
    `labels.html`, `status.html`, `SUMMARY.html`, plus the `i18n.js` all four load. Awaiting
    the owner's word on which are still in daily use before removing.
-8. Decide the customer site's menu source: the curated 53-item `products.json` (clean names +
+10. Decide the customer site's menu source: the curated 53-item `products.json` (clean names +
    photos) vs the raw 395-item POS feed it serves today (`( Bar ) Tequila shot`).
 
 ## Done and verified — do not re-litigate
+- **Customers who owe the shop is a finished feature, not a missing one**: on-account sales
+  with a per-customer credit limit that blocks the sale, balance netted against recorded
+  payments, days outstanding, over-limit badge and LINE alert. It lives in the Finance tab
+  and a Dashboard card now points at it — it was asked for twice because nobody could find it.
+- SKU margin: `skuMarginRows()` feeds both the on-screen table and the CSV, covers every SKU
+  rather than only what sold, and never reports 100% margin for a product with no cost.
+- Dashboard periods step backwards with ◀ ▶; the KPI subtitles print the date being viewed.
+- The assistant answers a named product or cocktail from app state without needing an AI key.
+- Work board has a manager view: who is overloaded, who delivers on time (`teamWorkload()`).
 - **StoreHub is connected** (396 products, Pattanakarn 373 / Sathorn 373 / Bars 23).
 - Claim-PIN hole closed: a claim now needs a manager or owner PIN checked by `/api/staff-auth`,
   fails closed offline, and the break-glass shuts itself the moment `MASTER_PIN` exists.
