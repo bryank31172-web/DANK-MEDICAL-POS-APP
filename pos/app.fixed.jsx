@@ -3680,6 +3680,20 @@ function GreenPOS() {
   })();
   const _arTotal=_arDebtors.reduce(function(s,d){return s+d.owed;},0);
   const _arOwedMap=(function(){var m={};_arDebtors.forEach(function(d){if(d.owed>0)m[String(d.customerId)]=d;});return m;})();
+  // Money owed to the shop belongs on the screen the owner opens every day.
+  // The debtor list itself has been in the Finance tab all along, below the
+  // VAT and income blocks, which is why nobody knew it was there — so the
+  // card carries `go` and jumps straight to it rather than opening the KPI
+  // detail sheet the other cards use.
+  (function(){
+    var n=_arDebtors.filter(function(d){return d.owed>0;}).length;
+    var oldest=_arDebtors.reduce(function(a,d){return (d.oldest&&(!a||d.oldest<a))?d.oldest:a;},null);
+    var days=oldest?Math.max(0,Math.floor((Date.now()-new Date(oldest+"T00:00:00Z").getTime())/86400000)):null;
+    _dashKpi.push({l:"ค้างชำระ / Owed to shop",
+      v:"฿"+Math.round(_arTotal).toLocaleString(),
+      s:n?(n+" ราย"+(days!==null?(" · ค้างนานสุด "+days+" วัน"):"")):"ไม่มีลูกหนี้ / nobody owes",
+      c:_arTotal>0?C.red:C.green,i:"🧾",go:"finance",scrollTo:"ar-block"});
+  })();
   // ── Daily LINE digest — low stock + AR over-limit rollup. Client-only app has
   // no server-side cron, so this fires at most once per Bangkok calendar day,
   // triggered whenever the app happens to be open (checked on load + whenever
@@ -5872,7 +5886,12 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           <div style={{display:dashView==="kpi"?"block":"none"}}>
           <div style={{display:"grid",gridTemplateColumns:_dashGrid,gap:mob?8:11,marginBottom:14,gridAutoRows:"1fr",alignItems:"stretch"}}>
             {_dashKpi.map((k,i)=>(
-              <div key={i} className="lift" onClick={function(){setDashDetail(k.l);}} style={{...gs.card,position:"relative",overflow:"hidden",cursor:"pointer",padding:mob?"12px 13px 22px":"15px 17px 24px",display:"flex",flexDirection:"column",height:"100%"}}>
+              <div key={i} className="lift" onClick={function(){
+                  if(!k.go){setDashDetail(k.l);return;}
+                  setActiveTab(k.go);
+                  /* the tab has to render before the block exists to scroll to */
+                  if(k.scrollTo)setTimeout(function(){var el=document.getElementById(k.scrollTo);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});},220);
+                }} style={{...gs.card,position:"relative",overflow:"hidden",cursor:"pointer",padding:mob?"12px 13px 22px":"15px 17px 24px",display:"flex",flexDirection:"column",height:"100%"}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg,"+k.c+","+k.c+"00)",opacity:0.85}}/>
                 <div style={{fontSize:mob?15:17,position:"absolute",top:mob?11:14,right:mob?12:15,opacity:0.32}}>{k.i}</div>
                 <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:mob?6:8,paddingRight:22}}>
@@ -6655,7 +6674,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:900,paddingTop:7,borderTop:"1px solid "+C.border,marginTop:4}}><span>รวม / Total</span><span style={{color:C.green}}>฿{Math.round(_incomeTotal).toLocaleString()}</span></div>
           </div>
           {/* Accounts Receivable — customers who owe the shop */}
-          <div style={{...gs.card,marginBottom:14,border:"1px solid "+C.red+"55"}}>
+          <div id="ar-block" style={{...gs.card,marginBottom:14,border:"1px solid "+C.red+"55",scrollMarginTop:12}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3,flexWrap:"wrap",gap:6}}>
               <div style={{fontSize:12,fontWeight:700}}>🧾 ลูกหนี้ · Customers Who Owe The Shop</div>
               <button onClick={function(){setArAddForm({customerId:"",amount:"",note:""});setShowARAdd(true);}} style={{...gs.btn(C.card2,"#fff"),fontSize:9,padding:"4px 9px",border:"1px solid "+C.border}}>+ เพิ่มยอดค้าง / Add Debt</button>
