@@ -1657,6 +1657,9 @@ function GreenPOS() {
   const [finView,setFinView]=useState("overview");
   const [dashView,setDashView]=useState("kpi");
   const [showProdProfit,setShowProdProfit]=useState(false);
+  // the table opens on the whole catalogue: a SKU that sold nothing is the
+  // row an owner most needs, and it was the one the old aggregation dropped
+  const [prodProfitAll,setProdProfitAll]=useState(true);
   const [showExpModal,setShowExpModal]=useState(false);
   const [newExp,setNewExp]=useState({cat:"rent",amount:"",note:"",date:new Date().toISOString().split("T")[0],branch:""});
   const [monthTarget,setMonthTarget]=useState(1000000);
@@ -8983,26 +8986,26 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
         </div>
         );})()}
       {showProdProfit&&(function(){
-        var agg={};
-        _txScoped.forEach(function(t){
-          var d=String(t.transactionTime||"").slice(0,10);if(!d||!_inDashPeriod(d))return;
-          (t.items||[]).forEach(function(it){
-            var q=+it.quantity||0,tt=+it.total||0;var k=String(it.productId||("x-"+(it.name||"?")));
-            if(!agg[k])agg[k]={pid:it.productId,name:it.name||it.productName||_prodNameMap.get(String(it.productId))||(it.productId?("#"+String(it.productId).slice(-6)):"อื่นๆ / Other"),unit:_prodUnitMap.get(it.productId)||"pc",cat:_prodCatMap.get(it.productId)||"Other",units:0,rev:0,cost:0};
-            var a=agg[k];a.units+=q;a.rev+=tt;a.cost+=(_cogsMap.get(it.productId)||0)*q;
-          });
+        /* One source of truth with the CSV export: it was building rows from the
+           transaction list here too, so the screen and the file disagreed about
+           what "all products" meant — the screen quietly left out everything
+           that had not sold in the period. */
+        var out=skuMarginRows(products,_txScoped,function(p){return _cogsMap.get(p.id)||0;},{
+          inPeriod:_inDashPeriod,
+          nameOf:function(p){return p&&p.name?cleanName(p).short:("#"+String(p&&p.id).slice(-6));},
         });
-        var _estIds={};_badCostProducts.concat(_noCostProducts).forEach(function(x){_estIds[x.id]=1;});
-        var rows=Object.keys(agg).map(function(k){var a=agg[k];
-          var avg=a.units?a.rev/a.units:0;var cu=a.units?a.cost/a.units:0;var profit=a.rev-a.cost;var margin=a.rev>0?(profit/a.rev*100):0;
-          return {name:a.name,unit:a.unit,cat:a.cat,units:a.units,rev:a.rev,cost:a.cost,avg:avg,cu:cu,profit:profit,margin:margin,est:_estIds[a.pid]?1:0};
-        }).sort(function(x,y){return y.profit-x.profit;});
+        var rows=out.rows.filter(function(r){return prodProfitAll||r.units>0;}).map(function(r){
+          return {name:r.name,unit:r.unit,cat:r.cat,units:r.units,rev:r.revenue,cost:r.cogs,
+                  avg:r.avgPrice,cu:r.cost,profit:r.profit,margin:r.marginPct,est:r.costEstimated?1:0,
+                  list:r.listPrice,mBaht:r.marginBaht,issues:r.issues};
+        });
+        var T=out.totals;
         var totRev=rows.reduce(function(s2,r){return s2+r.rev;},0),totCost=rows.reduce(function(s2,r){return s2+r.cost;},0);
         var totProfit=totRev-totCost,totMargin=totRev>0?(totProfit/totRev*100):0;
         var periodLbl=_dashPeriodLabel||({day:"วันนี้",month:"เดือนนี้",quarter:"ไตรมาสนี้",year:"ปีนี้",all:"ทั้งหมด"})[dashPeriod];
         var dlCSV=function(){
-          var head=["Product","Category","Unit","Units Sold","Avg Sell Price","Cost/Unit","Revenue","COGS","Profit","Margin %","Cost Estimated?"];
-          var lines=[head.join(",")].concat(rows.map(function(r){return ['"'+String(r.name).replace(/"/g,'""')+'"','"'+r.cat+'"',r.unit,Math.round(r.units*100)/100,Math.round(r.avg*100)/100,Math.round(r.cu*100)/100,Math.round(r.rev),Math.round(r.cost),Math.round(r.profit),r.margin.toFixed(1),r.est?"est":""].join(",");}));
+          var head=["Product","Category","Unit","Cost/Unit","List Price","Avg Sell Price","Margin/Unit (THB)","Margin %","Units Sold","Revenue","COGS","Profit","Cost Estimated?","Needs attention"];
+          var lines=[head.join(",")].concat(rows.map(function(r){return ['"'+String(r.name).replace(/"/g,'""')+'"','"'+r.cat+'"',r.unit,Math.round(r.cu),Math.round(r.list),Math.round(r.avg),Math.round(r.mBaht),r.margin.toFixed(1),Math.round(r.units*100)/100,Math.round(r.rev),Math.round(r.cost),Math.round(r.profit),r.est?"est":"",'"'+(r.issues||[]).join(" ")+'"'].join(",");}));
           var blob=new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
           var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="DANK-product-profit.csv";document.body.appendChild(a);a.click();a.remove();
           notify("ดาวน์โหลด CSV แล้ว ✓");
@@ -9013,7 +9016,9 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4,gap:8,flexWrap:"wrap"}}>
               <div>
                 <div style={{fontWeight:900,fontSize:14}}>📋 กำไรต่อสินค้า · Product Profit</div>
-                <div style={{fontSize:9,color:C.muted,marginTop:2}}>ช่วง: {periodLbl}{_branchKey?(" · "+_branchKey):" · ทุกสาขา"} · {rows.length} สินค้า — เปลี่ยนช่วง/เลือกวัน Custom ได้ที่ตัวเลือกบนแดชบอร์ดแล้วกดปุ่มนี้ใหม่</div>
+                <div style={{fontSize:9,color:C.muted,marginTop:2}}>ช่วง: {periodLbl}{_branchKey?(" · "+_branchKey):" · ทุกสาขา"} · แสดง {rows.length} จาก {T.products} SKU · ขายได้ {T.sold} · ไม่มียอดขาย {T.neverSold}</div>
+                <div style={{fontSize:9,color:C.muted,marginTop:3}}>ต้นทุนจริง {T.trust}% ของรายได้ — ที่เหลือเป็นค่าประมาณ (~) เพราะยังไม่ได้ใส่ต้นทุนใน StoreHub</div>
+                <button onClick={function(){setProdProfitAll(function(v){return !v;});}} style={{...gs.btn(prodProfitAll?C.accent:C.card2,prodProfitAll?"#000":C.muted),fontSize:9,padding:"3px 9px",marginTop:5,border:"1px solid "+C.border}}>{prodProfitAll?"กำลังแสดงทุก SKU · กดเพื่อซ่อนตัวที่ไม่มียอดขาย":"ซ่อนตัวที่ไม่มียอดขายอยู่ · กดเพื่อแสดงทุก SKU"}</button>
               </div>
               <div style={{display:"flex",gap:6}}>
                 <button onClick={dlCSV} style={{...gs.btn(C.green),fontSize:10,padding:"5px 10px"}}>📥 CSV</button>
@@ -9022,20 +9027,24 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             </div>
             <div style={{display:"flex",fontSize:8.5,color:C.muted,fontWeight:700,padding:"4px 0",borderBottom:"1px solid "+C.border,position:"sticky",top:-16,background:C.card}}>
               <span style={{flex:2.4}}>สินค้า</span>
-              <span style={{flex:1,textAlign:"right"}}>ขายเฉลี่ย/หน่วย</span>
-              <span style={{flex:1,textAlign:"right"}}>ทุน/หน่วย</span>
-              <span style={{flex:1,textAlign:"right"}}>กำไร</span>
+              <span style={{flex:0.9,textAlign:"right"}}>ทุน</span>
+              <span style={{flex:0.9,textAlign:"right"}}>ราคาป้าย</span>
+              <span style={{flex:1,textAlign:"right"}}>ขายเฉลี่ย</span>
+              <span style={{flex:0.9,textAlign:"right"}}>กำไร/หน่วย</span>
+              <span style={{flex:1,textAlign:"right"}}>กำไรรวม</span>
               <span style={{flex:0.8,textAlign:"right"}}>มาร์จิ้น%</span>
             </div>
-            {rows.length===0&&<div style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:"18px 0"}}>ไม่มียอดขายในช่วงนี้ / no sales in this period</div>}
+            {rows.length===0&&<div style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:"18px 0"}}>{prodProfitAll?"ยังไม่มีสินค้าในระบบ / no products":"ไม่มียอดขายในช่วงนี้ / no sales in this period"}</div>}
             {rows.map(function(r,i){return (
               <div key={i} style={{display:"flex",fontSize:10,padding:"5px 0",borderBottom:"1px solid "+C.border,alignItems:"center"}}>
                 <span style={{flex:2.4,minWidth:0}}>
                   <span style={{fontWeight:700,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</span>
                   <span style={{fontSize:8,color:C.muted}}>{Math.round(r.units*100)/100} {r.unit} · ยอด ฿{Math.round(r.rev).toLocaleString()}{r.est?" · ทุนประมาณ~":""}</span>
                 </span>
-                <span style={{flex:1,textAlign:"right",color:C.blue,fontWeight:700}}>฿{Math.round(r.avg).toLocaleString()}</span>
-                <span style={{flex:1,textAlign:"right",color:C.muted}}>฿{Math.round(r.cu).toLocaleString()}{r.est?"~":""}</span>
+                <span style={{flex:0.9,textAlign:"right",color:C.muted}}>฿{Math.round(r.cu).toLocaleString()}{r.est?"~":""}</span>
+                <span style={{flex:0.9,textAlign:"right"}}>฿{Math.round(r.list).toLocaleString()}</span>
+                <span style={{flex:1,textAlign:"right",color:C.blue,fontWeight:700}}>{r.units>0?("฿"+Math.round(r.avg).toLocaleString()):"—"}</span>
+                <span style={{flex:0.9,textAlign:"right",color:r.mBaht<0?C.red:C.green,fontWeight:700}}>฿{Math.round(r.mBaht).toLocaleString()}</span>
                 <span style={{flex:1,textAlign:"right",fontWeight:800,color:r.profit>=0?C.green:C.red}}>฿{Math.round(r.profit).toLocaleString()}</span>
                 <span style={{flex:0.8,textAlign:"right",fontWeight:800,color:r.margin>=50?C.green:r.margin>=25?C.gold:C.red}}>{r.margin.toFixed(0)}%</span>
               </div>

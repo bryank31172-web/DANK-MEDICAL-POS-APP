@@ -2862,6 +2862,7 @@ function GreenPOS() {
   const [finView, setFinView] = useState("overview");
   const [dashView, setDashView] = useState("kpi");
   const [showProdProfit, setShowProdProfit] = useState(false);
+  const [prodProfitAll, setProdProfitAll] = useState(true);
   const [showExpModal, setShowExpModal] = useState(false);
   const [newExp, setNewExp] = useState({ cat: "rent", amount: "", note: "", date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0], branch: "" });
   const [monthTarget, setMonthTarget] = useState(1e6);
@@ -11718,34 +11719,35 @@ function GreenPOS() {
       notify(`Selected ${c.name} \u2014 \u0E25\u0E14 10% \u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01 \u2705`);
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { width: "100%", marginTop: 6 }) }, "\u{1F6D2} \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E19\u0E35\u0E49\u0E44\u0E1B\u0E02\u0E32\u0E22 / Select for Checkout")));
   })(), showProdProfit && (function() {
-    var agg = {};
-    _txScoped.forEach(function(t2) {
-      var d = String(t2.transactionTime || "").slice(0, 10);
-      if (!d || !_inDashPeriod(d)) return;
-      (t2.items || []).forEach(function(it) {
-        var q = +it.quantity || 0, tt = +it.total || 0;
-        var k = String(it.productId || "x-" + (it.name || "?"));
-        if (!agg[k]) agg[k] = { pid: it.productId, name: it.name || it.productName || _prodNameMap.get(String(it.productId)) || (it.productId ? "#" + String(it.productId).slice(-6) : "\u0E2D\u0E37\u0E48\u0E19\u0E46 / Other"), unit: _prodUnitMap.get(it.productId) || "pc", cat: _prodCatMap.get(it.productId) || "Other", units: 0, rev: 0, cost: 0 };
-        var a = agg[k];
-        a.units += q;
-        a.rev += tt;
-        a.cost += (_cogsMap.get(it.productId) || 0) * q;
-      });
+    var out = skuMarginRows(products, _txScoped, function(p) {
+      return _cogsMap.get(p.id) || 0;
+    }, {
+      inPeriod: _inDashPeriod,
+      nameOf: function(p) {
+        return p && p.name ? cleanName(p).short : "#" + String(p && p.id).slice(-6);
+      }
     });
-    var _estIds = {};
-    _badCostProducts.concat(_noCostProducts).forEach(function(x) {
-      _estIds[x.id] = 1;
+    var rows = out.rows.filter(function(r) {
+      return prodProfitAll || r.units > 0;
+    }).map(function(r) {
+      return {
+        name: r.name,
+        unit: r.unit,
+        cat: r.cat,
+        units: r.units,
+        rev: r.revenue,
+        cost: r.cogs,
+        avg: r.avgPrice,
+        cu: r.cost,
+        profit: r.profit,
+        margin: r.marginPct,
+        est: r.costEstimated ? 1 : 0,
+        list: r.listPrice,
+        mBaht: r.marginBaht,
+        issues: r.issues
+      };
     });
-    var rows = Object.keys(agg).map(function(k) {
-      var a = agg[k];
-      var avg = a.units ? a.rev / a.units : 0;
-      var cu = a.units ? a.cost / a.units : 0;
-      var profit = a.rev - a.cost;
-      var margin = a.rev > 0 ? profit / a.rev * 100 : 0;
-      return { name: a.name, unit: a.unit, cat: a.cat, units: a.units, rev: a.rev, cost: a.cost, avg, cu, profit, margin, est: _estIds[a.pid] ? 1 : 0 };
-    }).sort(function(x, y) {
-      return y.profit - x.profit;
-    });
+    var T2 = out.totals;
     var totRev = rows.reduce(function(s2, r) {
       return s2 + r.rev;
     }, 0), totCost = rows.reduce(function(s2, r) {
@@ -11754,9 +11756,9 @@ function GreenPOS() {
     var totProfit = totRev - totCost, totMargin = totRev > 0 ? totProfit / totRev * 100 : 0;
     var periodLbl = _dashPeriodLabel || { day: "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", month: "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49", quarter: "\u0E44\u0E15\u0E23\u0E21\u0E32\u0E2A\u0E19\u0E35\u0E49", year: "\u0E1B\u0E35\u0E19\u0E35\u0E49", all: "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }[dashPeriod];
     var dlCSV = function() {
-      var head = ["Product", "Category", "Unit", "Units Sold", "Avg Sell Price", "Cost/Unit", "Revenue", "COGS", "Profit", "Margin %", "Cost Estimated?"];
+      var head = ["Product", "Category", "Unit", "Cost/Unit", "List Price", "Avg Sell Price", "Margin/Unit (THB)", "Margin %", "Units Sold", "Revenue", "COGS", "Profit", "Cost Estimated?", "Needs attention"];
       var lines = [head.join(",")].concat(rows.map(function(r) {
-        return ['"' + String(r.name).replace(/"/g, '""') + '"', '"' + r.cat + '"', r.unit, Math.round(r.units * 100) / 100, Math.round(r.avg * 100) / 100, Math.round(r.cu * 100) / 100, Math.round(r.rev), Math.round(r.cost), Math.round(r.profit), r.margin.toFixed(1), r.est ? "est" : ""].join(",");
+        return ['"' + String(r.name).replace(/"/g, '""') + '"', '"' + r.cat + '"', r.unit, Math.round(r.cu), Math.round(r.list), Math.round(r.avg), Math.round(r.mBaht), r.margin.toFixed(1), Math.round(r.units * 100) / 100, Math.round(r.rev), Math.round(r.cost), Math.round(r.profit), r.est ? "est" : "", '"' + (r.issues || []).join(" ") + '"'].join(",");
       }));
       var blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
       var a = document.createElement("a");
@@ -11771,10 +11773,14 @@ function GreenPOS() {
       setShowProdProfit(false);
     } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto" }), onClick: function(e) {
       e.stopPropagation();
-    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14 } }, "\u{1F4CB} \u0E01\u0E33\u0E44\u0E23\u0E15\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 \xB7 Product Profit"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 2 } }, "\u0E0A\u0E48\u0E27\u0E07: ", periodLbl, _branchKey ? " \xB7 " + _branchKey : " \xB7 \u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32", " \xB7 ", rows.length, " \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 \u2014 \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E0A\u0E48\u0E27\u0E07/\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E27\u0E31\u0E19 Custom \u0E44\u0E14\u0E49\u0E17\u0E35\u0E48\u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1A\u0E19\u0E41\u0E14\u0E0A\u0E1A\u0E2D\u0E23\u0E4C\u0E14\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21\u0E19\u0E35\u0E49\u0E43\u0E2B\u0E21\u0E48")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: dlCSV, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 10px" }) }, "\u{1F4E5} CSV"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14 } }, "\u{1F4CB} \u0E01\u0E33\u0E44\u0E23\u0E15\u0E48\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 \xB7 Product Profit"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 2 } }, "\u0E0A\u0E48\u0E27\u0E07: ", periodLbl, _branchKey ? " \xB7 " + _branchKey : " \xB7 \u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32", " \xB7 \u0E41\u0E2A\u0E14\u0E07 ", rows.length, " \u0E08\u0E32\u0E01 ", T2.products, " SKU \xB7 \u0E02\u0E32\u0E22\u0E44\u0E14\u0E49 ", T2.sold, " \xB7 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22 ", T2.neverSold), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 3 } }, "\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E08\u0E23\u0E34\u0E07 ", T2.trust, "% \u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49 \u2014 \u0E17\u0E35\u0E48\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1B\u0E47\u0E19\u0E04\u0E48\u0E32\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13 (~) \u0E40\u0E1E\u0E23\u0E32\u0E30\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E43\u0E2A\u0E48\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E43\u0E19 StoreHub"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setProdProfitAll(function(v) {
+        return !v;
+      });
+    }, style: __spreadProps(__spreadValues({}, gs.btn(prodProfitAll ? C.accent : C.card2, prodProfitAll ? "#000" : C.muted)), { fontSize: 9, padding: "3px 9px", marginTop: 5, border: "1px solid " + C.border }) }, prodProfitAll ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E41\u0E2A\u0E14\u0E07\u0E17\u0E38\u0E01 SKU \xB7 \u0E01\u0E14\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E0B\u0E48\u0E2D\u0E19\u0E15\u0E31\u0E27\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E21\u0E35\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22" : "\u0E0B\u0E48\u0E2D\u0E19\u0E15\u0E31\u0E27\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E21\u0E35\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E2D\u0E22\u0E39\u0E48 \xB7 \u0E01\u0E14\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E41\u0E2A\u0E14\u0E07\u0E17\u0E38\u0E01 SKU")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: dlCSV, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "5px 10px" }) }, "\u{1F4E5} CSV"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setShowProdProfit(false);
-    }, style: { background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 17 } }, "\u2715"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", fontSize: 8.5, color: C.muted, fontWeight: 700, padding: "4px 0", borderBottom: "1px solid " + C.border, position: "sticky", top: -16, background: C.card } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 2.4 } }, "\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E02\u0E32\u0E22\u0E40\u0E09\u0E25\u0E35\u0E48\u0E22/\u0E2B\u0E19\u0E48\u0E27\u0E22"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E17\u0E38\u0E19/\u0E2B\u0E19\u0E48\u0E27\u0E22"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E01\u0E33\u0E44\u0E23"), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.8, textAlign: "right" } }, "\u0E21\u0E32\u0E23\u0E4C\u0E08\u0E34\u0E49\u0E19%")), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.muted, textAlign: "center", padding: "18px 0" } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E43\u0E19\u0E0A\u0E48\u0E27\u0E07\u0E19\u0E35\u0E49 / no sales in this period"), rows.map(function(r, i) {
-      return /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", fontSize: 10, padding: "5px 0", borderBottom: "1px solid " + C.border, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 2.4, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 8, color: C.muted } }, Math.round(r.units * 100) / 100, " ", r.unit, " \xB7 \u0E22\u0E2D\u0E14 \u0E3F", Math.round(r.rev).toLocaleString(), r.est ? " \xB7 \u0E17\u0E38\u0E19\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13~" : "")), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right", color: C.blue, fontWeight: 700 } }, "\u0E3F", Math.round(r.avg).toLocaleString()), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right", color: C.muted } }, "\u0E3F", Math.round(r.cu).toLocaleString(), r.est ? "~" : ""), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right", fontWeight: 800, color: r.profit >= 0 ? C.green : C.red } }, "\u0E3F", Math.round(r.profit).toLocaleString()), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.8, textAlign: "right", fontWeight: 800, color: r.margin >= 50 ? C.green : r.margin >= 25 ? C.gold : C.red } }, r.margin.toFixed(0), "%"));
+    }, style: { background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 17 } }, "\u2715"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", fontSize: 8.5, color: C.muted, fontWeight: 700, padding: "4px 0", borderBottom: "1px solid " + C.border, position: "sticky", top: -16, background: C.card } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 2.4 } }, "\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32"), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.9, textAlign: "right" } }, "\u0E17\u0E38\u0E19"), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.9, textAlign: "right" } }, "\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E49\u0E32\u0E22"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E02\u0E32\u0E22\u0E40\u0E09\u0E25\u0E35\u0E48\u0E22"), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.9, textAlign: "right" } }, "\u0E01\u0E33\u0E44\u0E23/\u0E2B\u0E19\u0E48\u0E27\u0E22"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right" } }, "\u0E01\u0E33\u0E44\u0E23\u0E23\u0E27\u0E21"), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.8, textAlign: "right" } }, "\u0E21\u0E32\u0E23\u0E4C\u0E08\u0E34\u0E49\u0E19%")), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.muted, textAlign: "center", padding: "18px 0" } }, prodProfitAll ? "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A / no products" : "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E43\u0E19\u0E0A\u0E48\u0E27\u0E07\u0E19\u0E35\u0E49 / no sales in this period"), rows.map(function(r, i) {
+      return /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", fontSize: 10, padding: "5px 0", borderBottom: "1px solid " + C.border, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 2.4, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 8, color: C.muted } }, Math.round(r.units * 100) / 100, " ", r.unit, " \xB7 \u0E22\u0E2D\u0E14 \u0E3F", Math.round(r.rev).toLocaleString(), r.est ? " \xB7 \u0E17\u0E38\u0E19\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13~" : "")), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.9, textAlign: "right", color: C.muted } }, "\u0E3F", Math.round(r.cu).toLocaleString(), r.est ? "~" : ""), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.9, textAlign: "right" } }, "\u0E3F", Math.round(r.list).toLocaleString()), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right", color: C.blue, fontWeight: 700 } }, r.units > 0 ? "\u0E3F" + Math.round(r.avg).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.9, textAlign: "right", color: r.mBaht < 0 ? C.red : C.green, fontWeight: 700 } }, "\u0E3F", Math.round(r.mBaht).toLocaleString()), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right", fontWeight: 800, color: r.profit >= 0 ? C.green : C.red } }, "\u0E3F", Math.round(r.profit).toLocaleString()), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.8, textAlign: "right", fontWeight: 800, color: r.margin >= 50 ? C.green : r.margin >= 25 ? C.gold : C.red } }, r.margin.toFixed(0), "%"));
     }), rows.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", fontSize: 11, padding: "7px 0", fontWeight: 900, borderTop: "2px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 2.4 } }, "\u0E23\u0E27\u0E21 / Total"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right", color: C.muted, fontWeight: 700, fontSize: 9 } }, "\u0E17\u0E38\u0E19 \u0E3F", Math.round(totCost).toLocaleString()), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, textAlign: "right", color: totProfit >= 0 ? C.green : C.red } }, "\u0E3F", Math.round(totProfit).toLocaleString()), /* @__PURE__ */ React.createElement("span", { style: { flex: 0.8, textAlign: "right", color: totMargin >= 50 ? C.green : C.gold } }, totMargin.toFixed(0), "%")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted, marginTop: 6 } }, "~ = \u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E43\u0E2A\u0E48\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E08\u0E23\u0E34\u0E07\u0E43\u0E19 StoreHub \u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E0A\u0E49\u0E04\u0E48\u0E32\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E15\u0E32\u0E21\u0E2B\u0E21\u0E27\u0E14\u0E43\u0E2B\u0E49\u0E01\u0E48\u0E2D\u0E19 \xB7 \u0E02\u0E32\u0E22\u0E40\u0E09\u0E25\u0E35\u0E48\u0E22 = \u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E08\u0E23\u0E34\u0E07 \xF7 \u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E02\u0E32\u0E22 (\u0E23\u0E27\u0E21\u0E2A\u0E48\u0E27\u0E19\u0E25\u0E14\u0E41\u0E25\u0E49\u0E27)")));
   })(), memberCardCust && (function() {
     var c = memberCardCust;
