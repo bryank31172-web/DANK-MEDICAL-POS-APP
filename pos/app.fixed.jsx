@@ -4797,8 +4797,12 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       {notif&&<div style={{position:"fixed",top:14,right:14,background:notif.type==="error"?C.red:C.accent,color:"#000",padding:"10px 16px",borderRadius:11,fontWeight:700,zIndex:9999,fontSize:13,boxShadow:`0 8px 28px ${notif.type==="error"?"rgba(244,63,94,0.4)":"rgba(74,222,128,0.4)"}`,maxWidth:290}}>{notif.msg}</div>}
 
       {/* TOP BAR */}
-      <div style={{background:"rgba(13,20,16,0.95)",backdropFilter:"blur(12px)",borderBottom:`1px solid ${C.border}`,padding:mob?"9px 12px":"11px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100}}>
-        <div style={{display:"flex",alignItems:"center",gap:9}}>
+      <div style={{background:"rgba(13,20,16,0.95)",backdropFilter:"blur(12px)",borderBottom:`1px solid ${C.border}`,padding:mob?"9px 12px":"11px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,
+        /* the two groups below hold more than 390px of controls; letting the row
+           wrap keeps every one of them reachable, where nowrap pushed the whole
+           document sideways and hid the ones on the right */
+        flexWrap:mob?"wrap":"nowrap",rowGap:mob?7:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0,flexShrink:1}}>
           <CWMark size={mob?40:48}/>
           <div>
             <div style={{fontWeight:800,fontSize:mob?13.5:15,letterSpacing:"0.015em"}}><span style={{color:"#f2f5f3"}}>CLINIC</span><span style={{color:"#4ade80"}}>WORKS</span></div>
@@ -4814,8 +4818,8 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           {!mob&&orders.filter(o=>o.status==="pending").length>0&&<div style={{background:"rgba(129,140,248,0.12)",border:"1px solid rgba(129,140,248,0.35)",borderRadius:7,padding:"2px 9px",fontSize:10,color:C.accent,fontWeight:700,
               cursor:"pointer"}} onClick={()=>setActiveTab("orders")}>🌐 {orders.filter(o=>o.status==="pending").length} New Orders</div>}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:7}}>
-          <select value={lang} onChange={e=>setLang(e.target.value)} style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:7,padding:"3px 6px",color:C.text,fontSize:11,cursor:"pointer"}}>
+        <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0,flexShrink:1,flexWrap:mob?"wrap":"nowrap"}}>
+          <select value={lang} onChange={e=>setLang(e.target.value)} style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:7,padding:"3px 6px",color:C.text,fontSize:11,cursor:"pointer",maxWidth:mob?70:undefined,minHeight:32}}>
             <option value="en">🇬🇧 English</option><option value="th">🇹🇭 ไทย</option><option value="my">🇲🇲 မြန်မာ</option><option value="zh">🇨🇳 中文</option><option value="ja">🇯🇵 日本語</option>
           </select>
           <div style={{display:"flex",alignItems:"center",gap:5,background:C.card2,borderRadius:9,padding:"4px 9px",border:`1px solid ${C.border}`}}>
@@ -4837,36 +4841,55 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       {(function(){
         var HIDDEN_IDS={rewards:1,medical:1,affiliate:1,notif:1,aisum:1};
         var MORE_IDS={kitchen:1,api:1,scale:1,marketing:1,bar:1};
+        // The split below has always existed, but with only five ids on the
+        // More side sixteen tabs stayed in the bar — 686px of them on a 390px
+        // phone, so staff had to scroll the tab strip sideways to find a tab,
+        // reading labels set at 8px. A phone gets four tabs and More, which is
+        // five slots and cannot overflow at any width we support. The desktop
+        // bar is unchanged: it has the room and the owner works across all of
+        // them.
+        //
+        // These four are what a shift actually touches: ring a sale, count or
+        // receive stock, look a member up, clock in and out. Everything else,
+        // the dashboard included, is one tap away under More.
+        var MOB_PRIMARY={pos:1,inventory:1,crm:1,shift:1};
         var visibleTabs=TABS.filter(function(t2){return !HIDDEN_IDS[t2.id];});
-        var primaryTabs=visibleTabs.filter(function(t2){return !MORE_IDS[t2.id];});
-        var moreTabs=visibleTabs.filter(function(t2){return MORE_IDS[t2.id];});
+        var isPrimary=function(t2){return mob?!!MOB_PRIMARY[t2.id]:!MORE_IDS[t2.id];};
+        var primaryTabs=visibleTabs.filter(isPrimary);
+        var moreTabs=visibleTabs.filter(function(t2){return !isPrimary(t2);});
         var moreActive=moreTabs.some(function(t2){return t2.id===activeTab;})||HIDDEN_IDS[activeTab];
         var renderTabBtn=function(tab){return (
           <button key={tab.id} onClick={()=>{setActiveTab(tab.id);setShowMoreMenu(false);}} style={{background:"none",border:"none",padding:mob?"6px 9px":"10px 14px",color:activeTab===tab.id?C.accentBright:C.muted,borderBottom:`2px solid ${activeTab===tab.id?C.accent:"transparent"}`,cursor:"pointer",fontWeight:activeTab===tab.id?700:400,whiteSpace:"nowrap",
-              display:"flex",flexDirection:"column",alignItems:"center",gap:1,transition:"color 0.15s",minWidth:mob?48:undefined}}>
-            <span style={{fontSize:mob?16:15}}>{tab.icon}</span>
-            <span style={{fontSize:mob?8:10,fontWeight:activeTab===tab.id?700:500,letterSpacing:"0.01em",lineHeight:1.2}}>{tab.label}</span>
+              display:"flex",flexDirection:"column",alignItems:"center",gap:2,transition:"color 0.15s",
+              minWidth:mob?0:undefined,flex:mob?"1 1 0":undefined,minHeight:mob?46:undefined}}>
+            <span style={{fontSize:mob?17:15}}>{tab.icon}</span>
+            <span style={{fontSize:mob?11:10,fontWeight:activeTab===tab.id?700:500,letterSpacing:"0.01em",lineHeight:1.2}}>{tab.label}</span>
             {tab.id==="work"&&currentStaff&&tasks.filter(function(t2){return t2.assigneeId===currentStaff.id&&t2.status!=="done";}).length>0&&<span style={{background:C.gold,color:"#000",borderRadius:"50%",width:14,height:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:800}}>{tasks.filter(function(t2){return t2.assigneeId===currentStaff.id&&t2.status!=="done";}).length}</span>}
             {tab.id==="orders"&&orders.filter(o=>o.status==="pending").length>0&&<span style={{background:C.accent,color:"#08130c",borderRadius:"50%",width:14,height:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:800}}>{orders.filter(o=>o.status==="pending").length}</span>}
           </button>
         );};
         return (
       <div style={{position:"relative"}}>
-      <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,display:"flex",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
+      <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,display:"flex",
+          overflowX:mob?"visible":"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
         {primaryTabs.map(renderTabBtn)}
         <button onClick={()=>setShowMoreMenu(function(v){return !v;})} style={{background:"none",border:"none",padding:mob?"6px 9px":"10px 14px",color:moreActive||showMoreMenu?C.accentBright:C.muted,borderBottom:`2px solid ${moreActive?C.accent:"transparent"}`,cursor:"pointer",fontWeight:moreActive?700:400,whiteSpace:"nowrap",
-              display:"flex",flexDirection:"column",alignItems:"center",gap:1,transition:"color 0.15s",minWidth:mob?48:undefined}}>
-          <span style={{fontSize:mob?16:15}}>⋯</span>
-          <span style={{fontSize:mob?8:10,fontWeight:moreActive?700:500,letterSpacing:"0.01em",lineHeight:1.2}}>More</span>
+              display:"flex",flexDirection:"column",alignItems:"center",gap:2,transition:"color 0.15s",
+              minWidth:mob?0:undefined,flex:mob?"1 1 0":undefined,minHeight:mob?46:undefined}}>
+          <span style={{fontSize:mob?17:15}}>⋯</span>
+          <span style={{fontSize:mob?11:10,fontWeight:moreActive?700:500,letterSpacing:"0.01em",lineHeight:1.2}}>More</span>
         </button>
       </div>
       {showMoreMenu&&(
         <div onClick={()=>setShowMoreMenu(false)} style={{position:"fixed",inset:0,zIndex:998}}>
-          <div onClick={function(e){e.stopPropagation();}} style={{position:"absolute",top:mob?92:104,right:mob?8:16,zIndex:999,background:C.card,border:`1px solid ${C.border}`,borderRadius:12,boxShadow:"0 10px 30px rgba(0,0,0,0.4)",display:"grid",gridTemplateColumns:mob?"repeat(3,1fr)":"repeat(5,1fr)",gap:2,padding:8,minWidth:mob?260:360}}>
+          <div onClick={function(e){e.stopPropagation();}} style={{position:"absolute",top:mob?92:104,right:mob?8:16,zIndex:999,background:C.card,border:`1px solid ${C.border}`,borderRadius:12,boxShadow:"0 10px 30px rgba(0,0,0,0.4)",display:"grid",gridTemplateColumns:mob?"repeat(3,1fr)":"repeat(5,1fr)",gap:2,padding:8,
+            minWidth:mob?260:360,maxWidth:mob?"calc(100vw - 16px)":undefined,
+            /* the menu now holds most of the app, so it has to be able to scroll */
+            maxHeight:"calc(100vh - 140px)",overflowY:"auto"}}>
             {moreTabs.map(function(tab){return (
-              <button key={tab.id} onClick={()=>{setActiveTab(tab.id);setShowMoreMenu(false);}} style={{background:activeTab===tab.id?"rgba(74,222,128,0.12)":"none",border:"none",borderRadius:9,padding:"8px 4px",color:activeTab===tab.id?C.accentBright:C.text,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                <span style={{fontSize:18}}>{tab.icon}</span>
-                <span style={{fontSize:9,fontWeight:activeTab===tab.id?700:500,textAlign:"center",lineHeight:1.2}}>{tab.label}</span>
+              <button key={tab.id} onClick={()=>{setActiveTab(tab.id);setShowMoreMenu(false);}} style={{background:activeTab===tab.id?"rgba(74,222,128,0.12)":"none",border:"none",borderRadius:9,padding:"8px 4px",color:activeTab===tab.id?C.accentBright:C.text,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,minHeight:56}}>
+                <span style={{fontSize:19}}>{tab.icon}</span>
+                <span style={{fontSize:10,fontWeight:activeTab===tab.id?700:500,textAlign:"center",lineHeight:1.2}}>{tab.label}</span>
               </button>
             );})}
           </div>
