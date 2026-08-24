@@ -3,3 +3,7 @@ pos/app.compiled.js
 pos/testrun/test2.html
 node_modules
 pos/__tests__/out/
+docs/ux-shots/*
+!docs/ux-shots/pos.png
+!docs/ux-shots/finance.png
+!docs/ux-shots/audit.json
