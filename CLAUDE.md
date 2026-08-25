@@ -116,6 +116,20 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
    the owner's word on which are still in daily use before removing.
 11. Decide the customer site's menu source: the curated 53-item `products.json` (clean names +
    photos) vs the raw 395-item POS feed it serves today (`( Bar ) Tequila shot`).
+12. **Phatthanakarn cannot staff its own shift structure, and no clearance change fixes it.**
+   180 shifts a month against seven counter staff whose combined maximum is 174 — and that is
+   everyone at their ceiling with no days off. Measured: clearing *every* Phatthanakarn person
+   for *every* Phatthanakarn shift takes 74 uncovered down to 63; removing every day off and
+   raising every cap to 30 still leaves 20. So it is headcount or structure, not permissions.
+   Either the owner says how many staff each band actually needs now (if it is no longer 2 on
+   all three) and the slot list shrinks, or one more person is hired — the 09:00-18:00 band is
+   the one still short 25 days a month. Until then the roster fills what it can and reports the
+   rest with the blocking reason.
+13. Confirm Honey still covers the Phatthanakarn 09:00-18:00 shop shift on Wednesdays. She is
+   seeded that way from the September sheet; if she is bar-only now, untick `B1` in
+   `👤 ตั้งค่าคน` and the report will show the true size of that gap.
+14. Riders (Zaw, Got) have a day rate but no shift length, so they carry no hourly rate and no
+   OT can be computed for them. Set their working hours if OT should ever apply.
 
 ## Done and verified — do not re-litigate
 - **Customers who owe the shop is a finished feature, not a missing one**: on-account sales
