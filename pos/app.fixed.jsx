@@ -4948,9 +4948,10 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     eyebrow:{fontSize:9.5,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:600},
     card:{background:C.card,borderRadius:mob?16:18,border:`1px solid ${C.borderSoft}`,padding:mob?12:16,boxShadow:C.shadow,backgroundImage:"linear-gradient(180deg,rgba(255,255,255,0.022),rgba(255,255,255,0))"},
     card2:{background:C.card2,borderRadius:mob?12:14,border:`1px solid ${C.border}`,padding:mob?9:12},
-    btn:(bg=C.green,fg="#000")=>({background:bg,color:inkOn(bg,fg),border:"none",borderRadius:999,padding:mob?"8px 13px":"9px 17px",cursor:"pointer",fontWeight:650,fontSize:mob?12:13,letterSpacing:"-0.01em",transition:"transform .15s cubic-bezier(.2,.7,.3,1),filter .15s,box-shadow .15s",boxShadow:bg===C.card2?"none":"0 1px 2px rgba(0,0,0,0.35)"}),
-    btnLg:(bg=C.green)=>({background:bg,color:inkOn(bg,bg===C.green?"#000":"#fff"),border:"none",borderRadius:999,backgroundImage:bg===C.green?"linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0) 55%)":"none",padding:mob?"14px 18px":"15px 22px",cursor:"pointer",fontWeight:700,fontSize:mob?14.5:15.5,width:"100%",letterSpacing:"-0.015em",boxShadow:"0 1px 2px rgba(0,0,0,0.4),0 6px 18px -6px "+(bg===C.green?"rgba(74,222,128,0.45)":"rgba(0,0,0,0.5)"),transition:"transform .15s cubic-bezier(.2,.7,.3,1),filter .15s"}),
-    input:{background:C.card2,border:`1px solid ${C.border}`,borderRadius:12,padding:mob?"10px 12px":"11px 14px",color:C.text,fontSize:mob?12.5:13.5,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit",letterSpacing:"-0.01em",transition:"border-color .15s,box-shadow .15s"},
+    btn:(bg=C.green,fg="#000")=>({background:bg,color:inkOn(bg,fg),border:"none",borderRadius:999,padding:mob?"8px 13px":"9px 17px",minHeight:44,minWidth:44,boxSizing:"border-box",display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontWeight:650,fontSize:mob?12:13,letterSpacing:"-0.01em",transition:"transform .15s cubic-bezier(.2,.7,.3,1),filter .15s,box-shadow .15s",boxShadow:bg===C.card2?"none":"0 1px 2px rgba(0,0,0,0.35)"}),
+    btnLg:(bg=C.green)=>({background:bg,color:inkOn(bg,bg===C.green?"#000":"#fff"),border:"none",borderRadius:999,backgroundImage:bg===C.green?"linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0) 55%)":"none",padding:mob?"14px 18px":"15px 22px",minHeight:44,minWidth:44,boxSizing:"border-box",display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontWeight:700,fontSize:mob?14.5:15.5,width:"100%",letterSpacing:"-0.015em",boxShadow:"0 1px 2px rgba(0,0,0,0.4),0 6px 18px -6px "+(bg===C.green?"rgba(74,222,128,0.45)":"rgba(0,0,0,0.5)"),transition:"transform .15s cubic-bezier(.2,.7,.3,1),filter .15s"}),
+    chip:(bg=C.card2,fg=C.text)=>({background:bg,color:inkOn(bg,fg),border:`1px solid ${C.border}`,borderRadius:999,padding:"6px 12px",minHeight:44,minWidth:44,boxSizing:"border-box",display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontWeight:700}),
+    input:{background:C.card2,border:`1px solid ${C.border}`,borderRadius:12,padding:mob?"10px 12px":"11px 14px",minHeight:44,color:C.text,fontSize:mob?12.5:13.5,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit",letterSpacing:"-0.01em",transition:"border-color .15s,box-shadow .15s"},
     label:{fontSize:10,color:C.muted,marginBottom:3,display:"block",letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:600},
     badge:(bg,fg="#000")=>({background:bg,color:inkOn(bg,fg),borderRadius:999,padding:"2.5px 8px",fontSize:9,fontWeight:700,letterSpacing:"0.03em",display:"inline-block",lineHeight:1.5}),
     sec:{padding:mob?"10px":"14px 18px",overflowY:"auto",maxHeight:"calc(100vh - 106px)"},
@@ -4959,9 +4960,10 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   const Toggle=function(props){
     var on=!!props.on;
     return (
-      <button type="button" onClick={function(){props.onChange(!on);}} disabled={props.disabled} title={props.title||""}
-        style={{width:38,height:21,borderRadius:11,border:"none",cursor:props.disabled?"not-allowed":"pointer",background:on?C.green:C.card3,position:"relative",flexShrink:0,padding:0,opacity:props.disabled?0.5:1,transition:"background 0.15s"}}>
-        <span style={{position:"absolute",top:2,left:on?18:2,width:17,height:17,borderRadius:"50%",background:on?"#062b0d":"#fff",boxShadow:"0 1px 3px rgba(0,0,0,0.4)",transition:"left 0.15s"}}/>
+      <button type="button" onClick={function(){props.onChange(!on);}} disabled={props.disabled} title={props.title||""} aria-label={props.label||props.title||"Toggle setting"}
+        style={{width:44,height:44,borderRadius:22,border:"none",cursor:props.disabled?"not-allowed":"pointer",background:"transparent",position:"relative",flexShrink:0,padding:0,opacity:props.disabled?0.5:1}}>
+        <span style={{position:"absolute",width:38,height:21,left:3,top:11.5,borderRadius:11,background:on?C.green:C.card3,transition:"background 0.15s"}}/>
+        <span style={{position:"absolute",top:13.5,left:on?21:5,width:17,height:17,borderRadius:"50%",background:on?"#062b0d":"#fff",boxShadow:"0 1px 3px rgba(0,0,0,0.4)",transition:"left 0.15s"}}/>
       </button>
     );
   };
@@ -4972,7 +4974,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           <div style={{fontSize:11.5,fontWeight:700,color:C.text}}>{props.label}</div>
           {props.sub&&<div style={{fontSize:9.5,color:C.muted,marginTop:1}}>{props.sub}</div>}
         </div>
-        <Toggle on={props.on} onChange={props.onChange} disabled={props.disabled}/>
+        <Toggle label={props.label} on={props.on} onChange={props.onChange} disabled={props.disabled}/>
       </div>
     );
   };
@@ -5708,30 +5710,30 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           </div>
           {stores.length>0&&<div style={{display:"flex",gap:4,marginLeft:8,overflowX:"auto",maxWidth:mob?150:430}}>
             {[{id:"all",name:"All"}].concat(stores).map(function(b){var on=activeBranch===b.id;var lbl=String(b.name||"").replace(/^dank\s*/i,"")||b.name;return (
-              <button key={b.id} onClick={function(){setActiveBranch(b.id);}} style={{background:on?C.accent:C.card2,color:on?"#000":C.muted,border:"1px solid "+(on?C.accent:C.border),borderRadius:14,padding:"3px 10px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",textTransform:"capitalize",flexShrink:0}}>{lbl}</button>
+              <button key={b.id} onClick={function(){setActiveBranch(b.id);}} style={{...gs.chip(on?C.accent:C.card2,on?"#000":C.muted),border:"1px solid "+(on?C.accent:C.border),fontSize:10,whiteSpace:"nowrap",textTransform:"capitalize",flexShrink:0}}>{lbl}</button>
             );})}
           </div>}
-          {currentStaff&&<button onClick={function(){openShiftOf(currentStaff.id)?clockOut(currentStaff):clockIn(currentStaff);}} title="Clock in/out" style={{background:openShiftOf(currentStaff.id)?"rgba(74,222,128,0.15)":C.card2,border:"1px solid "+(openShiftOf(currentStaff.id)?"rgba(74,222,128,0.5)":C.border),borderRadius:14,padding:"3px 10px",fontSize:10,fontWeight:800,cursor:"pointer",color:openShiftOf(currentStaff.id)?C.green:C.muted,whiteSpace:"nowrap",marginLeft:6}}>🕐 {openShiftOf(currentStaff.id)?"ON":"OFF"}</button>}
+          {currentStaff&&<button onClick={function(){openShiftOf(currentStaff.id)?clockOut(currentStaff):clockIn(currentStaff);}} title="Clock in/out" style={{...gs.chip(openShiftOf(currentStaff.id)?"rgba(74,222,128,0.15)":C.card2,openShiftOf(currentStaff.id)?C.green:C.muted),border:"1px solid "+(openShiftOf(currentStaff.id)?"rgba(74,222,128,0.5)":C.border),fontSize:10,whiteSpace:"nowrap",marginLeft:6}}>🕐 {openShiftOf(currentStaff.id)?"ON":"OFF"}</button>}
           {!mob&&isHH&&<div style={{background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.35)",borderRadius:7,padding:"2px 9px",fontSize:10,color:C.gold,fontWeight:700}}>🍹 Happy Hour 17-19</div>}
           {!mob&&orders.filter(o=>o.status==="pending").length>0&&<div style={{background:"rgba(129,140,248,0.12)",border:"1px solid rgba(129,140,248,0.35)",borderRadius:7,padding:"2px 9px",fontSize:10,color:C.accent,fontWeight:700,
               cursor:"pointer"}} onClick={()=>setActiveTab("orders")}>🌐 {orders.filter(o=>o.status==="pending").length} New Orders</div>}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0,flexShrink:1,flexWrap:mob?"wrap":"nowrap"}}>
-          <select value={lang} onChange={e=>setLang(e.target.value)} style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:7,padding:"3px 6px",color:C.text,fontSize:11,cursor:"pointer",maxWidth:mob?70:undefined,minHeight:32}}>
+          <select aria-label="Language" value={lang} onChange={e=>setLang(e.target.value)} style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:7,padding:"3px 6px",color:C.text,fontSize:11,cursor:"pointer",maxWidth:mob?70:undefined,minHeight:44,minWidth:44}}>
             <option value="en">🇬🇧 English</option><option value="th">🇹🇭 ไทย</option><option value="my">🇲🇲 မြန်မာ</option><option value="zh">🇨🇳 中文</option><option value="ja">🇯🇵 日本語</option>
           </select>
           <div style={{display:"flex",alignItems:"center",gap:5,background:C.card2,borderRadius:9,padding:"4px 9px",border:`1px solid ${C.border}`}}>
             <span style={{fontSize:13}}>{currentStaff?.avatar}</span>
             {!mob&&<div><div style={{fontSize:11,fontWeight:700}}>{currentStaff?.name}</div><div style={{fontSize:9,color:C.accent,textTransform:"capitalize"}}>{currentStaff?.role}</div></div>}
           </div>
-          <button onClick={syncStorehub} title="StoreHub Sync" style={{...gs.btn(C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${C.border}`}}>{syncStatus==="syncing"?"⏳":"🔄"}</button>
-          <button title="Age Verification Log" onClick={()=>setShowAgeVerif(true)} style={{...gs.btn(C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${ageVerifLog.length>0?"rgba(74,222,128,0.3)":C.border}`,position:"relative"}}>
+          <button aria-label="Sync StoreHub" onClick={syncStorehub} title="StoreHub Sync" style={{...gs.btn(C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${C.border}`}}>{syncStatus==="syncing"?"⏳":"🔄"}</button>
+          <button aria-label="Open age verification log" title="Age Verification Log" onClick={()=>setShowAgeVerif(true)} style={{...gs.btn(C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${ageVerifLog.length>0?"rgba(74,222,128,0.3)":C.border}`,position:"relative"}}>
           🪪{ageVerifLog.length>0&&<span style={{position:"absolute",top:-4,right:-4,background:C.green,color:"#000",borderRadius:"50%",width:14,height:14,fontSize:8,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>{ageVerifLog.length}</span>}
         </button>
-        <button title="Sync with StoreHub" style={{...gs.btn(syncStatus==="syncing"?C.card2:syncStatus==="success"?"rgba(74,222,128,0.15)":C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${syncStatus==="success"?"rgba(74,222,128,0.3)":C.border}`}}>
+        <button aria-label="StoreHub sync status" title="Sync with StoreHub" style={{...gs.btn(syncStatus==="syncing"?C.card2:syncStatus==="success"?"rgba(74,222,128,0.15)":C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${syncStatus==="success"?"rgba(74,222,128,0.3)":C.border}`}}>
           {syncStatus==="syncing"?"⏳":syncStatus==="success"?"✅":"🔄"}
         </button>
-        <button onClick={()=>{setCurrentStaff(null);setScreen("login");setCart([]);setSelCustomer(null);setActiveTab("pos");}} style={{...gs.btn(C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${C.border}`}}>⏏</button>
+        <button aria-label="Sign out" onClick={()=>{setCurrentStaff(null);setScreen("login");setCart([]);setSelCustomer(null);setActiveTab("pos");}} style={{...gs.btn(C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${C.border}`}}>⏏</button>
         </div>
       </div>
 
@@ -6394,7 +6396,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   </button>
                   <div style={{display:"flex",gap:5,marginTop:6}}>
                     <input value={memberScanInput} onChange={function(e){setMemberScanInput(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){if(applyMemberScan(memberScanInput,"manual/scanner"))setMemberScanInput("");}}} placeholder="🪪 สแกน/พิมพ์ Member ID (DK-... หรือเบอร์โทร)" style={{...gs.input,flex:1,padding:"6px 8px",fontSize:10}}/>
-                    <button onClick={function(){if(applyMemberScan(memberScanInput,"manual/scanner"))setMemberScanInput("");}} style={{...gs.btn(C.gold,"#000"),fontSize:10.5,padding:"6px 10px"}}>✓</button>
+                    <button aria-label="Apply member ID" onClick={function(){if(applyMemberScan(memberScanInput,"manual/scanner"))setMemberScanInput("");}} style={{...gs.btn(C.gold,"#000"),fontSize:10.5,padding:"6px 10px"}}>✓</button>
                   </div>
                   </div>
                 )}
@@ -6415,11 +6417,11 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                       <div style={{fontSize:10,color:C.green,fontWeight:700}}>฿{((item.unitPrice||item.price)*item.qty).toLocaleString()}{item.custPrice&&<span title="ราคาที่ลูกค้าเคยจ่าย / price this customer paid last time" style={{...gs.badge("rgba(56,189,248,0.18)","#38bdf8"),fontSize:7.5,marginLeft:5}}>🕘 ราคาเดิม</span>}</div>
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:4}}>
-                      <button onClick={()=>updateQty(item.id,-1)} style={{background:C.border,border:"none",borderRadius:5,width:22,height:22,color:C.text,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                      <button aria-label={"Decrease "+cleanName(item).short+" quantity"} onClick={()=>updateQty(item.id,-1)} style={{...gs.btn(C.border,C.text),borderRadius:999,padding:0,fontSize:13}}>−</button>
                       <span style={{fontSize:12,fontWeight:800,minWidth:18,textAlign:"center"}}>{item.qty}</span>
-                      <button onClick={()=>updateQty(item.id,1)} style={{background:C.green,border:"none",borderRadius:5,width:22,height:22,color:"#000",cursor:"pointer",fontSize:13,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                      <button aria-label={"Increase "+cleanName(item).short+" quantity"} onClick={()=>updateQty(item.id,1)} style={{...gs.btn(C.green,"#000"),borderRadius:999,padding:0,fontSize:13,fontWeight:800}}>+</button>
                     </div>
-                    <button onClick={()=>removeFromCart(item.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:1}}>✕</button>
+                    <button aria-label={"Remove "+cleanName(item).short+" from cart"} onClick={()=>removeFromCart(item.id)} style={{...gs.btn("transparent",C.muted),fontSize:13,padding:0}}>✕</button>
                   </div>
          ))}
               {cart.length>0&&(
@@ -6617,7 +6619,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   <div style={{fontSize:8,color:C.muted,marginTop:1}}>โดย {mp.addedBy} · {new Date(mp.addedAt).toLocaleDateString()}</div>
                 </div>
                 <button onClick={function(){addSuggest(p);}} style={{...gs.btn(C.green),fontSize:10,padding:"5px 11px"}}>+ ใส่ตะกร้า</button>
-                {canEdit&&<button onClick={function(){removeManagerPick(mp.id);}} style={{...gs.btn(C.card3,"#f43f5e"),fontSize:10,padding:"5px 9px",border:"1px solid rgba(244,63,94,0.25)"}}>✕</button>}
+                {canEdit&&<button aria-label={"Remove manager pick "+cleanName(p).short} onClick={function(){removeManagerPick(mp.id);}} style={{...gs.btn(C.card3,"#f43f5e"),fontSize:10,padding:"5px 9px",border:"1px solid rgba(244,63,94,0.25)"}}>✕</button>}
               </div>
             );})}
           </div>
@@ -7107,7 +7109,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                                   <div style={{display:"flex",gap:4,alignItems:"center"}}>
                                     <span>฿</span>
                                     <input type="number" value={pending} onChange={function(e){var v=e.target.value;setPendingEdits(function(pr){return Object.assign({},pr,{[ek]:v});});}} style={{...gs.input,width:70,padding:"3px 5px",fontSize:10.5}}/>
-                                    {dirty&&<button onClick={function(){var v=parseFloat(pending)||0;setProducts(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{price:v}):x;});});setPendingEdits(function(pr){var n=Object.assign({},pr);delete n[ek];return n;});addAudit("PRODUCT EDIT",cleanName(p).short+" price → ฿"+v,currentStaff&&currentStaff.name);notify("บันทึกราคาแล้ว ✓");}} style={{...gs.btn(C.green),fontSize:8,padding:"3px 7px"}}>💾</button>}
+                                    {dirty&&<button aria-label={"Save "+cleanName(p).short+" price"} onClick={function(){var v=parseFloat(pending)||0;setProducts(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{price:v}):x;});});setPendingEdits(function(pr){var n=Object.assign({},pr);delete n[ek];return n;});addAudit("PRODUCT EDIT",cleanName(p).short+" price → ฿"+v,currentStaff&&currentStaff.name);notify("บันทึกราคาแล้ว ✓");}} style={{...gs.btn(C.green),fontSize:8,padding:"3px 7px"}}>💾</button>}
                                   </div>
                                 );
                               })()
@@ -7125,7 +7127,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                                 return (
                                   <div style={{display:"flex",gap:4,alignItems:"center"}}>
                                     <input type="number" value={pending} onChange={function(e){var v=e.target.value;setPendingEdits(function(pr){return Object.assign({},pr,{[ek]:v});});}} style={{...gs.input,width:60,padding:"3px 5px",fontSize:10.5,color:"inherit"}}/>
-                                    {dirty&&<button onClick={function(){var v=parseFloat(pending)||0;setProducts(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{stock:v}):x;});});setPendingEdits(function(pr){var n=Object.assign({},pr);delete n[ek];return n;});addAudit("PRODUCT EDIT",cleanName(p).short+" stock → "+v,currentStaff&&currentStaff.name);notify("บันทึกสต๊อกแล้ว ✓");}} style={{...gs.btn(C.green),fontSize:8,padding:"3px 7px"}}>💾</button>}
+                                    {dirty&&<button aria-label={"Save "+cleanName(p).short+" stock"} onClick={function(){var v=parseFloat(pending)||0;setProducts(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{stock:v}):x;});});setPendingEdits(function(pr){var n=Object.assign({},pr);delete n[ek];return n;});addAudit("PRODUCT EDIT",cleanName(p).short+" stock → "+v,currentStaff&&currentStaff.name);notify("บันทึกสต๊อกแล้ว ✓");}} style={{...gs.btn(C.green),fontSize:8,padding:"3px 7px"}}>💾</button>}
                                   </div>
                                 );
                               })()
@@ -7291,7 +7293,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   <button onClick={function(){printPO(po);}} style={{...gs.btn(C.card3,"#fff"),fontSize:9,padding:"4px 10px",border:"1px solid "+C.border}}>🖨 Print</button>
                   {canFinance&&po.status==="draft"&&<button onClick={function(){setPOStatus(po.id,"sent");}} style={{...gs.btn(C.blue,"#000"),fontSize:9,padding:"4px 10px"}}>📤 Mark Sent</button>}
                   {canFinance&&(po.status==="sent"||po.status==="partial")&&<button onClick={function(){receivePOAll(po.id);}} style={{...gs.btn(C.green),fontSize:9,padding:"4px 10px"}}>✅ Mark All Received</button>}
-                  {canEdit&&<button onClick={function(){deletePO(po.id);}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:9,padding:"4px 9px",border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>}
+                  {canEdit&&<button aria-label={"Delete purchase order "+po.id} onClick={function(){deletePO(po.id);}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:9,padding:"4px 9px",border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>}
                 </div>
                 {isOpen&&<div style={{marginTop:9,paddingTop:9,borderTop:"1px solid "+C.border}}>
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
@@ -7360,7 +7362,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           </div>
           <div style={{display:"flex",gap:6,marginBottom:10,overflowX:"auto",paddingBottom:2}}>
             {[["all","👥 ทั้งหมด All ("+customers.length+")"],["debt","🧾 ค้างเงินร้าน Owe ("+_arDebtors.filter(function(d){return d.owed>0;}).length+" คน · ฿"+Math.round(_arTotal).toLocaleString()+")"]].map(function(fc){var on=crmFilter===fc[0];var col=fc[0]==="debt"?C.red:C.green;return (
-              <button key={fc[0]} onClick={function(){setCrmFilter(fc[0]);}} style={{background:on?col:C.card2,border:"1px solid "+(on?col:C.border),borderRadius:999,padding:"6px 12px",color:on?inkOn(col,"#fff"):C.muted,cursor:"pointer",fontSize:10.5,fontWeight:800,whiteSpace:"nowrap",flexShrink:0}}>{fc[1]}</button>
+              <button key={fc[0]} onClick={function(){setCrmFilter(fc[0]);}} style={{...gs.chip(on?col:C.card2,on?inkOn(col,"#fff"):C.muted),border:"1px solid "+(on?col:C.border),fontSize:10.5,whiteSpace:"nowrap",flexShrink:0}}>{fc[1]}</button>
             );})}
           </div>
           <div style={{position:"relative",marginBottom:11}}>
@@ -7396,14 +7398,14 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}} onClick={function(e){e.stopPropagation();}}>
                         <span style={{fontSize:10,color:C.muted}}>🪪 Medical card:</span>
                         {medCards[c.id]?<span style={{display:"contents"}}>
-                          <a href={medCards[c.id]} target="_blank" rel="noopener" style={{...gs.badge("rgba(74,222,128,0.18)","#4ade80"),fontSize:9,textDecoration:"none",cursor:"pointer"}}>✅ YES — ดูไฟล์</a>
-                          <button onClick={function(){setMedCardCust(c);}} style={{background:"none",border:"none",color:C.muted,fontSize:9,cursor:"pointer",textDecoration:"underline"}}>edit</button>
+                          <a href={medCards[c.id]} target="_blank" rel="noopener" style={{...gs.chip("rgba(74,222,128,0.18)","#4ade80"),fontSize:9,textDecoration:"none"}}>✅ YES — ดูไฟล์</a>
+                          <button onClick={function(){setMedCardCust(c);}} style={{...gs.chip("transparent",C.muted),fontSize:9,textDecoration:"underline"}}>edit</button>
                         </span>:c.isMedical?<span style={{display:"contents"}}>
                           <span style={{...gs.badge("rgba(56,189,248,0.18)","#38bdf8"),fontSize:9}}>🏥 YES — no file</span>
-                          <button onClick={function(){setMedCardCust(c);}} style={{...gs.badge(C.card3,"#9ca3af"),fontSize:9,border:"1px solid "+C.border,cursor:"pointer"}}>📎 attach</button>
+                          <button onClick={function(){setMedCardCust(c);}} style={{...gs.chip(C.card3,"#9ca3af"),fontSize:9}}>📎 attach</button>
                         </span>:<span style={{display:"contents"}}>
                           <span style={{fontSize:10,color:C.muted}}>NO</span>
-                          <button onClick={function(){setMedCardCust(c);}} style={{...gs.badge(C.card3,"#9ca3af"),fontSize:9,border:"1px solid "+C.border,cursor:"pointer"}}>📎 attach</button>
+                          <button onClick={function(){setMedCardCust(c);}} style={{...gs.chip(C.card3,"#9ca3af"),fontSize:9}}>📎 attach</button>
                         </span>}
                       </div>
                       {c.lastPurchase&&<div style={{fontSize:10,color:C.muted}}>🛒 Last: {c.lastPurchase}</div>}
@@ -7782,7 +7784,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                     <span style={{fontSize:14}}>{cl(e.cat)[0]}</span>
                     <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.note||cl(e.cat)[1]}</div><div style={{fontSize:8.5,color:C.muted}}>{e.date} · {cl(e.cat)[1]}{e.branch?(" · "+e.branch):" · ส่วนกลาง"}</div></div>
                     <div style={{fontWeight:800,color:C.red,whiteSpace:"nowrap"}}>-฿{(+e.amount||0).toLocaleString()}</div>
-                    {canFinance&&<button onClick={function(){if(window.confirm("ลบรายการนี้? / Delete this expense?")){setExpenses(function(prev){return prev.filter(function(x){return x.id!==e.id;});});addAudit("EXPENSE DELETE",e.cat+" ฿"+e.amount+" "+(e.note||""),currentStaff&&currentStaff.name);notify("ลบแล้ว ✓");}}} style={{...gs.btn("rgba(244,63,94,0.15)","#fda4af"),fontSize:9,padding:"3px 8px",border:"1px solid rgba(244,63,94,0.3)"}}>🗑</button>}
+                    {canFinance&&<button aria-label={"Delete expense "+(e.note||cl(e.cat)[1])} onClick={function(){if(window.confirm("ลบรายการนี้? / Delete this expense?")){setExpenses(function(prev){return prev.filter(function(x){return x.id!==e.id;});});addAudit("EXPENSE DELETE",e.cat+" ฿"+e.amount+" "+(e.note||""),currentStaff&&currentStaff.name);notify("ลบแล้ว ✓");}}} style={{...gs.btn("rgba(244,63,94,0.15)","#fda4af"),fontSize:9,padding:"3px 8px",border:"1px solid rgba(244,63,94,0.3)"}}>🗑</button>}
                   </div>);})}
               </div>
             </div>);})()}
@@ -7908,7 +7910,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   {ap.note?<div style={{fontSize:9,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ap.note}</div>:null}
                 </div>
                 {ap.certLink?<a href={ap.certLink} target="_blank" rel="noopener" style={{...gs.btn(C.blue,"#000"),fontSize:9,padding:"4px 8px",textDecoration:"none"}}>📄 ใบรับรอง</a>:<span style={{fontSize:8.5,color:C.muted}}>ไม่มีไฟล์</span>}
-                <button onClick={function(){setAppointments(function(p){return p.filter(function(x){return x.id!==ap.id;});});notify("ลบนัดแล้ว");}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:9,padding:"4px 8px",border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>
+                <button aria-label={"Delete appointment for "+(ap.custName||"patient")} onClick={function(){setAppointments(function(p){return p.filter(function(x){return x.id!==ap.id;});});notify("ลบนัดแล้ว");}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:9,padding:"4px 8px",border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>
               </div>
             );})}
           </div>
@@ -8223,7 +8225,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   <button onClick={function(){copyTaskText(t2);}} style={{...gs.btn(C.card2,"#fff"),fontSize:9,padding:"4px 10px",border:"1px solid "+C.border}}>📋 Copy (Notion/Slack)</button>
                   {(mine(t2)||canEdit)&&t2.status!=="done"&&!t2.pendingReassign&&<button onClick={function(){setReassignFor(t2);setReassignMode("transfer");setReassignTo("");}} style={{...gs.btn(C.blue,"#000"),fontSize:9,padding:"4px 10px"}}>🔄 โอน/Cowork</button>}
                   {(mine(t2)||canEdit)&&t2.status!=="done"&&!t2.pendingExt&&<button onClick={function(){setExtendFor({id:t2.id,title:t2.title,deadline:t2.deadline||today,newDeadline:t2.deadline||today,reason:""});}} style={{...gs.btn("rgba(56,189,248,0.15)","#7dd3fc"),fontSize:9,padding:"4px 10px",border:"1px solid rgba(56,189,248,0.3)"}}>⏰ ขอเลื่อน deadline</button>}
-                  {canEdit&&<button onClick={function(){if(confirm("ลบงานนี้?"))setTasks(function(p){return p.filter(function(x){return x.id!==t2.id;});});}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:9,padding:"4px 9px",border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>}
+                  {canEdit&&<button aria-label={"Delete task "+t2.title} onClick={function(){if(confirm("ลบงานนี้?"))setTasks(function(p){return p.filter(function(x){return x.id!==t2.id;});});}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:9,padding:"4px 9px",border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>}
                 </div>
                 {(t2.updates||[]).length>0&&<div style={{fontSize:9.5}}>
                   <div style={{fontSize:9,fontWeight:700,color:C.muted,marginBottom:4}}>ประวัติ / Updates</div>
@@ -8306,9 +8308,9 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
 
           {/* month + shop pickers */}
           <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
-            <button onClick={function(){var d=new Date(Date.UTC(yy,mm-2,1));setShiftMonth(d.toISOString().slice(0,7));setShiftDraft(null);}} style={{...gs.btn(C.card2,"#fff"),fontSize:12,padding:"6px 11px",border:"1px solid "+C.border,minHeight:34}}>◀</button>
+            <button aria-label="Previous roster month" onClick={function(){var d=new Date(Date.UTC(yy,mm-2,1));setShiftMonth(d.toISOString().slice(0,7));setShiftDraft(null);}} style={{...gs.btn(C.card2,"#fff"),fontSize:12,padding:"6px 11px",border:"1px solid "+C.border}}>◀</button>
             <div style={{fontSize:13,fontWeight:800,minWidth:150,textAlign:"center"}}>{monthLabel}</div>
-            <button onClick={function(){var d=new Date(Date.UTC(yy,mm,1));setShiftMonth(d.toISOString().slice(0,7));setShiftDraft(null);}} style={{...gs.btn(C.card2,"#fff"),fontSize:12,padding:"6px 11px",border:"1px solid "+C.border,minHeight:34}}>▶</button>
+            <button aria-label="Next roster month" onClick={function(){var d=new Date(Date.UTC(yy,mm,1));setShiftMonth(d.toISOString().slice(0,7));setShiftDraft(null);}} style={{...gs.btn(C.card2,"#fff"),fontSize:12,padding:"6px 11px",border:"1px solid "+C.border}}>▶</button>
             <div style={{width:10}} />
             {[{id:"all",n:"ทุกสาขา All"}].concat(shiftLocs.map(function(l){return {id:l.id,n:l.name.replace("DANK ","")};})).map(function(o){
               return <button key={o.id} onClick={function(){setShiftLoc(o.id);}} style={{...gs.btn(shiftLoc===o.id?C.green:C.card2,shiftLoc===o.id?"#000":"#fff"),fontSize:11,border:shiftLoc===o.id?"none":"1px solid "+C.border,minHeight:34}}>{o.n}</button>;
@@ -8541,7 +8543,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{...gs.card,width:"100%",maxWidth:620,maxHeight:"88vh",overflowY:"auto"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                   <div style={{fontSize:14,fontWeight:800}}>🤖 ถามเรื่องตารางกะ</div>
-                  <button onClick={function(){setShiftAi(null);}} style={{...gs.btn(C.card2,"#fff"),border:"1px solid "+C.border}}>✕</button>
+                  <button aria-label="Close roster assistant" onClick={function(){setShiftAi(null);}} style={{...gs.btn(C.card2,"#fff"),border:"1px solid "+C.border}}>✕</button>
                 </div>
                 <div style={{fontSize:10,color:C.muted,marginBottom:9}}>ตอบจากตารางที่เห็นอยู่ตรง ๆ — ไม่ต้องมีคีย์ AI และเดาตัวเลขไม่ได้</div>
                 <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:9}}>
@@ -8557,7 +8559,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   <input style={{...gs.input,flex:1}} placeholder="เช่น ใครทำงาน 14/9 · amoe ทำกี่กะ · OT ใครเยอะ"
                     value={shiftAi.q} onChange={function(e){setShiftAi(Object.assign({},shiftAi,{q:e.target.value}));}}
                     onKeyDown={function(e){if(e.key==="Enter")setShiftAi({q:shiftAi.q,a:rosterAsk(shiftAi.q,shown,shiftStaff,shiftLocs),busy:false,tried:true});}}/>
-                  <button onClick={function(){setShiftAi({q:shiftAi.q,a:rosterAsk(shiftAi.q,shown,shiftStaff,shiftLocs),busy:false,tried:true});}} style={{...gs.btn(C.green,"#000"),fontWeight:800}}>➤</button>
+                  <button aria-label="Ask roster assistant" onClick={function(){setShiftAi({q:shiftAi.q,a:rosterAsk(shiftAi.q,shown,shiftStaff,shiftLocs),busy:false,tried:true});}} style={{...gs.btn(C.green,"#000"),fontWeight:800}}>➤</button>
                 </div>
                 {shiftAi.a&&(
                   <div style={{...gs.card2,borderColor:"#7c3aed55"}}>
@@ -8583,7 +8585,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{...gs.card,width:"100%",maxWidth:940,maxHeight:"90vh",overflowY:"auto"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:9}}>
                   <div style={{fontSize:14,fontWeight:800}}>👤 พนักงานและสิทธิ์การขึ้นเวร</div>
-                  <button onClick={function(){setShiftEdit(null);}} style={{...gs.btn(C.card2,"#fff"),border:"1px solid "+C.border}}>✕</button>
+                  <button aria-label="Close staff editor" onClick={function(){setShiftEdit(null);}} style={{...gs.btn(C.card2,"#fff"),border:"1px solid "+C.border}}>✕</button>
                 </div>
                 <div style={{fontSize:10.5,color:C.muted,marginBottom:12,lineHeight:1.6}}>
                   ตารางจะจัดคนตามช่องพวกนี้เท่านั้น — ใครไม่ได้ติ๊กสาขาหรือกะไหน ระบบจะไม่จับใส่ให้เด็ดขาด แม้จะทำให้กะนั้นว่าง
@@ -8805,7 +8807,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 <div key={s.id} style={{display:"flex",alignItems:"center",gap:9,padding:"7px 9px",background:C.card2,borderRadius:9,marginBottom:6}}>
                   <div style={{flex:1}}><div style={{fontSize:11,fontWeight:700}}>{s.name}</div><div style={{fontSize:9,color:C.muted}}>{s.email||"no email"} · wants: {s.role}</div></div>
                   <button onClick={function(){setStaff(function(p){return p.map(function(x){return x.id===s.id?Object.assign({},x,{approved:true,branch:x.branch||"Pattanakarn",payType:x.payType||"daily",wage:x.wage||600,kpi:80,kpiScore:80}):x;});});notify(s.name+" approved ✅");}} style={{...gs.btn(C.green),fontSize:10}}>✓ Approve</button>
-                  <button onClick={function(){setStaff(function(p){return p.filter(function(x){return x.id!==s.id;});});notify("Rejected","error");}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:10,border:"1px solid rgba(244,63,94,0.25)"}}>✗</button>
+                  <button aria-label={"Reject staff request from "+s.name} onClick={function(){setStaff(function(p){return p.filter(function(x){return x.id!==s.id;});});notify("Rejected","error");}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:10,border:"1px solid rgba(244,63,94,0.25)"}}>✗</button>
                 </div>
               );})}
             </div>
@@ -8852,7 +8854,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 </div>);})()}
                 {canEdit&&<div style={{display:"flex",gap:6,marginTop:9}}>
                   <button onClick={function(){setEditStaffMember(Object.assign({},s));setShowStaffEdit(true);}} style={{...gs.btn(C.card2,"#fff"),flex:1,fontSize:10,border:"1px solid "+C.border}}>✏ Edit</button>
-                  {currentStaff&&s.id!==currentStaff.id&&<button onClick={function(){if(confirm("Remove "+s.name+"?")){setStaff(function(p){return p.filter(function(x){return x.id!==s.id;});});notify("Removed "+s.name);}}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:10,border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>}
+                  {currentStaff&&s.id!==currentStaff.id&&<button aria-label={"Remove staff member "+s.name} onClick={function(){if(confirm("Remove "+s.name+"?")){setStaff(function(p){return p.filter(function(x){return x.id!==s.id;});});notify("Removed "+s.name);}}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:10,border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>}
                 </div>}
               </div>
             );})}
@@ -8965,7 +8967,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                     <div style={{fontSize:16,fontWeight:900}}>{r.name}</div>
                     <div style={{fontSize:9.5,color:C.muted,marginTop:2}}>{r.glass} · ต้นทุน ฿{r.cost} · {r.kind==="signature"?"Signature":"Classic"}</div>
                   </div>
-                  <button onClick={function(){setBarPick(null);}} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:12,padding:"5px 11px"}}>✕</button>
+                  <button aria-label="Close bar recipe" onClick={function(){setBarPick(null);}} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:12,padding:"5px 11px"}}>✕</button>
                 </div>
 
                 <div style={{height:24,background:C.card2,border:"1px solid "+C.border,borderRadius:12,overflow:"hidden",position:"relative",marginBottom:9}}>
@@ -9325,7 +9327,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
               <div style={{fontSize:13,fontWeight:900}}>💬 {showLineThread.name}</div>
               <button onClick={function(){loadLineThread(showLineThread.userId);}} disabled={lineThreadLoading} style={{...gs.btn(C.card2,"#fff"),fontSize:9,padding:"3px 8px",border:"1px solid "+C.border,marginLeft:"auto"}}>{lineThreadLoading?"...":"🔄"}</button>
-              <button onClick={function(){setShowLineThread(null);}} style={{...gs.btn(C.card2,"#fff"),fontSize:9,padding:"3px 8px",border:"1px solid "+C.border}}>✕</button>
+              <button aria-label="Close LINE thread" onClick={function(){setShowLineThread(null);}} style={{...gs.btn(C.card2,"#fff"),fontSize:9,padding:"3px 8px",border:"1px solid "+C.border}}>✕</button>
             </div>
             {lineThreadErr&&<div style={{fontSize:10,color:C.red,marginBottom:8}}>⚠ {lineThreadErr}</div>}
             <div style={{flex:1,overflowY:"auto",maxHeight:320,marginBottom:10,padding:"4px 2px"}}>
@@ -9562,7 +9564,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           <div style={{...gs.card,width:"100%",maxWidth:560,maxHeight:"92vh",overflowY:"auto"}} onClick={function(e){e.stopPropagation();}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
               <div style={{fontWeight:900,fontSize:14}}>📅 Shift Management · จัดตารางกะ</div>
-              <button onClick={function(){setShowRoster(false);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"3px 9px",border:"1px solid "+C.border}}>✕</button>
+              <button aria-label="Close shift management" onClick={function(){setShowRoster(false);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"3px 9px",border:"1px solid "+C.border}}>✕</button>
             </div>
             <div style={{display:"flex",gap:5,marginBottom:8,flexWrap:"wrap"}}>
               {["Pattanakarn","Sathorn","Petchaboon","Phuket","Bars"].map(function(b2){var on=rosterBranch===b2;return <button key={b2} onClick={function(){setRosterBranch(b2);}} style={{...gs.btn(on?C.accent:C.card2,on?"#000":"#9ca3af"),fontSize:10.5,border:"1px solid "+(on?C.accent:C.border)}}>{b2}</button>;})}
@@ -9643,7 +9645,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                                 : <div style={{width:56,textAlign:"center",fontSize:9.5,color:nm==="OFF"?"#fda4af":C.text,fontWeight:nm?700:400}}>{nm||"—"}</div>}
                             </td>
                           );})}
-                          <td>{canEdit&&<button onClick={function(){bwDeleteRow(activeKey,ri);}} style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:11}}>✕</button>}</td>
+                          <td>{canEdit&&<button aria-label={"Delete roster row "+(row.time||ri+1)} onClick={function(){bwDeleteRow(activeKey,ri);}} style={{...gs.btn("transparent",C.red),padding:0,fontSize:11}}>✕</button>}</td>
                         </tr>
                       );})}
                     </tbody>
@@ -9891,7 +9893,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <label style={gs.label}>Supplier</label>
             <input style={{...gs.input,marginBottom:12}} value={editIngredient.supplier} onChange={function(e){var v=e.target.value;setEditIngredient(function(p){return Object.assign({},p,{supplier:v});});}}/>
             <div style={{display:"flex",gap:7}}>
-              {editIngredient.id&&canEdit&&<button onClick={function(){setKitchenIngredients(function(p){return p.filter(function(x){return x.id!==editIngredient.id;});});setEditIngredient(null);notify("ลบแล้ว");}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:11,padding:"0 12px",border:"1px solid rgba(244,63,94,0.3)"}}>🗑</button>}
+              {editIngredient.id&&canEdit&&<button aria-label={"Delete ingredient "+editIngredient.name} onClick={function(){setKitchenIngredients(function(p){return p.filter(function(x){return x.id!==editIngredient.id;});});setEditIngredient(null);notify("ลบแล้ว");}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:11,padding:"0 12px",border:"1px solid rgba(244,63,94,0.3)"}}>🗑</button>}
               <button onClick={function(){setEditIngredient(null);}} style={{...gs.btn(C.card2,"#fff"),flex:1,border:"1px solid "+C.border}}>ยกเลิก</button>
               <button onClick={function(){if(!editIngredient.name){notify("ใส่ชื่อก่อน","error");return;}if(editIngredient.id){setKitchenIngredients(function(p){return p.map(function(x){return x.id===editIngredient.id?editIngredient:x;});});}else{setKitchenIngredients(function(p){return p.concat([Object.assign({},editIngredient,{id:Date.now()})]);});}addAudit("KITCHEN",("วัตถุดิบ "+editIngredient.name),currentStaff&&currentStaff.name);setEditIngredient(null);notify("บันทึกแล้ว ✓");}} style={{...gs.btn(C.green),flex:1}}>💾 บันทึก</button>
             </div>
@@ -9972,7 +9974,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           <div style={{...gs.card,width:"100%",maxWidth:480,maxHeight:"92vh",overflowY:"auto"}} onClick={function(e){e.stopPropagation();}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
               <div style={{fontWeight:900,fontSize:14}}>📮 คำขอ / ลา · Staff Requests</div>
-              <button onClick={function(){setShowRequests(false);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"3px 9px",border:"1px solid "+C.border}}>✕</button>
+              <button aria-label="Close staff requests" onClick={function(){setShowRequests(false);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"3px 9px",border:"1px solid "+C.border}}>✕</button>
             </div>
             <div style={{...gs.card,background:C.card2,marginBottom:10,padding:"10px 12px"}}>
               <div style={{fontSize:11,fontWeight:800,marginBottom:6}}>ส่งคำขอใหม่ / Submit ({currentStaff?currentStaff.name:"—"})</div>
@@ -10029,7 +10031,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
           <div style={{...gs.card,width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}} onClick={function(e){e.stopPropagation();}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
               <div style={{fontWeight:900,fontSize:14}}>📊 Staff KPI · ระบบ 100 คะแนน</div>
-              <button onClick={function(){setShowKPI(false);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"3px 9px",border:"1px solid "+C.border}}>✕</button>
+              <button aria-label="Close staff KPI" onClick={function(){setShowKPI(false);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"3px 9px",border:"1px solid "+C.border}}>✕</button>
             </div>
             <div style={{display:"flex",gap:5,marginBottom:8,flexWrap:"wrap"}}>
               {["Pattanakarn","Sathorn","Petchaboon","Phuket","Bars"].map(function(b2){var on=kpiBranch===b2;return <button key={b2} onClick={function(){setKpiBranch(b2);}} style={{...gs.btn(on?C.accent:C.card2,on?"#000":"#9ca3af"),fontSize:10,border:"1px solid "+(on?C.accent:C.border)}}>{b2}</button>;})}
@@ -10190,7 +10192,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   </button>
                   <div style={{display:"flex",gap:4,justifyContent:"center",marginTop:6}}>
                     <button title="ดาวน์โหลด QR" onClick={function(){downloadTableQR(tbl.name);}} style={{...gs.btn(C.card3,C.blue),fontSize:9,padding:"3px 9px",border:"1px solid "+C.border}}>⬇ QR</button>
-                    <button title="ดูออเดอร์" onClick={function(){setShowTableBills(tbl.id);}} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:9,padding:"3px 9px",border:"1px solid "+C.border}}>🧾</button>
+                    <button aria-label={"View orders for "+tbl.name} title="ดูออเดอร์" onClick={function(){setShowTableBills(tbl.id);}} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:9,padding:"3px 9px",border:"1px solid "+C.border}}>🧾</button>
                   </div>
                 </div>);})}
             </div>
@@ -10344,12 +10346,12 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             </div>
           </div>
         )}
-        <button onClick={function(){setAsstOpen(function(o){return !o;});setAsstIntro(false);if(asstMsgs.length===0)setAsstMsgs([{role:"bot",text:"👋 สวัสดีค่ะ! ฉันคือ Bryan AI ผู้ช่วยประจำร้าน สอนใช้ได้ทุกหน้าในแอปและพาไปหน้านั้นให้เลย — พิมพ์ เช่น 'สอนใช้แอป', 'วิธีรับของ', 'วิธีปิดกะ', 'ยอดขายวันนี้' หรือกดปุ่มลัดด้านล่างได้เลยค่ะ"}]);}} title="Bryan AI ผู้ช่วย" style={{position:"fixed",right:mob?12:24,bottom:mob?72:28,zIndex:901,width:54,height:54,borderRadius:"50%",background:C.green,border:"3px solid "+C.bg,cursor:"pointer",fontSize:25,boxShadow:"0 6px 20px rgba(74,222,128,0.45)"}}>🤖</button>
+        <button aria-label="Open Bryan AI assistant" onClick={function(){setAsstOpen(function(o){return !o;});setAsstIntro(false);if(asstMsgs.length===0)setAsstMsgs([{role:"bot",text:"👋 สวัสดีค่ะ! ฉันคือ Bryan AI ผู้ช่วยประจำร้าน สอนใช้ได้ทุกหน้าในแอปและพาไปหน้านั้นให้เลย — พิมพ์ เช่น 'สอนใช้แอป', 'วิธีรับของ', 'วิธีปิดกะ', 'ยอดขายวันนี้' หรือกดปุ่มลัดด้านล่างได้เลยค่ะ"}]);}} title="Bryan AI ผู้ช่วย" style={{position:"fixed",right:mob?12:24,bottom:mob?72:28,zIndex:901,width:54,height:54,borderRadius:"50%",background:C.green,border:"3px solid "+C.bg,cursor:"pointer",fontSize:25,boxShadow:"0 6px 20px rgba(74,222,128,0.45)"}}>🤖</button>
         {asstOpen&&(
           <div style={{position:"fixed",right:mob?8:24,bottom:mob?70:92,left:mob?8:"auto",zIndex:902,width:mob?"auto":360,maxHeight:"70vh",background:C.card,border:"1px solid "+C.border,borderRadius:16,boxShadow:"0 12px 40px rgba(0,0,0,0.6)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <div style={{padding:"11px 13px",borderBottom:"1px solid "+C.border,background:C.card2,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div><div style={{fontSize:12.5,fontWeight:900}}>🤖 Bryan AI ผู้ช่วย</div><div style={{fontSize:8.5,color:C.green}}>● พร้อมช่วย · ถามได้ทุกเรื่องในแอป</div></div>
-              <button onClick={function(){setAsstOpen(false);}} style={{...gs.btn(C.card3,"#fff"),fontSize:11,padding:"3px 9px",border:"1px solid "+C.border}}>✕</button>
+              <button aria-label="Close Bryan AI assistant" onClick={function(){setAsstOpen(false);}} style={{...gs.btn(C.card3,"#fff"),fontSize:11,padding:"3px 9px",border:"1px solid "+C.border}}>✕</button>
             </div>
             <div style={{flex:1,overflowY:"auto",padding:"11px 12px",display:"flex",flexDirection:"column",gap:8,minHeight:120}}>
               {asstMsgs.map(function(m,i){return (
@@ -10365,7 +10367,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             </div>
             <div style={{padding:"8px 10px",borderTop:"1px solid "+C.border,display:"flex",gap:6}}>
               <input value={asstQ} onChange={function(e){setAsstQ(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")asstSend();}} placeholder="พิมพ์คำถาม เช่น ยอดขายเดือนนี้..." style={{...gs.input,flex:1,fontSize:11}}/>
-              <button onClick={function(){asstSend();}} style={{...gs.btn(C.green),fontSize:13,padding:"0 14px"}}>➤</button>
+              <button aria-label="Send message to Bryan AI" onClick={function(){asstSend();}} style={{...gs.btn(C.green),fontSize:13,padding:"0 14px"}}>➤</button>
             </div>
           </div>
         )}
@@ -10414,7 +10416,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 <div style={{fontSize:9.5,color:C.muted}}>📞 {c.phone}{c.email?(" · ✉ "+c.email):""}</div>
                 <div style={{fontSize:10.5,color:C.gold,fontWeight:800,letterSpacing:1}}>🪪 {memberCodeOf(c)}</div>
               </div>
-              <button onClick={function(){setCustDetailView(null);}} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:17}}>✕</button>
+              <button aria-label="Close customer details" onClick={function(){setCustDetailView(null);}} style={{...gs.btn("transparent",C.muted),padding:0,fontSize:17}}>✕</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:12}}>
               <div style={{...gs.card,background:C.card2,padding:"9px 10px",textAlign:"center"}}><div style={{fontSize:15,fontWeight:900,color:C.green}}>฿{totalSpend.toLocaleString()}</div><div style={{fontSize:8,color:C.muted}}>TOTAL SPENT</div></div>
@@ -10486,7 +10488,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               </div>
               <div style={{display:"flex",gap:6}}>
                 <button onClick={dlCSV} style={{...gs.btn(C.green),fontSize:10,padding:"5px 10px"}}>📥 CSV</button>
-                <button onClick={function(){setShowProdProfit(false);}} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:17}}>✕</button>
+                <button aria-label="Close product profit" onClick={function(){setShowProdProfit(false);}} style={{...gs.btn("transparent",C.muted),padding:0,fontSize:17}}>✕</button>
               </div>
             </div>
             <div style={{display:"flex",fontSize:8.5,color:C.muted,fontWeight:700,padding:"4px 0",borderBottom:"1px solid "+C.border,position:"sticky",top:-16,background:C.card}}>
@@ -10547,7 +10549,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <label style={gs.label}>Google Drive file link</label>
             <input style={{...gs.input,marginBottom:12}} placeholder="https://drive.google.com/file/d/..." defaultValue={medCards[medCardCust.id]||""} id="medcard-link-input"/>
             <div style={{display:"flex",gap:7}}>
-              {medCards[medCardCust.id]&&<button onClick={function(){setMedCards(function(p){var n=Object.assign({},p);delete n[medCardCust.id];return n;});addAudit("MEDCARD REMOVE",medCardCust.name);setMedCardCust(null);notify("Medical card link removed");}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:11,border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>}
+              {medCards[medCardCust.id]&&<button aria-label={"Remove medical card for "+medCardCust.name} onClick={function(){setMedCards(function(p){var n=Object.assign({},p);delete n[medCardCust.id];return n;});addAudit("MEDCARD REMOVE",medCardCust.name);setMedCardCust(null);notify("Medical card link removed");}} style={{...gs.btn("rgba(244,63,94,0.12)","#f43f5e"),fontSize:11,border:"1px solid rgba(244,63,94,0.25)"}}>🗑</button>}
               <button onClick={function(){setMedCardCust(null);}} style={{...gs.btn(C.card2,"#fff"),flex:1,border:"1px solid "+C.border}}>Cancel</button>
               <button onClick={function(){
                 var v=document.getElementById("medcard-link-input").value.trim();
@@ -10766,7 +10768,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                         <div style={{fontSize:14,fontWeight:800,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</div>
                         <div style={{fontSize:10,color:C.muted}}>{i+1}/{shiftCheck.rows.length} · ระบบว่ามี / system {r.expected}{r.unit||"g"}</div>
                       </div>
-                      <button onClick={function(){setWeighFocus(null);}} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:12,padding:"5px 11px"}}>✕</button>
+                      <button aria-label="Close weigh item" onClick={function(){setWeighFocus(null);}} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:12,padding:"5px 11px"}}>✕</button>
                     </div>
 
                     {isW&&<div style={{background:C.card2,border:"1px solid "+(scaleConnected?"rgba(74,222,128,0.35)":C.border),borderRadius:12,padding:"14px 12px",textAlign:"center",marginBottom:10}}>
@@ -11330,13 +11332,13 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 {products.map(function(p){return <option key={p.id} value={p.id}>{cleanName(p).short}</option>;})}
               </select>
               <input type="number" placeholder="Qty" style={{...gs.input,flex:1}} value={poLineDraft.qty} onChange={function(e){var v=e.target.value;setPoLineDraft(function(p){return Object.assign({},p,{qty:v});});}}/>
-              <button onClick={function(){var p=products.find(function(x){return String(x.id)===String(poLineDraft.pid);});var qty=parseFloat(poLineDraft.qty)||0;if(!p||qty<=0){notify("เลือกสินค้าและใส่จำนวน","error");return;}var cost=+p.cost||(+p.price||0)*0.6;setManualPO(function(pr){return Object.assign({},pr,{items:pr.items.concat([{productId:p.id,name:cleanName(p).short,unit:p.unit||"pc",qty:qty,cost:Math.round(cost),subtotal:Math.round(qty*cost),receivedQty:0}])});});setPoLineDraft({pid:"",qty:""});}} style={{...gs.btn(C.green),fontSize:11,padding:"0 12px"}}>+</button>
+              <button aria-label="Add item to purchase order" onClick={function(){var p=products.find(function(x){return String(x.id)===String(poLineDraft.pid);});var qty=parseFloat(poLineDraft.qty)||0;if(!p||qty<=0){notify("เลือกสินค้าและใส่จำนวน","error");return;}var cost=+p.cost||(+p.price||0)*0.6;setManualPO(function(pr){return Object.assign({},pr,{items:pr.items.concat([{productId:p.id,name:cleanName(p).short,unit:p.unit||"pc",qty:qty,cost:Math.round(cost),subtotal:Math.round(qty*cost),receivedQty:0}])});});setPoLineDraft({pid:"",qty:""});}} style={{...gs.btn(C.green),fontSize:11,padding:"0 12px"}}>+</button>
             </div>
             {manualPO.items.length>0&&<div style={{...gs.card,background:C.card2,marginBottom:10,padding:"8px 10px"}}>
               {manualPO.items.map(function(it,i){return (
                 <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10.5,padding:"4px 0",borderBottom:i<manualPO.items.length-1?"1px solid "+C.border:"none"}}>
                   <span>{it.name}{it.costFlag&&<span style={{color:C.gold}}> ⚠ ราคาต่างจากระบบ (฿{it.sysCost})</span>} × {it.qty} {it.unit}</span>
-                  <span style={{display:"flex",alignItems:"center",gap:8}}><b>฿{it.subtotal.toLocaleString()}</b><button onClick={function(){setManualPO(function(p){return Object.assign({},p,{items:p.items.filter(function(_x,idx){return idx!==i;})});});}} style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:11}}>✕</button></span>
+                  <span style={{display:"flex",alignItems:"center",gap:8}}><b>฿{it.subtotal.toLocaleString()}</b><button aria-label={"Remove "+it.name+" from purchase order"} onClick={function(){setManualPO(function(p){return Object.assign({},p,{items:p.items.filter(function(_x,idx){return idx!==i;})});});}} style={{...gs.btn("transparent",C.red),padding:0,fontSize:11}}>✕</button></span>
                 </div>
               );})}
               <div style={{display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:12,marginTop:6,paddingTop:6,borderTop:"1px solid "+C.border}}><span>Total</span><span style={{color:C.gold}}>฿{total.toLocaleString()}</span></div>
