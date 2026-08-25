@@ -756,24 +756,18 @@ var SHIFT_STAFF = [
     payType: 'monthly', salary: 18000 },
   { id: 'amoe',  name: 'Amoe',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A1'], off: [6],
     payType: 'daily', dailyRate: 600 },
-  { id: 'beer',  name: 'Beer',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: [], off: [],
-    payType: 'daily', dailyRate: 650 },
   { id: 'pond',  name: 'Pond (ศรัณญ์ สิทธิมงคล)', role: 'BUDTENDER', kind: 'part', relief: true, locs: ['ptk'], slots: ['A2', 'C2'], off: [], target: 9, max: 14,
     only: { A2: [3], C2: [1] }, payType: 'daily', dailyRate: 600 },
   { id: 'dylan', name: 'Dylan', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A2'], off: [3, 0],
     payType: 'daily', dailyRate: 600 },
-  { id: 'gus',   name: 'Gus',   role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: [], off: [],
-    payType: 'daily', dailyRate: 550 },
   { id: 'jack',  name: 'Jack',  role: 'BARTENDER', kind: 'full', locs: ['bar'], slots: ['MONTHU', 'FSNIGHT'], off: [1],
     payType: 'monthly', salary: 18000 },
   { id: 'honey', name: 'Honey (มด)', role: 'BARTENDER', kind: 'part', locs: ['ptk', 'bar'], slots: ['MONTHU', 'FSDAY', 'B1'], off: [], target: 22, max: 24,
     only: { B1: [3] }, payType: 'daily', dailyRate: 800 },
 
-  /* On the wage sheet, off the shift roster by design — kitchen, riders and
-   * back office do not stand counter shifts, but they are payroll and the
-   * expense line is wrong without them. */
-  { id: 'boom',   name: 'Boom',            role: 'KITCHEN', kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'monthly', salary: 16000 },
-  { id: 'soe',    name: 'Soe',             role: 'KITCHEN', kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 500 },
+  /* On the wage sheet, off the shift roster by design — riders do not stand
+   * counter shifts, but they are payroll and the expense line is wrong
+   * without them. */
   { id: 'zaw',    name: 'Zaw',             role: 'RIDER',   kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 600 },
   { id: 'got',    name: 'Got',             role: 'RIDER',   kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 600 },
 
