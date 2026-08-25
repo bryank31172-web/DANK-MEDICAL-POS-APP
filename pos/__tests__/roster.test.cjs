@@ -17,7 +17,7 @@ const seed = src.slice(src.indexOf('var SHIFT_LOCATIONS ='),
                        src.indexOf('var SHIFT_STAFF =') + src.slice(src.indexOf('var SHIFT_STAFF =')).indexOf('\n];') + 3);
 const M = new Function(body + seed + `; return {
   buildRoster: buildRoster, shiftHours: shiftHours, monthDates: monthDates,
-  slotRunsOn: slotRunsOn, rosterPick: rosterPick, rosterAsk: rosterAsk,
+  slotRunsOn: slotRunsOn, rosterPick: rosterPick, rosterAsk: rosterAsk, rosterVisits: rosterVisits,
   LOCS: SHIFT_LOCATIONS, STAFF: SHIFT_STAFF };`)();
 
 let pass = 0, fail = 0;
@@ -63,15 +63,18 @@ const r = M.buildRoster(M.LOCS, M.STAFF, 2026, 9);
 const v = r.validation;
 const by = {}; r.summary.forEach((s) => { by[s.name] = s; });
 
-ok('no required shift is left empty', v.empty.length === 0,
-   v.empty.slice(0, 3).map((e) => e.date + ' ' + e.loc + '/' + e.slot).join(', '));
+/* Three nights genuinely have nobody cleared to stand them once the CEOs stop
+ * being counted as cover. That is a real finding about the shop, so it is
+ * asserted as three rather than hidden by widening somebody's authorisation. */
+ok('the only holes are the three night shifts nobody is cleared for', v.empty.length === 3,
+   v.empty.slice(0, 4).map((e) => e.date + ' ' + e.loc + '/' + e.slot).join(', '));
 ok('nobody works twice on one day', v.doubles.length === 0,
    v.doubles.slice(0, 3).map((d) => d.name + ' ' + d.date).join(', '));
 ok('nobody is rostered outside their authorised shop or shift', v.unauthorised.length === 0,
    v.unauthorised.slice(0, 3).map((u) => u.name + ' ' + u.loc + '/' + u.slot).join(', '));
 ok('nobody exceeds their own maximum', v.over.length === 0,
    v.over.map((o) => o.name + ' ' + o.shifts + '>' + o.max).join(', '));
-ok('the run reports itself clean', v.ok === true);
+ok('and the run refuses to call itself clean while they stand', v.ok === false);
 
 console.log('\nthe totals the shop already knows');
 ok('Amoe works 26 shifts for 234h', by.Amoe.shifts === 26 && by.Amoe.hours === 234, by.Amoe.shifts + ' / ' + by.Amoe.hours);
@@ -82,32 +85,63 @@ ok('Ploy works 26 for 208h', by.Ploy.shifts === 26 && by.Ploy.hours === 208, by.
 ok('Jack works 26 for 220h', by.Jack.shifts === 26 && by.Jack.hours === 220, by.Jack.shifts + ' / ' + by.Jack.hours);
 ok('Mon is held at his 26 cap', by.Mon.shifts === 26, by.Mon.shifts);
 
-/* The owner sets this: Bryan and Keneth cover four nights a month at
- * Phatthanakarn, both on the same night — Keneth stands 17:00-21:00 and hands
- * over to Bryan for 21:00-02:00. One name per cell would either drop one of
- * them from the printed sheet or invent a second shift on a one-shift night. */
-console.log('\nthe CEO split: two windows, one night, four nights a month');
-ok('Bryan works 4 nights', by['Bryan (CEO)'].shifts === 4, by['Bryan (CEO)'].shifts);
-ok('Keneth works the same 4', by.Keneth.shifts === 4, by.Keneth.shifts);
-ok('Bryan is charged 5h a night, not 9', by['Bryan (CEO)'].hours === 20, by['Bryan (CEO)'].hours);
-ok('Keneth is charged 4h a night, not 9', by.Keneth.hours === 16, by.Keneth.hours);
-ok('they are rostered on the same dates',
-   by['Bryan (CEO)'].dates.join() === by.Keneth.dates.join(),
-   by['Bryan (CEO)'].dates.join(' ') + '  vs  ' + by.Keneth.dates.join(' '));
-const split = by['Bryan (CEO)'].dates.map((d) => r.cells['ptk|' + d + '|C2']);
-ok('each shared night shows both names on the sheet',
-   split.every((c) => c && c.extra && c.extra.length === 1), JSON.stringify(split[0]));
-ok('…with Keneth first and Bryan picking up where he stops',
-   split.every((c) => c.window === '17:00-21:00' && c.extra[0].window === '21:00-02:00'),
-   split[0] && split[0].window + ' -> ' + split[0].extra[0].window);
-ok('the two windows tile the 17:00-02:00 slot exactly',
-   M.shiftHours('17:00-21:00') + M.shiftHours('21:00-02:00') === M.shiftHours('17:00-02:00'));
+/* Bryan and Keneth are CEOs. They come in once a week to look over the shop.
+ * That is oversight, not cover — and the difference is not cosmetic: while it
+ * was modelled as cover, the generator quietly leaned four nights of the
+ * 17:00-02:00 slot on the two people least likely to actually stand behind
+ * the counter, and the shop could not see it was short. */
+console.log('\nCEOs check in weekly; they do not stand shifts');
+const bryan = by['Bryan (CEO)'], ken = by['Keneth (CEO)'];
+ok('Bryan is rostered to no shop shift', bryan.shifts === 0, bryan.shifts);
+ok('Keneth is rostered to no shop shift', ken.shifts === 0, ken.shifts);
+ok('no shop hours are charged to them', bryan.hours === 0 && ken.hours === 0);
+ok('a CEO is never placed in a slot',
+   Object.keys(r.cells).every((k) => {
+     const c = r.cells[k];
+     if (!c || c.closed) return true;
+     return ['bryan', 'keneth'].indexOf(c.id) < 0 && (c.extra || []).every((e) => ['bryan', 'keneth'].indexOf(e.id) < 0);
+   }));
+ok('each of them visits once per week', bryan.visits.length === 5 && ken.visits.length === 5,
+   bryan.visits.length + ' / ' + ken.visits.length);
+ok('…no two visits fall in the same week', (() => {
+  const wk = (d) => Math.floor((new Date(d + 'T00:00:00Z') - new Date('2026-08-30T00:00:00Z')) / (7 * 86400000));
+  return new Set(bryan.visits.map(wk)).size === bryan.visits.length;
+})(), bryan.visits.join(' '));
+ok('…and both come on the same day', bryan.visits.join() === ken.visits.join(),
+   bryan.visits.join(' ') + '  vs  ' + ken.visits.join(' '));
+ok('the visit is recorded on the result', r.visits.length === 10, r.visits.length);
+ok('each visit names a shop and a window',
+   r.visits.every((v) => v.loc && v.window && v.label), JSON.stringify(r.visits[0]));
+ok('visit hours are tracked separately from shift hours',
+   bryan.visitHours === 25 && ken.visitHours === 20, bryan.visitHours + ' / ' + ken.visitHours);
+ok('a visit never lands on a leave date', (() => {
+  const withLeave = M.STAFF.map((p) => (p.id === 'bryan' ? Object.assign({}, p, { leave: ['2026-09-04'] }) : p));
+  const rv = M.buildRoster(M.LOCS, withLeave, 2026, 9);
+  const b2 = rv.summary.filter((s) => s.id === 'bryan')[0];
+  return b2.visits.indexOf('2026-09-04') < 0 && b2.visits.length === 5;
+})());
+
+console.log('\nlosing the CEOs from the shift pool is reported, not papered over');
+ok('the nights they used to absorb now show as empty', v.empty.length === 3, v.empty.length);
+ok('…and every one is the Phatthanakarn night shift',
+   v.empty.every((e) => e.loc === 'ptk' && e.slot === 'C2'),
+   v.empty.map((e) => e.loc + '/' + e.slot).join(', '));
+ok('each empty shift says who was blocked and why',
+   v.empty.every((e) => e.blockers && e.blockers.length), JSON.stringify(v.empty[0] && v.empty[0].blockers));
+ok('…naming Mon at his cap', v.empty[0].blockers.some((b) => /Mon:.*maximum/.test(b)), v.empty[0].blockers.join(' | '));
+ok('…and Pond limited to Mondays', v.empty[0].blockers.some((b) => /Pond:.*MON/.test(b)));
+ok('it does not list people who were never trained for the shift',
+   v.empty[0].blockers.every((b) => !/Amoe|Rena|Alex/.test(b)), v.empty[0].blockers.join(' | '));
+ok('Pond picks up the Mondays the CEOs used to take', by.Pond.shifts === 4, by.Pond.shifts);
 
 console.log('\nan optional slot never starves a required one');
-ok('every 17:00-02:00 night at Phatthanakarn is covered',
-   r.days.every((d) => !!r.cells['ptk|' + d.date + '|C2']),
-   r.days.filter((d) => !r.cells['ptk|' + d.date + '|C2']).map((d) => d.date).join(', '));
 ok('Mon is still held to his 26', by.Mon.shifts === 26, by.Mon.shifts);
+ok('Sunday stock/admin never takes a shift a required slot still needs', (() => {
+  /* give the shop one more trained night person and the holes must close, which
+   * only happens if nothing optional got in first */
+  const plus = M.STAFF.concat([{ id: 'nite', name: 'Nite', kind: 'full', locs: ['ptk'], slots: ['C2'], off: [], target: 26, max: 28 }]);
+  return M.buildRoster(M.LOCS, plus, 2026, 9).validation.empty.length === 0;
+})());
 
 console.log('\nBank is four at each shop, not eight at either');
 const bankAt = (l) => Object.keys(r.cells).filter((k) => k.split('|')[0] === l && r.cells[k] && r.cells[k].id === 'bank').length;
@@ -198,13 +232,15 @@ console.log('\nunder-24 flags full-timers only');
 ok('Dylan is flagged at 21', v.under.some((u) => u.name === 'Dylan'), JSON.stringify(v.under));
 ok('part-timers are not flagged for being part-time',
    !v.under.some((u) => ['Steve', 'Pond', 'Bank', 'Honey'].indexOf(u.name) >= 0));
-ok('nor is the CEO', !v.under.some((u) => /Bryan|Keneth/.test(u.name)));
+ok('nor is a CEO, who stands no shifts at all', !v.under.some((u) => /Bryan|Keneth/.test(u.name)));
 
 console.log('\nhours by location add up');
 const sumStaffHours = r.summary.reduce((a, s) => a + s.hours, 0);
 const sumLocHours = Object.keys(v.hoursByLoc).reduce((a, k) => a + v.hoursByLoc[k], 0);
 ok('the per-shop total equals the per-person total', Math.abs(sumStaffHours - sumLocHours) < 0.5,
    sumStaffHours + ' vs ' + sumLocHours);
+ok('CEO check-in hours are NOT in the shop labour total',
+   r.summary.filter((s) => s.kind === 'ceo').every((s) => s.hours === 0 && s.visitHours > 0));
 ok('all three shops have hours', Object.keys(v.hoursByLoc).length === 3);
 ok('Phatthanakarn carries the most', v.hoursByLoc.ptk > v.hoursByLoc.sat && v.hoursByLoc.sat > v.hoursByLoc.bar,
    JSON.stringify(v.hoursByLoc));

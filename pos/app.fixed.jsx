@@ -229,6 +229,12 @@ function slotRunsOn(slot, dow) {
 function rosterEligible(person, loc, slot, day, assignedToday, count, byLoc) {
   byLoc = byLoc || {};
   if (!person || person.active === false) return null;
+  /* Bryan and Keneth come in once a week to look over the shop. That is
+   * oversight, not cover — counting it as cover is what let the generator
+   * leave four nights of the 17:00-02:00 slot to the two people least likely
+   * to actually stand behind the counter, and hid the fact that the shop was
+   * four night-shifts short of staff who could. A CEO fills no slot. */
+  if (person.kind === 'ceo') return 'CEO check-in, not shift cover';
   if ((person.locs || []).indexOf(loc.id) < 0) return 'not authorised at ' + loc.id;
   if ((person.slots || []).indexOf(slot.id) < 0) return 'not authorised on ' + slot.id;
   if ((person.leave || []).indexOf(day.date) >= 0) return 'on leave';
@@ -286,6 +292,35 @@ function rosterPick(cands, slot, count, slotSpan) {
     if (deficit(a) !== deficit(b)) return deficit(b) - deficit(a);
     return String(a.name).localeCompare(String(b.name));
   })[0] || null;
+}
+
+/* One check-in per calendar week, on the weeks the printed sheet already
+ * groups by. A visit lands on the person's preferred weekday when that day
+ * falls inside the week and they are not on leave, otherwise on the first day
+ * of that week they are free — a fixed weekday would silently drop the visit
+ * in any week that starts mid-week, and September starts on a Tuesday. */
+function rosterVisits(days, staff) {
+  var weeks = [], cur = [];
+  (days || []).forEach(function (d) { cur.push(d); if (d.dow === 0) { weeks.push(cur); cur = []; } });
+  if (cur.length) weeks.push(cur);
+
+  var out = [];
+  (staff || []).forEach(function (p) {
+    if (p.kind !== 'ceo' || p.active === false) return;
+    var want = (p.visit && p.visit.dow != null) ? p.visit.dow : null;
+    weeks.forEach(function (wk) {
+      var free = wk.filter(function (d) { return (p.leave || []).indexOf(d.date) < 0; });
+      if (!free.length) return;
+      var day = (want != null && free.filter(function (d) { return d.dow === want; })[0]) || free[0];
+      out.push({
+        id: p.id, name: p.name, date: day.date,
+        loc: (p.visit && p.visit.loc) || (p.locs || [])[0] || '',
+        window: (p.visit && p.visit.window) || p.window || '',
+        label: (p.visit && p.visit.label) || 'ตรวจงาน CHECK',
+      });
+    });
+  });
+  return out;
 }
 
 /* Hourly rate is the monthly salary spread over the hours that salary is
@@ -347,7 +382,28 @@ function buildRoster(locations, staff, year, month1) {
         var pick = rosterPick(cands, slot, count, shiftSpan(slot.label));
         if (!pick) {
           cells[key] = null;
-          if (!slot.optional) empty.push({ loc: loc.id, locName: loc.name, date: day.date, slot: slot.id, label: slot.label });
+          if (!slot.optional) {
+            /* "Nobody available" is a complaint; "Pond is only cleared for this
+             * shift on Mondays, Steve is not cleared for it at all" is a
+             * decision. The eligibility test already knows the reason it said
+             * no, so an empty shift carries the nearest few people and what
+             * stopped each of them. */
+            /* Only people cleared for THIS shift are worth naming. Listing
+             * everyone at the shop fills the report with "Amoe: not authorised
+             * on C2" for four people who were never candidates and buries the
+             * one line that matters — which of the trained staff was at their
+             * cap, on a day off, or already working. */
+            var why = [];
+            (staff || []).forEach(function (p) {
+              if (p.kind === 'ceo') return;
+              if ((p.slots || []).indexOf(slot.id) < 0) return;
+              var r2 = rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc);
+              if (r2) why.push(p.name + ': ' + r2);
+            });
+            if (!why.length) why.push('ไม่มีใครได้รับอนุญาตกะนี้ที่สาขานี้เลย / nobody is cleared for this shift here');
+            empty.push({ loc: loc.id, locName: loc.name, date: day.date, slot: slot.id,
+                         label: slot.label, blockers: why.slice(0, 5) });
+          }
           return;
         }
         /* Bryan covers 21:00-02:00 of a 17:00-02:00 slot, Keneth the 17:00-21:00
@@ -422,6 +478,10 @@ function buildRoster(locations, staff, year, month1) {
     return found;
   };
 
+  var visits = rosterVisits(days, staff);
+  var visitsBy = {};
+  visits.forEach(function (v) { (visitsBy[v.id] = visitsBy[v.id] || []).push(v); });
+
   var summary = (staff || []).filter(function (p) { return p.active !== false; }).map(function (p) {
     var worked = dates[p.id] || [];
     var offDays = days.filter(function (d) { return worked.indexOf(d.date) < 0; }).map(function (d) { return d.date; });
@@ -435,6 +495,11 @@ function buildRoster(locations, staff, year, month1) {
       leave: (p.leave || []).slice(),
       duties: duties[p.id] || [],
       target: p.target || 26, max: p.max || 28,
+      /* recorded, and deliberately not folded into shifts or hours — the
+       * owner's own rule is that management duties are kept separate */
+      visits: (visitsBy[p.id] || []).map(function (v) { return v.date; }),
+      visitHours: Math.round((visitsBy[p.id] || []).reduce(function (a, v) {
+        return a + (v.window ? shiftHours(v.window) : 0); }, 0) * 10) / 10,
       pay: rosterPay(p, Math.round((hours[p.id] || 0) * 10) / 10, slotLenOf(p)),
     };
   });
@@ -456,7 +521,7 @@ function buildRoster(locations, staff, year, month1) {
    * against the band. */
   var band = summary.filter(function (s) { return s.kind === 'full'; });
   return {
-    year: year, month: month1, days: days, cells: cells, summary: summary,
+    year: year, month: month1, days: days, cells: cells, summary: summary, visits: visits,
     validation: {
       empty: empty, doubles: doubles, unauthorised: unauthorised,
       under: band.filter(function (s) { return s.shifts < 24; }).map(function (s) { return { name: s.name, shifts: s.shifts }; }),
@@ -631,12 +696,13 @@ var SHIFT_STAFF = [
     locMax: { ptk: 4, sat: 4 }, only: { B2: [4], PEAK: [1] } },
   { id: 'honey', name: 'Honey',      kind: 'part', locs: ['ptk', 'bar'], slots: ['MONTHU', 'FSDAY', 'B1'], off: [], target: 22, max: 24,
     only: { B1: [3] } },
-  /* four nights a month at Phatthanakarn, both on the same night: Keneth takes
-   * 17:00-21:00 and hands over to Bryan for 21:00-02:00 */
-  { id: 'bryan', name: 'Bryan (CEO)', kind: 'manager', locs: ['ptk'], slots: ['C2'], off: [], target: 4, max: 4,
-    locMax: { ptk: 4 }, window: '21:00-02:00' },
-  { id: 'keneth', name: 'Keneth',    kind: 'manager', locs: ['ptk'], slots: ['C2'], off: [], target: 4, max: 4,
-    locMax: { ptk: 4 }, window: '17:00-21:00' },
+  /* CEOs. They come in once a week to look over the shop — that is recorded on
+   * the sheet and kept out of the shift count, so it can never be mistaken for
+   * cover the shop can lean on. */
+  { id: 'bryan', name: 'Bryan (CEO)', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,
+    visit: { loc: 'ptk', dow: 5, window: '21:00-02:00', label: 'CEO ตรวจงาน' } },
+  { id: 'keneth', name: 'Keneth (CEO)', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,
+    visit: { loc: 'ptk', dow: 5, window: '17:00-21:00', label: 'CEO ตรวจงาน' } },
   /* Sathorn */
   { id: 'raizo', name: 'Raizo', kind: 'full', locs: ['sat'], slots: ['EARLY'], off: [1] , salary: 24000 },
   { id: 'meng',  name: 'Meng',  kind: 'full', locs: ['sat'], slots: ['DAY'],   off: [2] , salary: 24000 },
@@ -1962,7 +2028,14 @@ function GreenPOS() {
               +(du?'<s>'+esc(du.label)+'</s>':"")+'</td>';
           }).join("")+'</tr>';
         }).join("");
-        return '<table>'+head+body+'</table>';
+        var vis = (res.visits || []).filter(function (x) { return x.loc === loc.id; });
+        var visRow = vis.length ? ('<tr><td class="sl"><i>สัปดาห์ละครั้ง</i><b>CEO CHECK</b></td>' + wk.map(function (d) {
+          var here = vis.filter(function (x) { return x.date === d.date; });
+          if (!here.length) return '<td class="dash">&ndash;</td>';
+          return '<td class="ceo">' + here.map(function (x) {
+            return esc(x.name.replace(' (CEO)', '')) + (x.window ? '<u>' + esc(x.window) + '</u>' : ''); }).join('<br>') + '</td>';
+        }).join('') + '</tr>') : '';
+        return '<table>'+head+body+visRow+'</table>';
       }).join("");
 
       var mine=res.summary.filter(function(s){return s.locs.indexOf(loc.id)>=0&&s.shifts>0;});
@@ -7994,8 +8067,15 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   </div>;
                 })}
               </div>
-              {v.empty.length>0&&<div style={{marginTop:9,fontSize:10.5,color:C.red,lineHeight:1.6}}>
-                <b>ยังไม่มีคน:</b> {v.empty.slice(0,10).map(function(e){return e.date.slice(8)+"/"+e.date.slice(5,7)+" "+e.loc+" "+e.slot;}).join(" · ")}{v.empty.length>10?(" …อีก "+(v.empty.length-10)):""}
+              {v.empty.length>0&&<div style={{marginTop:9,fontSize:10.5,color:C.red,lineHeight:1.7}}>
+                <b>ยังไม่มีคน — และติดตรงไหน:</b>
+                {v.empty.slice(0,6).map(function(e,i){
+                  return <div key={i} style={{marginTop:3}}>
+                    · {e.date} {e.loc} {e.slot} ({e.label})
+                    <span style={{color:C.muted,marginLeft:6}}>{(e.blockers||[]).join(" · ")}</span>
+                  </div>;
+                })}
+                {v.empty.length>6?<div style={{marginTop:3,color:C.muted}}>…อีก {v.empty.length-6} กะ</div>:null}
               </div>}
               {v.doubles.length>0&&<div style={{marginTop:6,fontSize:10.5,color:C.red}}>
                 <b>ซ้ำ:</b> {v.doubles.slice(0,8).map(function(d){return d.name+" "+d.date.slice(8);}).join(" · ")}
@@ -8030,6 +8110,26 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                           {SHIFT_DAY_NAMES[d.dow]}<div style={{color:C.text,fontSize:11,fontWeight:800}}>{d.day}</div></th>;})}
                       </tr></thead>
                       <tbody>
+                        {(function(){
+                          /* the owner's own rule: management duties are recorded
+                           * separately from shop shifts, so they get their own
+                           * row rather than a name in a slot */
+                          var vis=(shown.visits||[]).filter(function(x){return x.loc===loc.id;});
+                          if(!vis.length)return null;
+                          return <tr style={{borderTop:"1px solid "+C.borderSoft}}>
+                            <td style={{padding:"5px 6px",whiteSpace:"nowrap"}}>
+                              <div style={{fontSize:9.5,color:C.muted}}>สัปดาห์ละครั้ง</div>
+                              <div style={{fontSize:10,fontWeight:700,color:C.gold}}>CEO ตรวจงาน</div>
+                            </td>
+                            {wk.map(function(d){
+                              var here=vis.filter(function(x){return x.date===d.date;});
+                              if(!here.length)return <td key={d.date} style={{textAlign:"center",color:C.muted,padding:"5px 3px"}}>–</td>;
+                              return <td key={d.date} style={{textAlign:"center",padding:"5px 3px",color:C.gold,fontWeight:800,fontSize:9}}>
+                                {here.map(function(x,i){return <div key={i}>{x.name.replace(" (CEO)","")}<div style={{fontSize:7.5,fontWeight:500}}>{x.window}</div></div>;})}
+                              </td>;
+                            })}
+                          </tr>;
+                        })()}
                         {loc.slots.map(function(slot){
                           return <tr key={slot.id} style={{borderTop:"1px solid "+C.borderSoft}}>
                             <td style={{padding:"5px 6px",whiteSpace:"nowrap"}}>
@@ -8086,8 +8186,10 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                         <td style={{padding:"5px 6px",color:C.muted,fontSize:9.5}}>{s.locs.join(", ")}</td>
                         <td style={{padding:"5px 6px",fontSize:9.5}}>{s.assignment}</td>
                         <td style={{padding:"5px 6px",fontSize:9.5,color:C.muted}}>{s.kind==="full"?"ประจำ":s.kind==="part"?"พาร์ทไทม์":"ผู้บริหาร"}{p&&p.relief?" · relief":""}</td>
-                        <td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:band?C.gold:C.text}}>{s.shifts}</td>
-                        <td style={{padding:"5px 6px",textAlign:"right",...gs.num}}>{s.hours}h</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:band?C.gold:C.text}}>
+                          {s.kind==="ceo"?<span style={{color:C.gold,fontSize:9.5}}>ตรวจ {s.visits.length}×</span>:s.shifts}
+                        </td>
+                        <td style={{padding:"5px 6px",textAlign:"right",...gs.num}}>{s.kind==="ceo"?(s.visitHours+"h*"):(s.hours+"h")}</td>
                         <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.hourly?C.text:C.muted}}>{s.pay.hourly?s.pay.hourly.toFixed(2):"—"}</td>
                         <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.otHours?C.gold:C.muted}}>{s.pay.otHours||"—"}</td>
                         <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.otPay?C.gold:C.muted}}>{s.pay.otPay?("฿"+Math.round(s.pay.otPay).toLocaleString()):"—"}</td>
@@ -8101,6 +8203,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               </div>
               <div style={{marginTop:8,fontSize:9.5,color:C.muted,lineHeight:1.6}}>
                 กะข้ามคืนนับเป็น 1 กะของ<b>วันที่เริ่ม</b> · งานพิเศษที่ทำระหว่างกะปกติถูกบันทึกไว้ แต่<b>ไม่นับเป็นกะเพิ่มและไม่บวกชั่วโมงซ้ำ</b>
+                {" · "}<b style={{color:C.gold}}>CEO เข้าตรวจสัปดาห์ละครั้ง</b> บันทึกแยก ไม่นับเป็นกะของร้าน (*ชั่วโมงตรวจงาน)
                 <span style={{marginLeft:10}}>สี: <span style={{color:C.text}}>■ ประจำ</span> <span style={{color:C.blue}}>■ พาร์ทไทม์/relief</span> <span style={{color:C.gold}}>■ ผู้บริหาร/CEO</span> <span style={{color:"#c084fc"}}>■ งานพิเศษ</span></span>
               </div>
             </div>
