@@ -388,9 +388,9 @@ const steps = (s, list, x, y, w, gap, onDark) => {
   const s = light();
   heading(s, 'ข้อ 9–11 — สามเรื่องที่รอเจ้าของตัดสินใจ', 'Nobody else can answer these, and each one is blocking a cleanup');
   const q = [
-    { n: 9, th: 'ลบโปรเจกต์ Vercel ที่ซ้ำ', en: 'dankbkk-site-4jrn',
-      body: 'มีโปรเจกต์ชื่อ dankbkk-site-4jrn อยู่อีกตัวหนึ่ง ถ้ายังอยู่ ทุกครั้งที่ตั้ง env จะต้องตั้งสองรอบตลอดไป',
-      ask: 'ยืนยันว่าโดเมนจริงชี้ไปที่ dankbkk-site แล้วหรือยัง — ถ้าใช่ ลบตัวซ้ำได้เลย' },
+    { n: 9, th: 'ลบโปรเจกต์ Vercel ที่ซ้ำ', en: 'dankbkk-site-4jrn · ตรวจแล้ว ลบได้เลย',
+      body: 'เช็คกับ Vercel แล้ว: dankbkk-site ถือ dankbangkok.com และ www.dankbangkok.com — ตัวนี้คือของจริง เก็บไว้ · dankbkk-site-4jrn ไม่มีโดเมนของร้านเลย มีแต่ URL .vercel.app ของตัวเอง และไม่มีโค้ดตรงไหนเรียกใช้ · ทั้งคู่ผูก repo เดียวกัน push ทีนึงจึง build สองรอบ',
+      ask: 'Vercel → dankbkk-site-4jrn → Settings → เลื่อนลงล่างสุด → Delete Project  (ผมลบให้ไม่ได้ เครื่องมือที่ต่ออยู่อ่านได้อย่างเดียว)' },
     { n: 10, th: 'ไฟล์ HTML ที่ค้างอยู่ใน repo POS', en: '5 files + i18n.js',
       body: 'staff.html · build-your-joint.html · labels.html · status.html · SUMMARY.html และ i18n.js ที่ทั้งสี่ไฟล์เรียกใช้ — เป็นของเว็บลูกค้าแต่มาอยู่ใน repo นี้',
       ask: 'ไฟล์ไหนยังใช้อยู่จริงในแต่ละวัน — ผมไม่ลบเองจนกว่าจะได้คำตอบ' },

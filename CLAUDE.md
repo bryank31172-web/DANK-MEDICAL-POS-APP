@@ -95,8 +95,16 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
    website — the POS draws the name and price over the tile, so a card with baked-in text
    double-prints. Variant A (3:2, with text) is for IG and menu boards. The till pulls photos
    from `products.json` by name, so adding them there lights up POS and website at once.
-9. Delete the duplicate Vercel project `dankbkk-site-4jrn` once the live domain is confirmed
-   to point at `dankbkk-site` — otherwise every env var has to be set twice, forever.
+9. **Delete the duplicate Vercel project `dankbkk-site-4jrn` — the safety check is done, only
+   the click is left.** Read off the Vercel API on 25 Aug 2026, team `bryank31172-7357s-projects`:
+   `dankbkk-site` (`prj_VK2M4ZRH…`) holds **dankbangkok.com and www.dankbangkok.com** — that is
+   the live one, keep it. `dankbkk-site-4jrn` (`prj_0nGkDgXV…`) holds **no custom domain at all**,
+   only its own auto-generated `*.vercel.app` preview URLs, and nothing in either repo references
+   it. Both are wired to the same GitHub repo `bryank31172-web/dankbkk-site`, so every push builds
+   twice (their last two production deploys started 28 ms apart) and every env var has to be set
+   twice, forever. Vercel → `dankbkk-site-4jrn` → Settings → scroll to the bottom → Delete Project.
+   *The Vercel connector available here can list and read projects but has no delete; pausing it
+   as a stopgap returned 400. This is a click the owner has to make.*
 10. Root HTML pages that belong to the customer site — `staff.html`, `build-your-joint.html`,
    `labels.html`, `status.html`, `SUMMARY.html`, plus the `i18n.js` all four load. Awaiting
    the owner's word on which are still in daily use before removing.
