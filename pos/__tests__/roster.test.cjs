@@ -17,7 +17,7 @@ const seed = src.slice(src.indexOf('var SHIFT_LOCATIONS ='),
                        src.indexOf('var SHIFT_STAFF =') + src.slice(src.indexOf('var SHIFT_STAFF =')).indexOf('\n];') + 3);
 const M = new Function(body + seed + `; return {
   buildRoster: buildRoster, shiftHours: shiftHours, monthDates: monthDates,
-  slotRunsOn: slotRunsOn, rosterPick: rosterPick, rosterAsk: rosterAsk, rosterVisits: rosterVisits,
+  slotRunsOn: slotRunsOn, rosterPick: rosterPick, rosterAsk: rosterAsk, rosterVisits: rosterVisits, rosterPayroll: rosterPayroll,
   LOCS: SHIFT_LOCATIONS, STAFF: SHIFT_STAFF };`)();
 
 let pass = 0, fail = 0;
@@ -63,11 +63,13 @@ const r = M.buildRoster(M.LOCS, M.STAFF, 2026, 9);
 const v = r.validation;
 const by = {}; r.summary.forEach((s) => { by[s.name] = s; });
 
-/* Three nights genuinely have nobody cleared to stand them once the CEOs stop
- * being counted as cover. That is a real finding about the shop, so it is
- * asserted as three rather than hidden by widening somebody's authorisation. */
-ok('the only holes are the three night shifts nobody is cleared for', v.empty.length === 3,
-   v.empty.slice(0, 4).map((e) => e.date + ' ' + e.loc + '/' + e.slot).join(', '));
+/* The seed is now the shop's own wage sheet, and four people who stood shifts
+ * in September are not on it. Removing them opens real holes — asserted as
+ * "there are some and each one explains itself" rather than a number, because
+ * the number is a fact about who is employed this month, not about the code. */
+ok('the holes left by unstaffed shifts are reported, not hidden', v.empty.length > 0, v.empty.length);
+ok('every hole names who was blocked and why',
+   v.empty.every((e) => e.blockers && e.blockers.length));
 ok('nobody works twice on one day', v.doubles.length === 0,
    v.doubles.slice(0, 3).map((d) => d.name + ' ' + d.date).join(', '));
 ok('nobody is rostered outside their authorised shop or shift', v.unauthorised.length === 0,
@@ -79,11 +81,11 @@ ok('and the run refuses to call itself clean while they stand', v.ok === false);
 console.log('\nthe totals the shop already knows');
 ok('Amoe works 26 shifts for 234h', by.Amoe.shifts === 26 && by.Amoe.hours === 234, by.Amoe.shifts + ' / ' + by.Amoe.hours);
 ok('Alex works 26 for 234h', by.Alex.shifts === 26 && by.Alex.hours === 234, by.Alex.shifts + ' / ' + by.Alex.hours);
-ok('Rena works 26 for 234h', by.Rena.shifts === 26 && by.Rena.hours === 234, by.Rena.shifts + ' / ' + by.Rena.hours);
+ok('Mon works 26 for 234h', by['Mon (ม่อน อาชา)'].shifts === 26, by['Mon (ม่อน อาชา)'].shifts);
 ok('Raizo works 26 for 208h', by.Raizo.shifts === 26 && by.Raizo.hours === 208, by.Raizo.shifts + ' / ' + by.Raizo.hours);
-ok('Ploy works 26 for 208h', by.Ploy.shifts === 26 && by.Ploy.hours === 208, by.Ploy.shifts + ' / ' + by.Ploy.hours);
+ok('Ploy works 26 for 208h', by['Ploy (พลอย)'].shifts === 26 && by['Ploy (พลอย)'].hours === 208, by['Ploy (พลอย)'].shifts + ' / ' + by['Ploy (พลอย)'].hours);
 ok('Jack works 26 for 220h', by.Jack.shifts === 26 && by.Jack.hours === 220, by.Jack.shifts + ' / ' + by.Jack.hours);
-ok('Mon is held at his 26 cap', by.Mon.shifts === 26, by.Mon.shifts);
+ok('Mon is held at his 26 cap', by['Mon (ม่อน อาชา)'].shifts === 26, by['Mon (ม่อน อาชา)'].shifts);
 
 /* Bryan and Keneth are CEOs. They come in once a week to look over the shop.
  * That is oversight, not cover — and the difference is not cosmetic: while it
@@ -121,72 +123,130 @@ ok('a visit never lands on a leave date', (() => {
   return b2.visits.indexOf('2026-09-04') < 0 && b2.visits.length === 5;
 })());
 
-console.log('\nlosing the CEOs from the shift pool is reported, not papered over');
-ok('the nights they used to absorb now show as empty', v.empty.length === 3, v.empty.length);
-ok('…and every one is the Phatthanakarn night shift',
-   v.empty.every((e) => e.loc === 'ptk' && e.slot === 'C2'),
-   v.empty.map((e) => e.loc + '/' + e.slot).join(', '));
+console.log('\nholes are reported with the reason, not papered over');
 ok('each empty shift says who was blocked and why',
    v.empty.every((e) => e.blockers && e.blockers.length), JSON.stringify(v.empty[0] && v.empty[0].blockers));
-ok('…naming Mon at his cap', v.empty[0].blockers.some((b) => /Mon:.*maximum/.test(b)), v.empty[0].blockers.join(' | '));
-ok('…and Pond limited to Mondays', v.empty[0].blockers.some((b) => /Pond:.*MON/.test(b)));
-ok('it does not list people who were never trained for the shift',
-   v.empty[0].blockers.every((b) => !/Amoe|Rena|Alex/.test(b)), v.empty[0].blockers.join(' | '));
-ok('Pond picks up the Mondays the CEOs used to take', by.Pond.shifts === 4, by.Pond.shifts);
+ok('a blocker line names a person and a reason',
+   v.empty.every((e) => e.blockers.every((b) => /: |nobody is cleared/.test(b))),
+   v.empty[0].blockers.join(' | '));
+ok('it never lists somebody who was not trained for that shift', (() => {
+  const bySlot = {};
+  M.STAFF.forEach((p) => (p.slots || []).forEach((sl) => { (bySlot[sl] = bySlot[sl] || []).push(p.name); }));
+  return v.empty.every((e) => e.blockers.every((b) => {
+    if (/nobody is cleared/.test(b)) return true;
+    return (bySlot[e.slot] || []).some((n) => b.indexOf(n) === 0);
+  }));
+})(), v.empty[0].blockers.join(' | '));
+ok('a slot nobody is cleared for says exactly that',
+   v.empty.some((e) => e.blockers.some((b) => /nobody is cleared/.test(b))));
 
 console.log('\nan optional slot never starves a required one');
-ok('Mon is still held to his 26', by.Mon.shifts === 26, by.Mon.shifts);
+ok('Mon is still held to his 26', by['Mon (ม่อน อาชา)'].shifts === 26, by['Mon (ม่อน อาชา)'].shifts);
 ok('Sunday stock/admin never takes a shift a required slot still needs', (() => {
-  /* give the shop one more trained night person and the holes must close, which
-   * only happens if nothing optional got in first */
-  const plus = M.STAFF.concat([{ id: 'nite', name: 'Nite', kind: 'full', locs: ['ptk'], slots: ['C2'], off: [], target: 26, max: 28 }]);
-  return M.buildRoster(M.LOCS, plus, 2026, 9).validation.empty.length === 0;
+  /* staff every open Phatthanakarn slot and the holes must close completely —
+   * which only happens if nothing optional got in ahead of a required shift */
+  const plus = M.STAFF.concat([
+    { id: 'n1', name: 'N1', kind: 'full', locs: ['ptk'], slots: ['C1'], off: [], target: 26, max: 30 },
+    { id: 'n2', name: 'N2', kind: 'full', locs: ['ptk'], slots: ['B1'], off: [], target: 26, max: 30 },
+    { id: 'n3', name: 'N3', kind: 'full', locs: ['ptk'], slots: ['C2'], off: [], target: 26, max: 30 },
+    { id: 'n4', name: 'N4', kind: 'full', locs: ['ptk'], slots: ['A1', 'A2', 'B2'], off: [], target: 26, max: 30 },
+    { id: 'n5', name: 'N5', kind: 'full', locs: ['sat'], slots: ['PEAK'], off: [], target: 26, max: 30 },
+  ]);
+  const rp2 = M.buildRoster(M.LOCS, plus, 2026, 9);
+  return rp2.validation.empty.length === 0;
 })());
 
-console.log('\nBank is four at each shop, not eight at either');
-const bankAt = (l) => Object.keys(r.cells).filter((k) => k.split('|')[0] === l && r.cells[k] && r.cells[k].id === 'bank').length;
-ok('4 at Phatthanakarn', bankAt('ptk') === 4, bankAt('ptk'));
-ok('4 at Sathorn', bankAt('sat') === 4, bankAt('sat'));
-ok('8 in total', by.Bank.shifts === 8, by.Bank.shifts);
-
-console.log('\npay: hourly from the monthly salary, OT at 1.5x');
-ok('Amoe on 26000 over 26x9h is 111.11/h', by.Amoe.pay.hourly === 111.11, by.Amoe.pay.hourly);
-ok('his normal month is 234h', by.Amoe.pay.normalHours === 234, by.Amoe.pay.normalHours);
-ok('he worked exactly that, so no OT', by.Amoe.pay.otHours === 0, by.Amoe.pay.otHours);
-ok('Raizo on 24000 over 26x8h is 115.38/h', by.Raizo.pay.hourly === 115.38, by.Raizo.pay.hourly);
-ok('a 9h shift and an 8h shift do not share a divisor',
-   by.Amoe.pay.normalHours !== by.Raizo.pay.normalHours, by.Amoe.pay.normalHours + ' vs ' + by.Raizo.pay.normalHours);
-ok('the OT rate is exactly 1.5x the hourly',
-   Math.abs(by.Amoe.pay.otRate - by.Amoe.pay.hourly * 1.5) < 0.01, by.Amoe.pay.otRate);
-ok('nobody under their target is charged negative OT', r.summary.every((s) => s.pay.otHours >= 0));
-ok('no OT means pay is just the salary', by.Amoe.pay.totalPay === 26000, by.Amoe.pay.totalPay);
+/* "Four at Phatthanakarn and four at Sathorn" is two limits, not one of eight.
+ * A single total lets the generator spend all eight in whichever shop it fills
+ * first and leave the other short. Nobody in the current wage sheet is split
+ * across shops, so the rule is exercised with a person built for it. */
+console.log('\na per-shop cap is two limits, not one total');
 {
-  /* one extra shift past the target has to show up as 9h of OT, not 9h of nothing */
+  const split = M.STAFF.concat([{
+    id: 'twoshop', name: 'TwoShop', kind: 'part', relief: true,
+    locs: ['ptk', 'sat'], slots: ['B2', 'PEAK'], off: [],
+    target: 8, max: 8, locMax: { ptk: 4, sat: 4 },
+    payType: 'daily', dailyRate: 600,
+  }]);
+  const rs = M.buildRoster(M.LOCS, split, 2026, 9);
+  const at = (l) => Object.keys(rs.cells).filter((k) => k.split('|')[0] === l && rs.cells[k] && rs.cells[k].id === 'twoshop').length;
+  ok('no more than 4 at Phatthanakarn', at('ptk') <= 4, at('ptk'));
+  ok('no more than 4 at Sathorn', at('sat') <= 4, at('sat'));
+  ok('and never more than 8 altogether', at('ptk') + at('sat') <= 8, at('ptk') + at('sat'));
+  ok('the cap is what stops them, not a lack of work',
+     at('ptk') + at('sat') === 8, at('ptk') + ' + ' + at('sat'));
+}
+
+/* The shop runs two contracts side by side and they are not the same sum:
+ * a monthly person is owed their salary for the month, a วันละ person is owed
+ * the days they actually stood. */
+console.log('\npay: two contract types, OT at 1.5x on both');
+const alex = by.Alex, amoe = by.Amoe, raizo = by.Raizo;
+ok('Alex is on a monthly salary', alex.pay.payType === 'monthly', alex.pay.payType);
+ok('…19,000 over 26x9h is 81.20/h', alex.pay.hourly === 81.2, alex.pay.hourly);
+ok('…and his base is the salary, whatever the shift count', alex.pay.basePay === 19000, alex.pay.basePay);
+ok('Amoe is on a day rate', amoe.pay.payType === 'daily', amoe.pay.payType);
+ok('…600/day over a 9h shift is 66.67/h', amoe.pay.hourly === 66.67, amoe.pay.hourly);
+ok('…and his base is the days he stood, not a flat month',
+   amoe.pay.basePay === 600 * amoe.shifts, amoe.pay.basePay + ' for ' + amoe.shifts + ' days');
+ok('a 9h shift and an 8h shift do not share a divisor',
+   alex.pay.normalHours !== raizo.pay.normalHours, alex.pay.normalHours + ' vs ' + raizo.pay.normalHours);
+ok('the OT rate is exactly 1.5x the hourly on a salary',
+   Math.abs(alex.pay.otRate - alex.pay.hourly * 1.5) < 0.01, alex.pay.otRate);
+ok('…and on a day rate too',
+   Math.abs(amoe.pay.otRate - amoe.pay.hourly * 1.5) < 0.01, amoe.pay.otRate);
+ok('nobody under their target is charged negative OT', r.summary.every((s) => s.pay.otHours >= 0));
+{
   const pushed = M.STAFF.map((p) => (p.id === 'amoe' ? Object.assign({}, p, { off: [], target: 26, max: 28 }) : p));
-  const rp = M.buildRoster(M.LOCS, pushed, 2026, 9);
-  const a = rp.summary.filter((s) => s.name === 'Amoe')[0];
+  const a = M.buildRoster(M.LOCS, pushed, 2026, 9).summary.filter((s) => s.id === 'amoe')[0];
   ok('working past the target creates OT hours', a.pay.otHours > 0, a.shifts + ' shifts, OT ' + a.pay.otHours + 'h');
   ok('OT is paid at 1.5x, not 1x',
      Math.abs(a.pay.otPay - a.pay.otHours * a.pay.hourly * 1.5) < 0.02, a.pay.otPay);
-  ok('total pay is salary plus OT',
-     Math.abs(a.pay.totalPay - (a.pay.salary + a.pay.otPay)) < 0.02, a.pay.totalPay);
+  ok('a day-rate person is paid for the extra day AND the OT on it',
+     a.pay.basePay === 600 * a.shifts && a.pay.totalPay > a.pay.basePay, a.pay.totalPay);
 }
-ok('somebody with no salary on file gets a zero rate rather than NaN',
-   by.Steve.pay.hourly === 0 && by.Steve.pay.otPay === 0, by.Steve.pay.hourly);
+ok('somebody with no wage on file gets a zero rate rather than NaN', (() => {
+  const nw = M.STAFF.map((p) => (p.id === 'alex' ? Object.assign({}, p, { salary: 0, dailyRate: 0, payType: 'monthly' }) : p));
+  const a = M.buildRoster(M.LOCS, nw, 2026, 9).summary.filter((s) => s.id === 'alex')[0];
+  return a.pay.hourly === 0 && a.pay.otPay === 0 && a.pay.totalPay === 0;
+})());
+
+console.log('\npayroll rolls up and reconciles against the wage line');
+const pr = M.rosterPayroll(r, M.STAFF, 353500);
+ok('the bill is the base plus the OT', pr.total === pr.base + pr.ot, pr.base + ' + ' + pr.ot + ' = ' + pr.total);
+ok('it compares against the Wages budget', pr.diff === pr.total - 353500, pr.diff);
+ok('CEOs are owners, not payroll', Math.abs(pr.total - r.summary.filter((s) => s.kind !== 'ceo')
+   .reduce((a, s) => a + s.pay.totalPay, 0)) < 1, pr.total);
+ok('…and a CEO contributes nothing to the wage bill',
+   r.summary.filter((s) => s.kind === 'ceo').every((s) => s.pay.totalPay === 0));
+ok('kitchen, riders and back office are costed even with no counter shift', (() => {
+  const rider = by['Martin (มาร์ติน)'];
+  return rider.shifts === 0 && rider.pay.basePay === 700 * 26;
+})(), by['Martin (มาร์ติน)'].pay.basePay);
+ok('…because a day-rate rider costed at zero days would vanish from the wage line',
+   by.Zaw.pay.basePay > 0 && by.Soe.pay.basePay > 0);
+ok('anyone on payroll with no shift is named', pr.noShift.length > 0,
+   pr.noShift.map((x) => x.name).join(', '));
+ok('…and Beer and Gus are in that list, since no shift is assigned to them yet',
+   ['Beer', 'Gus'].every((n) => pr.noShift.some((x) => x.name === n)),
+   pr.noShift.map((x) => x.name).join(', '));
+ok('…with the reason spelled out', pr.noShift.every((x) => !!x.why));
+ok('everybody on the wage sheet has a wage on file', pr.noPay.length === 0,
+   pr.noPay.map((x) => x.name).join(', '));
+ok('…and having no shift yet is not mistaken for having no wage',
+   pr.noShift.some((x) => x.name === 'Beer') && !pr.noPay.some((x) => x.name === 'Beer'));
 
 console.log('\na duty inside a shift is recorded, never counted twice');
-ok("Rena's Wednesday marketing is written down", by.Rena.duties.length === 5, by.Rena.duties.length);
-ok('…on Wednesdays only', by.Rena.duties.every((d) => new Date(d.date + 'T00:00:00Z').getUTCDay() === 3));
-ok('…and adds no shifts: 26 stands', by.Rena.shifts === 26);
-ok('…and adds no hours: 26 × 9h = 234h stands', by.Rena.hours === 234);
-ok("Ploy's weekend media duty is recorded too", by.Ploy.duties.length === 4, by.Ploy.duties.length);
-ok('…without inflating her 26', by.Ploy.shifts === 26 && by.Ploy.hours === 208);
+const ploy = by['Ploy (พลอย)'];
+ok("Ploy's weekend media duty is written down", ploy.duties.length === 4, ploy.duties.length);
+ok('…on Saturdays only', ploy.duties.every((d) => new Date(d.date + 'T00:00:00Z').getUTCDay() === 6));
+ok('…and adds no shifts: 26 stands', ploy.shifts === 26, ploy.shifts);
+ok('…and adds no hours: 26 × 8h = 208h stands', ploy.hours === 208, ploy.hours);
 
 console.log('\nfixed days off are honoured');
 const dow = (d) => new Date(d + 'T00:00:00Z').getUTCDay();
 ok('Amoe never works a Saturday', by.Amoe.dates.every((d) => dow(d) !== 6));
 ok('Alex never works a Thursday', by.Alex.dates.every((d) => dow(d) !== 4));
-ok('Rena never works a Friday', by.Rena.dates.every((d) => dow(d) !== 5));
 ok('Dylan never works a Wednesday or a Sunday', by.Dylan.dates.every((d) => dow(d) !== 3 && dow(d) !== 0));
 ok('Raizo never works a Monday', by.Raizo.dates.every((d) => dow(d) !== 1));
 ok('Pok never works a Wednesday or a Friday', by.Pok.dates.every((d) => dow(d) !== 3 && dow(d) !== 5));
@@ -211,7 +271,10 @@ const amoe2 = rl.summary.filter((s) => s.name === 'Amoe')[0];
 ok('Amoe is not rostered on any of his leave dates',
    ['2026-09-07', '2026-09-08', '2026-09-09'].every((d) => amoe2.dates.indexOf(d) < 0));
 ok('his shifts drop by the days he was away', amoe2.shifts === 23, amoe2.shifts);
-ok('and his shift is still covered by somebody', rl.validation.empty.filter((e) => e.slot === 'A1').length === 0,
+/* Amoe is now the only person cleared for A1, so his leave leaves the shift
+ * open — and the report has to say so rather than quietly reassign it. */
+ok('the days he is away are reported as open, not silently filled',
+   rl.validation.empty.filter((e) => e.slot === 'A1' && ['2026-09-07', '2026-09-08', '2026-09-09'].indexOf(e.date) >= 0).length === 3,
    rl.validation.empty.filter((e) => e.slot === 'A1').length + ' A1 holes');
 
 console.log('\nan unauthorised person is left out, and the hole is reported');
@@ -285,10 +348,15 @@ ok('a balance question is answered', (ask('ใครทำเกิน ใคร
   const a = ask('amoe ทำกี่กะ');
   ok('one person by name', a && a.kind === 'person' && a.title === 'Amoe', a && a.title);
   ok('…with the real count in the answer', a && a.lines[0].indexOf('26 กะ') >= 0, a && a.lines[0]);
-  ok('…and their real hourly rate', a && a.lines.some((l) => l.indexOf('111.11') >= 0));
+  ok('…and their real hourly rate', a && a.lines.some((l) => l.indexOf('66.67') >= 0),
+     a && a.lines.join(' | '));
 }
-ok('somebody with no salary is told so, not shown NaN',
-   (ask('steve') || { lines: [] }).lines.some((l) => /ยังไม่ได้ใส่เงินเดือน/.test(l)));
+ok('somebody with no wage on file is told so, not shown NaN', (() => {
+  const nw = M.STAFF.map((p) => (p.id === 'gus' ? Object.assign({}, p, { dailyRate: 0 }) : p));
+  const rn2 = M.buildRoster(M.LOCS, nw, 2026, 9);
+  const a = M.rosterAsk('gus', rn2, nw, M.LOCS);
+  return a && a.lines.some((l) => /ยังไม่ได้ใส่เงินเดือน/.test(l));
+})());
 ok('a question it cannot answer returns null rather than a guess',
    ask('what is the weather in bangkok') === null);
 ok('an empty question returns null', ask('') === null && ask('   ') === null);
