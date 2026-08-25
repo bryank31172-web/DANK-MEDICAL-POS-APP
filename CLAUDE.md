@@ -149,6 +149,36 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
 - 38 duplicated serverless handlers deleted from the repo root; only `api/**` deploys.
 - `landing/index.html` at `/landing`; CDS at `?cds=1`; SOP deck at `docs/`.
 
+## Working Shifts tab (กะทำงาน · `workshifts`)
+- Replaces the hand-built spreadsheet roster. `buildRoster(locations, staff, year, month)`
+  fills the month and returns the grid, per-person totals **and** the validation report —
+  the report is not a separate step you can forget to run.
+- Shops/slots/staff seed from the September 2026 sheet (`SHIFT_LOCATIONS` / `SHIFT_STAFF`),
+  then live in localStorage (`dank_shift_staff`, `dank_shift_locs`, `dank_shift_roster`).
+- **A draft is never saved.** ⚙ สร้างร่าง shows totals + conflicts; only ✅ อนุมัติ writes it
+  and logs `SHIFT_ROSTER_APPROVED` to the audit log. The owner asked for that explicitly.
+- Rules that are load-bearing, each one a bug that was found by measuring:
+  · overnight shift = one shift on the day it **starts**
+  · a duty inside a normal shift (Rena's Wed marketing) is recorded but adds **no** shift and
+    **no** hours — counting it twice turns a 26-shift month into 31
+  · nobody is rostered outside their authorised shop/slot even if that leaves a hole; the hole
+    is reported instead
+  · **required slots are filled before optional ones, across the whole month** — filling Sunday
+    stock/admin in date order spent Mon's 26-shift cap and left a required night uncovered
+  · **relief never outranks the slot's regular** — ranking Mel by "first authorised slot" put her
+    on Raizo's early shift and left Sathorn's day shift empty
+  · a split night (`cell.extra[]`) lets two part-windows tile one slot: Keneth 17:00-21:00 hands
+    over to Bryan 21:00-02:00. The head of a split must be the window that starts at the slot start.
+- Owner's rules, in the seed: Bank 4 at Phatthanakarn **and** 4 at Sathorn (`locMax`, two limits
+  not one of eight) · Bryan + Keneth 4 nights/month at Phatthanakarn, same nights.
+- Pay: hourly = monthly salary ÷ (target shifts × **that person's** shift length) — a 9h and an 8h
+  shift do not share a divisor. OT = hours past that normal month, at **1.5×**.
+- 🤖 ถาม AI answers from the grid with no API key (`rosterAsk`): who is on a date, who can cover,
+  the labour bill, OT, who is over/under, one person by name. Returns null rather than guessing.
+- 🖨 prints white A3-landscape sheets — one page per shop, signature block on every page, colours
+  for management/relief/marketing. Save-as-PDF in that window is the combined PDF.
+- Tests: `pos/__tests__/roster.test.cjs` (107) + `pos/__tests__/workshifts.test.mjs` (browser).
+
 ## Conventions
 - Reply to owner in Thai (he writes Thai/English mix), keep technical terms in English.
 - Ship = rebuild (`bash pos/build.sh`) + Playwright zero-error sweep on pos/testrun/test2.html + commit `index.html`.

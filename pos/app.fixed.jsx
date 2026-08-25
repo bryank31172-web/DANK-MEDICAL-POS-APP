@@ -170,6 +170,486 @@ function teamWorkload(tasks, staff, today){
 }
 // ——— end of the team workload block ————————————————————————————————
 
+// ——— working shifts block ————————————————————————————————————————————————
+// The month roster was built by hand in a spreadsheet and printed to PDF. The
+// mistakes that cost the shop were never creative ones: a shift left with
+// nobody on it, the same person booked twice on one day, somebody quietly
+// carried to 30 shifts while a part-timer sat at 12. All four are countable,
+// so the generator counts them and refuses to hide them.
+//
+// Three rules that look like details and are not:
+//   · An overnight shift belongs to the day it STARTS. 17:00-02:00 on the 4th
+//     is one shift on the 4th, not two, and not one on the 5th.
+//   · A special duty done inside a normal shift (Rena's Wednesday marketing)
+//     is recorded, but it is not a second shift and its hours are not added
+//     again. Counting it twice is how a 26-shift month reads as 31.
+//   · Nobody is assigned outside their authorised shop and slot, even when
+//     that leaves a hole. A hole is visible and fixable; a bartender rostered
+//     onto the 01:00 dispensary shift is neither.
+var SHIFT_DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+/* "17:00-02:00" -> 9. Crossing midnight adds the day rather than going negative. */
+function shiftHours(label) {
+  var m = /^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/.exec(String(label || '').trim());
+  if (!m) return 0;
+  var a = (+m[1]) * 60 + (+m[2]), b = (+m[3]) * 60 + (+m[4]);
+  if (b <= a) b += 24 * 60;
+  return Math.round(((b - a) / 60) * 100) / 100;
+}
+
+/* "17:00-02:00" -> [1020, 1560] in minutes from midnight, the end pushed past
+ * 24:00 when the shift crosses it. Two windows tile a slot when one ends
+ * exactly where the next begins. */
+function shiftSpan(label) {
+  var m = /^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/.exec(String(label || '').trim());
+  if (!m) return null;
+  var a = (+m[1]) * 60 + (+m[2]), b = (+m[3]) * 60 + (+m[4]);
+  if (b <= a) b += 24 * 60;
+  return [a, b];
+}
+
+/* every ISO date in a month, plus its weekday, in order */
+function monthDates(year, month1) {
+  var out = [], d = new Date(Date.UTC(year, month1 - 1, 1));
+  while (d.getUTCMonth() === month1 - 1) {
+    out.push({ date: d.toISOString().slice(0, 10), dow: d.getUTCDay(), day: d.getUTCDate() });
+    d = new Date(d.getTime() + 86400000);
+  }
+  return out;
+}
+
+/* Does this slot run on this weekday? A slot with no `days` runs every day;
+ * the bar's Fri-Sun night does not, and printing "–" there is correct rather
+ * than a hole to fill. */
+function slotRunsOn(slot, dow) {
+  if (!slot.days || slot.days === 'all') return true;
+  return slot.days.indexOf(dow) >= 0;
+}
+
+function rosterEligible(person, loc, slot, day, assignedToday, count, byLoc) {
+  byLoc = byLoc || {};
+  if (!person || person.active === false) return null;
+  if ((person.locs || []).indexOf(loc.id) < 0) return 'not authorised at ' + loc.id;
+  if ((person.slots || []).indexOf(slot.id) < 0) return 'not authorised on ' + slot.id;
+  if ((person.leave || []).indexOf(day.date) >= 0) return 'on leave';
+  if (person.onlyDates && person.onlyDates.length && person.onlyDates.indexOf(day.date) < 0) return 'not one of their dates';
+  if ((person.off || []).indexOf(day.dow) >= 0) return 'fixed day off';
+  /* "Honey covers the shop on Wednesdays" is a real constraint and the only
+   * thing stopping her being pulled onto Friday day-shift and leaving the bar
+   * with nobody on it. Authorised-for-a-slot and available-for-it-today are
+   * two different questions. */
+  var only = (person.only || {})[slot.id];
+  if (only && only.indexOf(day.dow) < 0) return 'only covers ' + slot.id + ' on ' + only.map(function (d) { return SHIFT_DAY_NAMES[d]; }).join('/');
+  if (assignedToday[person.id]) return 'already on a shift today';
+  if (count[person.id] >= (person.max || 28)) return 'at their maximum';
+  /* "Bank works four at Phatthanakarn and four at Sathorn" is two limits, not
+   * one of eight. A single total lets the generator spend all eight in the
+   * shop it happens to fill first and leave the other short. */
+  var lm = (person.locMax || {})[loc.id];
+  if (lm != null && (byLoc[person.id + '|' + loc.id] || 0) >= lm) return 'at their maximum for ' + loc.id;
+  return null;
+}
+
+/* Who should take this slot, out of everyone who legally can.
+ *
+ * Order matters more than it looks. Sorting purely by "furthest below target"
+ * spreads the month evenly but shuffles people through slots they do not
+ * normally work, and the printed sheet stops being readable — staff look for
+ * their own name in one row. So the person whose FIRST authorised slot is this
+ * one owns it, and relief only appears where the owner cannot be there. */
+function rosterPick(cands, slot, count, slotSpan) {
+  /* Picking Bryan's 21:00-02:00 first leaves 17:00-21:00 in front of it with
+   * nobody to fill — there is no window that ENDS at 21:00 and starts at the
+   * slot's start except Keneth's, and he has already lost the slot. A split is
+   * built front to back, so whoever starts when the shift starts goes first. */
+  var startsFirst = function (p) {
+    if (!slotSpan) return 0;
+    var w = shiftSpan(p.window || (p.windows || {})[slot.id] || '');
+    if (!w) return 0;
+    return w[0] === slotSpan[0] ? 0 : 1;
+  };
+  /* Relief exists to fill the gaps the regulars leave, so it must never win a
+   * slot the regular can work. Ranking relief by the same "first authorised
+   * slot" rule put Mel ahead of Raizo on his own early shift, which pushed
+   * Raizo six shifts under target and left the day shift with nobody at all —
+   * one sort key quietly creating the hole it was meant to close. */
+  var owns = function (p) {
+    if (p.relief) return 2;
+    return (p.slots || [])[0] === slot.id ? 0 : 1;
+  };
+  var deficit = function (p) { return (p.target || 26) - (count[p.id] || 0); };
+  var rank = function (p) { return (p.kind === 'part' ? 1 : 0); };
+  return cands.slice().sort(function (a, b) {
+    if (startsFirst(a) !== startsFirst(b)) return startsFirst(a) - startsFirst(b);
+    if (owns(a) !== owns(b)) return owns(a) - owns(b);
+    if (rank(a) !== rank(b)) return rank(a) - rank(b);
+    if (deficit(a) !== deficit(b)) return deficit(b) - deficit(a);
+    return String(a.name).localeCompare(String(b.name));
+  })[0] || null;
+}
+
+/* Hourly rate is the monthly salary spread over the hours that salary is
+ * meant to buy — the person's target shifts at their own shift length, not a
+ * flat 30x8. Amoe's nine-hour shift and Raizo's eight-hour one do not pay the
+ * same per hour on the same salary, and using one divisor for both quietly
+ * overpays one of them every month.
+ *
+ * Overtime is every hour past that normal month, at 1.5x. Hours inside the
+ * normal month are already covered by the salary and are not paid twice. */
+function rosterPay(person, actualHours, slotHours) {
+  var salary = +(person.salary || 0);
+  var target = person.target || 26;
+  var normal = Math.round(target * (slotHours || 0) * 100) / 100;
+  var hourly = (salary > 0 && normal > 0) ? Math.round((salary / normal) * 100) / 100 : 0;
+  var otH = Math.max(0, Math.round((actualHours - normal) * 100) / 100);
+  var otPay = Math.round(otH * hourly * 1.5 * 100) / 100;
+  return {
+    salary: salary, normalHours: normal, hourly: hourly,
+    otHours: otH, otRate: Math.round(hourly * 1.5 * 100) / 100,
+    otPay: otPay, totalPay: Math.round((salary + otPay) * 100) / 100,
+  };
+}
+
+/* The whole month, in one pass per location. Returns the grid, per-person
+ * totals, and everything that is wrong with it — the report is not optional
+ * and not separate, because a roster you have to remember to validate is a
+ * roster that ships broken. */
+function buildRoster(locations, staff, year, month1) {
+  var days = monthDates(year, month1);
+  var byId = {}; (staff || []).forEach(function (p) { byId[p.id] = p; });
+  var count = {}, hours = {}, dates = {}, duties = {};
+  (staff || []).forEach(function (p) { count[p.id] = 0; hours[p.id] = 0; dates[p.id] = []; duties[p.id] = []; });
+
+  var cells = {};                     // loc|date|slot -> {id,name,extra[]} or null
+  var empty = [], unauthorised = [];
+  var assignedOn = {};                // date -> {personId: "loc/slot"}
+  var byLoc = {};                     // "personId|locId" -> shifts, for locMax
+
+  /* Two passes, and the order is the whole point. Sunday stock/admin is an
+   * optional slot; filling it in date order let Mon take it on the 27th, which
+   * spent the last shift of his 26-shift cap and left the required 17:00-02:00
+   * of the 30th with nobody authorised to stand it. Nothing optional may
+   * consume someone a required shift still needs, anywhere in the month — so
+   * every required slot is filled first, and the extras get what is left. */
+  [false, true].forEach(function (optionalPass) {
+  (locations || []).forEach(function (loc) {
+    days.forEach(function (day) {
+      assignedOn[day.date] = assignedOn[day.date] || {};
+      (loc.slots || []).forEach(function (slot) {
+        if (!!slot.optional !== optionalPass) return;
+        var key = loc.id + '|' + day.date + '|' + slot.id;
+        if (!slotRunsOn(slot, day.dow)) { cells[key] = { closed: true }; return; }
+        if (cells[key] !== undefined) return;
+
+        var cands = (staff || []).filter(function (p) {
+          return rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) === null;
+        });
+        var pick = rosterPick(cands, slot, count, shiftSpan(slot.label));
+        if (!pick) {
+          cells[key] = null;
+          if (!slot.optional) empty.push({ loc: loc.id, locName: loc.name, date: day.date, slot: slot.id, label: slot.label });
+          return;
+        }
+        /* Bryan covers 21:00-02:00 of a 17:00-02:00 slot, Keneth the 17:00-21:00
+         * in front of it. Charging either of them the full nine hours is a
+         * payroll error, not a rounding one, so a person may carry their own
+         * window and their hours come from it. */
+        var take = function (p) {
+          var w = p.window || (p.windows || {})[slot.id] || '';
+          var hh = shiftHours(w || slot.label);
+          assignedOn[day.date][p.id] = loc.id + '/' + slot.id;
+          count[p.id]++; hours[p.id] += hh; dates[p.id].push(day.date);
+          byLoc[p.id + '|' + loc.id] = (byLoc[p.id + '|' + loc.id] || 0) + 1;
+          if (p.duty && p.duty.dow === day.dow && (!p.duty.loc || p.duty.loc === loc.id)) {
+            duties[p.id].push({ date: day.date, label: p.duty.label });
+          }
+          return { id: p.id, name: p.name, window: w };
+        };
+        var head = take(pick);
+        cells[key] = { id: head.id, name: head.name, window: head.window, extra: [] };
+
+        /* Keneth works 17:00-21:00 and Bryan 21:00-02:00 of the same 17:00-02:00
+         * night. One name per cell would either drop one of them from the sheet
+         * or invent a second shift for a night only one shift long, so a slot
+         * that a part-window leaves uncovered may take a second person whose
+         * window picks up exactly where the first stops. */
+        var span = shiftSpan(slot.label);
+        var got = shiftSpan(head.window || slot.label);
+        while (span && got && got[1] < span[1]) {
+          var rest = (staff || []).filter(function (p) {
+            if (rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) !== null) return false;
+            var w = shiftSpan(p.window || (p.windows || {})[slot.id] || '');
+            return !!w && w[0] === got[1];
+          });
+          var next = rosterPick(rest, slot, count);
+          if (!next) break;
+          cells[key].extra.push(take(next));
+          got = shiftSpan(next.window || (next.windows || {})[slot.id] || '');
+        }
+
+      });
+    });
+  });
+  });
+
+  /* Step 6 of the process, done as a check rather than trusted: anything the
+   * eligibility test should have stopped, said out loud if it got through. */
+  var locById = {}; (locations || []).forEach(function (l) { locById[l.id] = l; });
+  Object.keys(cells).forEach(function (key) {
+    var c = cells[key]; if (!c || c.closed) return;
+    var parts = key.split('|'), p = byId[c.id];
+    if (!p) return;
+    if ((p.locs || []).indexOf(parts[0]) < 0) unauthorised.push({ name: p.name, date: parts[1], loc: parts[0], slot: parts[2], why: 'shop not authorised' });
+    else if ((p.slots || []).indexOf(parts[2]) < 0) unauthorised.push({ name: p.name, date: parts[1], loc: parts[0], slot: parts[2], why: 'shift not authorised' });
+  });
+
+  var doubles = [];
+  Object.keys(assignedOn).sort().forEach(function (date) {
+    var seen = {};
+    Object.keys(assignedOn[date]).forEach(function (pid) {
+      seen[pid] = (seen[pid] || 0) + 1;
+      if (seen[pid] > 1) doubles.push({ id: pid, name: (byId[pid] || {}).name, date: date });
+    });
+  });
+
+  /* the length of the shift this person normally stands, for the pay divisor */
+  var slotLenOf = function (p) {
+    var want = (p.slots || [])[0];
+    var found = 0;
+    (locations || []).forEach(function (l) {
+      (l.slots || []).forEach(function (s) { if (s.id === want && !found) found = shiftHours(p.window || s.label); });
+    });
+    return found;
+  };
+
+  var summary = (staff || []).filter(function (p) { return p.active !== false; }).map(function (p) {
+    var worked = dates[p.id] || [];
+    var offDays = days.filter(function (d) { return worked.indexOf(d.date) < 0; }).map(function (d) { return d.date; });
+    return {
+      id: p.id, name: p.name, kind: p.kind || 'full',
+      locs: (p.locs || []).slice(), slots: (p.slots || []).slice(),
+      assignment: (p.slots || []).slice(0, 2).join(' / ') + ((p.off || []).length ? ' | Off ' + (p.off || []).map(function (d) { return SHIFT_DAY_NAMES[d]; }).join('/') : ''),
+      dates: worked, offDates: offDays,
+      shifts: count[p.id] || 0,
+      hours: Math.round((hours[p.id] || 0) * 10) / 10,
+      leave: (p.leave || []).slice(),
+      duties: duties[p.id] || [],
+      target: p.target || 26, max: p.max || 28,
+      pay: rosterPay(p, Math.round((hours[p.id] || 0) * 10) / 10, slotLenOf(p)),
+    };
+  });
+
+  var hoursByLoc = {};
+  (locations || []).forEach(function (loc) { hoursByLoc[loc.id] = 0; });
+  Object.keys(cells).forEach(function (key) {
+    var c = cells[key]; if (!c || c.closed) return;
+    var parts = key.split('|'), loc = locById[parts[0]];
+    if (!loc) return;
+    var slot = (loc.slots || []).filter(function (s) { return s.id === parts[2]; })[0];
+    if (!slot) return;
+    hoursByLoc[parts[0]] += shiftHours(c.window || slot.label);
+    (c.extra || []).forEach(function (e) { hoursByLoc[parts[0]] += shiftHours(e.window || slot.label); });
+  });
+
+  /* Part-timers and CEO cover are not meant to reach 24; flagging them every
+   * month trains people to ignore the report. Only full-time is measured
+   * against the band. */
+  var band = summary.filter(function (s) { return s.kind === 'full'; });
+  return {
+    year: year, month: month1, days: days, cells: cells, summary: summary,
+    validation: {
+      empty: empty, doubles: doubles, unauthorised: unauthorised,
+      under: band.filter(function (s) { return s.shifts < 24; }).map(function (s) { return { name: s.name, shifts: s.shifts }; }),
+      over: summary.filter(function (s) { return s.shifts > s.max; }).map(function (s) { return { name: s.name, shifts: s.shifts, max: s.max }; }),
+      hoursByLoc: hoursByLoc,
+      ok: empty.length === 0 && doubles.length === 0 && unauthorised.length === 0,
+    },
+  };
+}
+// ——— end of the working shifts block —————————————————————————————————————
+
+// ——— roster assistant block ——————————————————————————————————————————————
+// The questions a manager actually asks the roster are the same six every
+// month, and all six are answerable from the grid that is already on screen.
+// Answering them here rather than sending the month to an AI means they work
+// with no key, cost nothing, and — the part that matters — cannot invent a
+// number. If the question is not one of these, the caller falls through to the
+// AI with the roster as context.
+function rosterAskDate(q, days) {
+  var m = /(\d{4}-\d{2}-\d{2})/.exec(q);
+  if (m) return m[1];
+  m = /(\d{1,2})\s*(?:\/|-)\s*(\d{1,2})/.exec(q);          // 14/9 or 14-9
+  if (m && days.length) {
+    var d = ('0' + m[1]).slice(-2), mo = ('0' + m[2]).slice(-2);
+    var hit = days.filter(function (x) { return x.date.slice(5) === mo + '-' + d; })[0];
+    if (hit) return hit.date;
+  }
+  m = /(?:วันที่|day)\s*(\d{1,2})\b/.exec(q);
+  if (m && days.length) {
+    var want = +m[1];
+    var h2 = days.filter(function (x) { return x.day === want; })[0];
+    if (h2) return h2.date;
+  }
+  return null;
+}
+
+function rosterAsk(question, res, staff, locations) {
+  if (!res || !res.summary) return null;
+  var q = String(question || '').toLowerCase().trim();
+  if (!q) return null;
+  var baht = function (n) { return '฿' + Math.round(n).toLocaleString(); };
+  var byId = {}; (staff || []).forEach(function (p) { byId[p.id] = p; });
+  var locName = {}; (locations || []).forEach(function (l) { locName[l.id] = l.name.replace('DANK ', ''); });
+  var date = rosterAskDate(q, res.days || []);
+
+  /* who is on, on a given day */
+  if (date && /ใคร|who|เวร|shift|ทำงาน|working|on duty/.test(q) && !/ว่าง|free|cover|แทน|available/.test(q)) {
+    var on = [];
+    Object.keys(res.cells).forEach(function (k) {
+      var c = res.cells[k]; if (!c || c.closed) return;
+      var p = k.split('|'); if (p[1] !== date) return;
+      var names = [c.name + (c.window ? ' (' + c.window + ')' : '')]
+        .concat((c.extra || []).map(function (e) { return e.name + ' (' + e.window + ')'; }));
+      on.push('· ' + (locName[p[0]] || p[0]) + ' ' + p[2] + ' — ' + names.join(' + '));
+    });
+    return { kind: 'onduty', title: 'เวรวันที่ ' + date, lines: on.length ? on.sort() : ['ไม่มีใครขึ้นเวรวันนี้'] };
+  }
+
+  /* who could cover a day that is short */
+  if (date && /ว่าง|free|cover|แทน|available|ใครแทน/.test(q)) {
+    var busy = {};
+    Object.keys(res.cells).forEach(function (k) {
+      var c = res.cells[k]; if (!c || c.closed) return;
+      if (k.split('|')[1] !== date) return;
+      busy[c.id] = 1; (c.extra || []).forEach(function (e) { busy[e.id] = 1; });
+    });
+    var dow = new Date(date + 'T00:00:00Z').getUTCDay();
+    var freeList = res.summary.filter(function (s) {
+      var p = byId[s.id]; if (!p || busy[s.id]) return false;
+      if ((p.off || []).indexOf(dow) >= 0) return false;
+      if ((p.leave || []).indexOf(date) >= 0) return false;
+      return s.shifts < (p.max || 28);
+    }).map(function (s) {
+      var p = byId[s.id];
+      return '· ' + s.name + ' — ว่าง · ตอนนี้ ' + s.shifts + '/' + (p.max || 28) + ' กะ · ทำได้ ' + (p.slots || []).join(', ');
+    });
+    return { kind: 'free', title: 'ใครแทนได้วันที่ ' + date,
+      lines: freeList.length ? freeList : ['ไม่มีใครว่างเลย — ทุกคนขึ้นเวรหรือหยุดตามสิทธิ์'] };
+  }
+
+  /* the labour bill, which is the question behind most of the others */
+  if (/ค่าแรง|เงินเดือน|payroll|labour|labor|cost|ต้นทุน|จ่ายเท่า/.test(q)) {
+    var base = 0, ot = 0, otH = 0;
+    res.summary.forEach(function (s) { base += s.pay.salary; ot += s.pay.otPay; otH += s.pay.otHours; });
+    var perLoc = Object.keys(res.validation.hoursByLoc).map(function (k) {
+      return '· ' + (locName[k] || k) + ' — ' + Math.round(res.validation.hoursByLoc[k]) + ' ชม.';
+    });
+    return { kind: 'cost', title: 'ค่าแรงเดือนนี้',
+      lines: ['· เงินเดือนรวม ' + baht(base),
+              '· ค่า OT ' + baht(ot) + ' (' + Math.round(otH * 10) / 10 + ' ชม. ที่ 1.5 เท่า)',
+              '· รวมทั้งหมด ' + baht(base + ot)].concat(perLoc) };
+  }
+
+  /* OT, asked on its own */
+  if (/\bot\b|โอที|ล่วงเวลา|overtime/.test(q)) {
+    var hasOt = res.summary.filter(function (s) { return s.pay.otHours > 0; })
+      .sort(function (a, b) { return b.pay.otHours - a.pay.otHours; })
+      .map(function (s) { return '· ' + s.name + ' — ' + s.pay.otHours + ' ชม. = ' + baht(s.pay.otPay) + ' (เรต ' + s.pay.otRate + '/ชม.)'; });
+    return { kind: 'ot', title: 'OT เดือนนี้',
+      lines: hasOt.length ? hasOt : ['ไม่มีใครมี OT — ทุกคนอยู่ในชั่วโมงปกติของตัวเอง'] };
+  }
+
+  /* who is carrying too much or too little */
+  if (/เกิน|over|หนัก|ล้น|น้อย|under|ต่ำ|ไม่ครบ|balance|สมดุล/.test(q)) {
+    var v = res.validation;
+    var out = [];
+    v.over.forEach(function (o) { out.push('· เกินเพดาน: ' + o.name + ' ' + o.shifts + '/' + o.max); });
+    v.under.forEach(function (u) { out.push('· ต่ำกว่า 24: ' + u.name + ' ' + u.shifts + ' กะ'); });
+    if (!out.length) out.push('ทุกคนอยู่ในช่วง 24–28 กะ ไม่มีใครเกินหรือขาด');
+    var spare = res.summary.filter(function (s) {
+      var p = byId[s.id]; return p && s.shifts < (p.max || 28) - 1;
+    }).sort(function (a, b) { return (byId[b.id].max || 28) - b.shifts - ((byId[a.id].max || 28) - a.shifts); }).slice(0, 4);
+    if (spare.length) out.push('· ยังรับเพิ่มได้: ' + spare.map(function (s) { return s.name + ' (+' + ((byId[s.id].max || 28) - s.shifts) + ')'; }).join(', '));
+    return { kind: 'balance', title: 'สมดุลกะ', lines: out };
+  }
+
+  /* one person, by name */
+  var hit = res.summary.filter(function (s) { return q.indexOf(String(s.name).toLowerCase().split(' ')[0]) >= 0; })
+    .sort(function (a, b) { return b.name.length - a.name.length; })[0];
+  if (hit) {
+    var p2 = byId[hit.id] || {};
+    return { kind: 'person', title: hit.name, lines: [
+      '· ' + hit.shifts + ' กะ · ' + hit.hours + ' ชม. · เป้า ' + hit.target + ' สูงสุด ' + hit.max,
+      '· สาขา ' + (hit.locs.map(function (l) { return locName[l] || l; }).join(', ') || '—') + ' · กะ ' + (hit.slots.join(', ') || '—'),
+      '· วันหยุดประจำ ' + ((p2.off || []).length ? (p2.off || []).map(function (d) { return SHIFT_DAY_NAMES[d]; }).join('/') : 'ไม่มี'),
+      hit.pay.salary ? ('· เงินเดือน ' + baht(hit.pay.salary) + ' → ' + hit.pay.hourly + '/ชม. · OT ' + hit.pay.otHours + ' ชม. = ' + baht(hit.pay.otPay) + ' · รวม ' + baht(hit.pay.totalPay))
+                     : '· ยังไม่ได้ใส่เงินเดือน — เติมในหน้าพนักงานแล้วค่าแรง/OT จะคำนวณให้',
+      hit.duties.length ? ('· งานพิเศษ ' + hit.duties[0].label + ' ×' + hit.duties.length + ' (ไม่นับเป็นกะเพิ่ม)') : '· ไม่มีงานพิเศษ',
+      hit.leave.length ? ('· ลา ' + hit.leave.join(', ')) : '· ไม่มีวันลาเดือนนี้',
+    ] };
+  }
+  return null;
+}
+// ——— end of the roster assistant block ——————————————————————————————————
+
+/* The three shops, their shift slots and who is authorised where — read off the
+ * September 2026 sheet the shop already prints. Editable in the app; this is
+ * only what a fresh device starts with. */
+var SHIFT_LOCATIONS = [
+  { id: 'ptk', name: 'DANK PHATTHANAKARN', note: '24 HOURS | 2 SHOP STAFF PER SHIFT', slots: [
+    { id: 'A1', label: '01:00-10:00' }, { id: 'A2', label: '01:00-10:00' },
+    { id: 'B1', label: '09:00-18:00' }, { id: 'B2', label: '09:00-18:00' },
+    { id: 'C1', label: '17:00-02:00' }, { id: 'C2', label: '17:00-02:00' },
+    { id: 'STOCK', name: 'STOCK / ADMIN', label: '17:00-02:00', days: [0], optional: true },
+  ] },
+  { id: 'sat', name: 'DANK SATHORN RAMA 3', note: '3 EXACT BASE SHIFTS | 2 STAFF ONLY DURING 11:00-19:00 PEAK', slots: [
+    { id: 'EARLY', label: '01:00-09:00' }, { id: 'DAY', label: '09:00-17:00' },
+    { id: 'NIGHT', label: '17:00-01:00' }, { id: 'PEAK', label: '11:00-19:00' },
+  ] },
+  { id: 'bar', name: 'DANK 224 BAR', note: 'ONE BARTENDER PER SHIFT | NO BAR-SHIFT OVERLAP', slots: [
+    { id: 'MONTHU', name: 'MON-THU PM', label: '17:00-01:00', days: [1, 2, 3, 4] },
+    { id: 'FSDAY', name: 'FRI-SUN DAY', label: '09:00-17:00', days: [5, 6, 0] },
+    { id: 'FSNIGHT', name: 'FRI-SUN NIGHT', label: '17:00-02:00', days: [5, 6, 0] },
+  ] },
+];
+
+/* off/duty weekdays: 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat */
+var SHIFT_STAFF = [
+  /* Phatthanakarn */
+  { id: 'amoe',  name: 'Amoe',       kind: 'full', locs: ['ptk'], slots: ['A1'],       off: [6] , salary: 26000 },
+  { id: 'dylan', name: 'Dylan',      kind: 'full', locs: ['ptk'], slots: ['A2'],       off: [3, 0] , salary: 24000 },
+  { id: 'rena',  name: 'Rena',       kind: 'full', locs: ['ptk'], slots: ['B1'],       off: [5],
+    duty: { dow: 3, label: 'MKT' , salary: 28000 } },
+  { id: 'alex',  name: 'Alex',       kind: 'full', locs: ['ptk'], slots: ['B2'],       off: [4] , salary: 26000 },
+  { id: 'palm',  name: 'Palm',       kind: 'full', locs: ['ptk'], slots: ['C1'],       off: [2] , salary: 26000 },
+  { id: 'mon',   name: 'Mon',        kind: 'full', locs: ['ptk'], slots: ['C2', 'STOCK'], off: [], max: 26 , salary: 27000 },
+  { id: 'steve', name: 'Steve',      kind: 'part', relief: true, locs: ['ptk'], slots: ['A1', 'A2', 'B1', 'C1'], off: [], target: 16, max: 20 },
+  { id: 'pond',  name: 'Pond',       kind: 'part', relief: true, locs: ['ptk'], slots: ['A2', 'C2'], off: [], target: 9, max: 14,
+    only: { A2: [3], C2: [1] } },
+  /* four at Phatthanakarn and four at Sathorn — two limits, not one of eight */
+  { id: 'bank',  name: 'Bank',       kind: 'part', relief: true, locs: ['ptk', 'sat'], slots: ['B2', 'PEAK'], off: [], target: 8, max: 8,
+    locMax: { ptk: 4, sat: 4 }, only: { B2: [4], PEAK: [1] } },
+  { id: 'honey', name: 'Honey',      kind: 'part', locs: ['ptk', 'bar'], slots: ['MONTHU', 'FSDAY', 'B1'], off: [], target: 22, max: 24,
+    only: { B1: [3] } },
+  /* four nights a month at Phatthanakarn, both on the same night: Keneth takes
+   * 17:00-21:00 and hands over to Bryan for 21:00-02:00 */
+  { id: 'bryan', name: 'Bryan (CEO)', kind: 'manager', locs: ['ptk'], slots: ['C2'], off: [], target: 4, max: 4,
+    locMax: { ptk: 4 }, window: '21:00-02:00' },
+  { id: 'keneth', name: 'Keneth',    kind: 'manager', locs: ['ptk'], slots: ['C2'], off: [], target: 4, max: 4,
+    locMax: { ptk: 4 }, window: '17:00-21:00' },
+  /* Sathorn */
+  { id: 'raizo', name: 'Raizo', kind: 'full', locs: ['sat'], slots: ['EARLY'], off: [1] , salary: 24000 },
+  { id: 'meng',  name: 'Meng',  kind: 'full', locs: ['sat'], slots: ['DAY'],   off: [2] , salary: 24000 },
+  { id: 'pok',   name: 'Pok',   kind: 'full', locs: ['sat'], slots: ['NIGHT'], off: [3, 5] , salary: 24000 },
+  { id: 'ploy',  name: 'Ploy',  kind: 'full', locs: ['sat'], slots: ['PEAK'],  off: [1],
+    duty: { dow: 6, label: 'MEDIA/CRM' , salary: 26000 } },
+  { id: 'mel',   name: 'Mel',   kind: 'full', relief: true, locs: ['sat'], slots: ['EARLY', 'DAY', 'NIGHT', 'PEAK'], off: [] , salary: 25000 },
+  /* 224 Bar */
+  { id: 'jack',  name: 'Jack',  kind: 'full', locs: ['bar'], slots: ['MONTHU', 'FSNIGHT'], off: [1] , salary: 27000 },
+];
+
+
+
 // ——— assistant lookup block ————————————————————————————————————————————
 // Staff ask about one product by name far more often than they ask anything
 // else — "gelato เหลือเท่าไหร่", "ราคา sour belts". None of that was answerable:
@@ -1420,6 +1900,120 @@ function GreenPOS() {
   useEffect(function(){try{localStorage.setItem("dank_expense_targets",JSON.stringify(expenseTargets));}catch(e){}},[expenseTargets]);
   const EXPENSE_TARGETS=expenseTargets;
   const [budgetEdit,setBudgetEdit]=useState(null);
+  // ── Working shifts: state, persistence, and the printable sheet ──────────
+  // The roster the shop signs is a white A3 landscape page per shop, so it is
+  // built as its own document rather than fought out of the dark app theme.
+  // "Save as PDF" in that window is the combined PDF; printing one shop at a
+  // time gives the per-location sheets.
+  const [shiftMonth,setShiftMonth]=useState(function(){return new Date().toISOString().slice(0,7);});
+  const [shiftLoc,setShiftLoc]=useState("all");
+  const [shiftDraft,setShiftDraft]=useState(null);
+  const [shiftEdit,setShiftEdit]=useState(null);
+  const [shiftAi,setShiftAi]=useState(null);
+  const [shiftStaff,setShiftStaff]=useState(function(){try{var s=JSON.parse(localStorage.getItem("dank_shift_staff"));return (s&&s.length)?s:SHIFT_STAFF;}catch(e){return SHIFT_STAFF;}});
+  const [shiftLocs,setShiftLocs]=useState(function(){try{var s=JSON.parse(localStorage.getItem("dank_shift_locs"));return (s&&s.length)?s:SHIFT_LOCATIONS;}catch(e){return SHIFT_LOCATIONS;}});
+  const [shiftBooks,setShiftBooks]=useState(function(){try{return JSON.parse(localStorage.getItem("dank_shift_roster"))||{};}catch(e){return {};}});
+  useEffect(function(){try{localStorage.setItem("dank_shift_staff",JSON.stringify(shiftStaff));}catch(e){}},[shiftStaff]);
+  useEffect(function(){try{localStorage.setItem("dank_shift_locs",JSON.stringify(shiftLocs));}catch(e){}},[shiftLocs]);
+  useEffect(function(){try{localStorage.setItem("dank_shift_roster",JSON.stringify(shiftBooks));}catch(e){}},[shiftBooks]);
+
+  const shiftCsv=function(res,monthLabel){
+    var rows=[["Employee","Location","Assignment","Type","Shifts","Hours","Days off","Leave dates","Special duties","Working dates"]];
+    res.summary.forEach(function(s){
+      rows.push([s.name,s.locs.join(" "),s.assignment,s.kind,s.shifts,s.hours,s.offDates.length,
+        s.leave.join(" "),s.duties.map(function(d){return d.label+" "+d.date;}).join(" "),s.dates.join(" ")]);
+    });
+    var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c==null?"":c).replace(/"/g,'""')+'"';}).join(",");}).join("\n");
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));
+    a.download="dank-shifts-"+monthLabel.toLowerCase().replace(/\s+/g,"-")+".csv";
+    a.click();
+  };
+
+  const shiftPrint=function(locs,staffList,res,monthLabel){
+    var byId={}; (staffList||[]).forEach(function(p){byId[p.id]=p;});
+    var esc=function(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});};
+    /* the four colours the sheet is required to distinguish, on white */
+    var cls=function(p){
+      if(!p)return "";
+      if(p.kind==="manager")return "ceo";
+      if(p.relief)return "relief";
+      if(p.kind==="part")return "part";
+      return "";
+    };
+    var weeks=(function(){var out=[],cur=[];res.days.forEach(function(d){cur.push(d);if(d.dow===0||cur.length===7){out.push(cur);cur=[];}});if(cur.length)out.push(cur);return out;})();
+    var dutyOn=function(id,date){
+      var s=res.summary.filter(function(x){return x.id===id;})[0];
+      return s?(s.duties.filter(function(d){return d.date===date;})[0]||null):null;
+    };
+
+    var pages=locs.map(function(loc,li){
+      var tables=weeks.map(function(wk){
+        var head='<tr><th class="sl">SHIFT / POSITION</th>'+wk.map(function(d){
+          return '<th>'+SHIFT_DAY_NAMES[d.dow]+'<b>'+d.day+'</b></th>';}).join("")+'</tr>';
+        var body=loc.slots.map(function(slot){
+          return '<tr><td class="sl"><i>'+esc(slot.label)+'</i><b>'+esc(slot.name||slot.id)+'</b></td>'+wk.map(function(d){
+            var c=res.cells[loc.id+"|"+d.date+"|"+slot.id];
+            if(c&&c.closed)return '<td class="dash">&ndash;</td>';
+            if(!c)return '<td class="hole">EMPTY</td>';
+            var du=dutyOn(c.id,d.date);
+            return '<td class="'+cls(byId[c.id])+'">'+esc(c.name)
+              +(c.window?'<u>'+esc(c.window)+'</u>':"")
+              +(du?'<s>'+esc(du.label)+'</s>':"")+'</td>';
+          }).join("")+'</tr>';
+        }).join("");
+        return '<table>'+head+body+'</table>';
+      }).join("");
+
+      var mine=res.summary.filter(function(s){return s.locs.indexOf(loc.id)>=0&&s.shifts>0;});
+      var summary='<table class="sum"><tr><th>STAFF</th><th>ASSIGNMENT</th><th>SHIFTS</th><th>HOURS</th></tr>'
+        +mine.map(function(s){return '<tr><td class="'+cls(byId[s.id])+'">'+esc(s.name)+'</td><td>'+esc(s.assignment)
+          +(s.duties.length?(' + '+s.duties.length+' '+esc(s.duties[0].label)):"")
+          +(s.leave.length?(' | leave '+s.leave.length+'d'):"")+'</td><td class="n">'+s.shifts+'</td><td class="n">'+s.hours+'h</td></tr>';}).join("")
+        +'</table>';
+
+      return '<section class="page">'
+        +'<header><h1>'+esc(loc.name)+'</h1><span>'+esc(monthLabel)+'</span></header>'
+        +'<p class="note">'+esc(loc.note||"")+'</p>'
+        +tables
+        +'<h2>MONTHLY STAFF SUMMARY <em>THIS LOCATION ONLY</em></h2>'+summary
+        +'<p class="legend"><span class="k"></span>Full-time &nbsp; <span class="k relief"></span>Relief / part-time &nbsp; '
+        +'<span class="k ceo"></span>Management / CEO cover &nbsp; <span class="k mkt"></span>Marketing &amp; special duty</p>'
+        +'<footer><div>SIGNATURE: ____________________</div><div>APPROVED BY: ____________________</div>'
+        +'<div>DATE: __________</div><div class="pg">DANK GROUP | PAGE '+(li+1)+' OF '+locs.length+'</div></footer>'
+        +'</section>';
+    }).join("");
+
+    var css='@page{size:A3 landscape;margin:10mm}'
+      +'*{box-sizing:border-box}body{margin:0;background:#fff;color:#111;font:12px/1.35 Arial,Helvetica,sans-serif}'
+      +'.page{page-break-after:always;padding:4mm 2mm}.page:last-child{page-break-after:auto}'
+      +'header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #111;padding-bottom:4px}'
+      +'h1{font-size:19px;margin:0;letter-spacing:.5px}header span{font-size:13px;font-weight:700}'
+      +'.note{margin:4px 0 9px;font-size:10px;letter-spacing:1px;color:#555}'
+      +'table{width:100%;border-collapse:collapse;margin-bottom:7px;table-layout:fixed}'
+      +'th,td{border:1px solid #c9c9c9;padding:3px 2px;text-align:center;font-size:10px;height:22px;overflow:hidden}'
+      +'th{background:#f2f2f2;font-size:8px;color:#444;font-weight:700}th b{display:block;font-size:11px;color:#111}'
+      +'td.sl,th.sl{text-align:left;width:118px}td.sl i{display:block;font-style:normal;font-size:8px;color:#666}'
+      +'td.sl b{font-size:10px}'
+      +'td u{display:block;text-decoration:none;font-size:7.5px;color:#8a6d00}'
+      +'td s{display:block;text-decoration:none;font-size:7.5px;color:#7c3aed;font-weight:700}'
+      +'td.dash{color:#bbb}td.hole{background:#ffe9e9;color:#c00;font-weight:700;font-size:8px}'
+      +'td.relief,td.part{color:#0b63a8;font-weight:700}td.ceo{color:#8a6d00;font-weight:800}'
+      +'h2{font-size:11px;margin:9px 0 4px;letter-spacing:1px}h2 em{float:right;font-style:normal;font-size:8px;color:#777}'
+      +'table.sum{table-layout:auto}table.sum th{font-size:8px}table.sum td{text-align:left;font-size:10px}'
+      +'table.sum td.n{text-align:right;width:52px;font-weight:700}'
+      +'.legend{font-size:8.5px;color:#555;margin:6px 0}'
+      +'.k{display:inline-block;width:9px;height:9px;border:1px solid #999;background:#111;vertical-align:-1px;margin-right:3px}'
+      +'.k.relief{background:#0b63a8}.k.ceo{background:#8a6d00}.k.mkt{background:#7c3aed}'
+      +'footer{display:flex;gap:22px;align-items:center;border-top:1px solid #111;margin-top:8px;padding-top:6px;font-size:10px;font-weight:700}'
+      +'footer .pg{margin-left:auto;color:#666;font-weight:400}';
+
+    var w=window.open("","_blank");
+    if(!w){notify("⚠ เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up ให้เว็บนี้ก่อน");return;}
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>DANK '+esc(monthLabel)+' — Working Shifts</title><style>'+css+'</style></head><body>'+pages+'</body></html>');
+    w.document.close();
+    setTimeout(function(){try{w.focus();w.print();}catch(e){}},350);
+  };
   const getCatRevenue = function() {
     const cats={};
     transactions.filter(t=>!t.isVoid).forEach(tx=>{
@@ -4638,6 +5232,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     ...(canFinance?[{id:"notif",icon:"🔔",label:mob?"Alerts":"แจ้งเตือน"}]:[]),
     ...(canEdit?[{id:"api",icon:"🔌",label:mob?"API":"API / Website"}]:[]),
     {id:"work",icon:"📋",label:mob?"Work":"งาน Work"},
+    {id:"workshifts",icon:"🗓",label:mob?"Shifts":"กะทำงาน Shifts"},
     {id:"scale",icon:"⚖",label:mob?"Scale":"Scale & Print"},
     {id:"bar",icon:"🍸",label:mob?"Bar":"บาร์ Bar"},
     {id:"marketing",icon:"📣",label:mob?"Mktg":"Marketing"},
@@ -7289,6 +7884,333 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       })()}
 
       {/* ── STAFF TAB ── */}
+      {/* ── WORKING SHIFTS TAB ── */}
+      {activeTab==="workshifts"&&(function(){
+        var yy=+shiftMonth.slice(0,4), mm=+shiftMonth.slice(5,7);
+        var monthLabel=new Date(Date.UTC(yy,mm-1,1)).toLocaleDateString("en-GB",{month:"long",year:"numeric",timeZone:"UTC"}).toUpperCase();
+        var saved=shiftBooks[shiftMonth]||null;
+        var res=shiftDraft&&shiftDraft.key===shiftMonth?shiftDraft.result:null;
+        var shown=res||saved;
+        var isDraft=!!res;
+        var v=shown?shown.validation:null;
+        var locList=shiftLocs.filter(function(l){return shiftLoc==="all"||l.id===shiftLoc;});
+        var staffById={}; shiftStaff.forEach(function(p){staffById[p.id]=p;});
+
+        /* colour tells you at a glance who is not the usual person on that
+         * shift — that is the whole reason a manager scans the sheet */
+        var inkFor=function(p){
+          if(!p)return C.muted;
+          if(p.kind==="manager")return C.gold;
+          if(p.relief)return C.blue;
+          if(p.kind==="part")return C.blue;
+          return C.text;
+        };
+
+        var weeks=(function(){
+          var out=[],cur=[];
+          (shown?shown.days:monthDates(yy,mm)).forEach(function(d){
+            cur.push(d);
+            if(d.dow===0||cur.length===7){out.push(cur);cur=[];}
+          });
+          if(cur.length)out.push(cur);
+          return out;
+        })();
+
+        var generate=function(){
+          var r=buildRoster(shiftLocs,shiftStaff,yy,mm);
+          setShiftDraft({key:shiftMonth,result:r});
+          notify(r.validation.ok?"✅ ร่างตารางเสร็จ — ตรวจแล้วกดอนุมัติ":("⚠ ร่างเสร็จ แต่มีปัญหา "+(r.validation.empty.length+r.validation.doubles.length+r.validation.unauthorised.length)+" จุด"));
+        };
+        var approve=function(){
+          if(!res)return;
+          var next=Object.assign({},shiftBooks); next[shiftMonth]=res;
+          setShiftBooks(next); setShiftDraft(null);
+          addAudit("SHIFT_ROSTER_APPROVED",monthLabel+" · "+res.summary.length+" คน · "+Object.keys(res.validation.hoursByLoc).map(function(k){return k+" "+res.validation.hoursByLoc[k]+"h";}).join(" · "),currentStaff&&currentStaff.name);
+          notify("✅ อนุมัติตาราง "+monthLabel+" แล้ว — ลง Audit เรียบร้อย");
+        };
+
+        return (
+        <div style={gs.sec}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+            <div>
+              <div style={{fontSize:mob?15:18,fontWeight:800}}>🗓 กะทำงาน · WORKING SHIFTS</div>
+              <div style={{fontSize:10.5,color:C.muted,marginTop:2}}>ตารางเวรทั้ง 3 สาขา · สร้างอัตโนมัติ ตรวจก่อน แล้วค่อยอนุมัติ</div>
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              <button onClick={generate} style={{...gs.btn(C.green,"#000"),fontSize:11,fontWeight:800}}>⚙ สร้างร่าง Generate</button>
+              {isDraft&&<button onClick={approve} style={{...gs.btn(C.gold,"#000"),fontSize:11,fontWeight:800}}>✅ อนุมัติ Approve</button>}
+              {shown&&<button onClick={function(){shiftPrint(locList,shiftStaff,shown,monthLabel);}} style={{...gs.btn(C.blue,"#000"),fontSize:11}}>🖨 พิมพ์ / PDF</button>}
+              {shown&&<button onClick={function(){shiftCsv(shown,monthLabel);}} style={{...gs.btn(C.card2,"#fff"),fontSize:11,border:"1px solid "+C.border}}>⬇ CSV</button>}
+              {shown&&<button onClick={function(){setShiftAi({q:"",a:null,busy:false});}} style={{...gs.btn("#7c3aed","#fff"),fontSize:11,fontWeight:800}}>🤖 ถาม AI</button>}
+              <button onClick={function(){setShiftEdit({list:JSON.parse(JSON.stringify(shiftStaff))});}} style={{...gs.btn(C.card2,"#fff"),fontSize:11,border:"1px solid "+C.border}}>👤 ตั้งค่าคน + เงินเดือน</button>
+            </div>
+          </div>
+
+          {/* month + shop pickers */}
+          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
+            <button onClick={function(){var d=new Date(Date.UTC(yy,mm-2,1));setShiftMonth(d.toISOString().slice(0,7));setShiftDraft(null);}} style={{...gs.btn(C.card2,"#fff"),fontSize:12,padding:"6px 11px",border:"1px solid "+C.border,minHeight:34}}>◀</button>
+            <div style={{fontSize:13,fontWeight:800,minWidth:150,textAlign:"center"}}>{monthLabel}</div>
+            <button onClick={function(){var d=new Date(Date.UTC(yy,mm,1));setShiftMonth(d.toISOString().slice(0,7));setShiftDraft(null);}} style={{...gs.btn(C.card2,"#fff"),fontSize:12,padding:"6px 11px",border:"1px solid "+C.border,minHeight:34}}>▶</button>
+            <div style={{width:10}} />
+            {[{id:"all",n:"ทุกสาขา All"}].concat(shiftLocs.map(function(l){return {id:l.id,n:l.name.replace("DANK ","")};})).map(function(o){
+              return <button key={o.id} onClick={function(){setShiftLoc(o.id);}} style={{...gs.btn(shiftLoc===o.id?C.green:C.card2,shiftLoc===o.id?"#000":"#fff"),fontSize:11,border:shiftLoc===o.id?"none":"1px solid "+C.border,minHeight:34}}>{o.n}</button>;
+            })}
+            {isDraft&&<span style={{...gs.badge(C.gold,"#000"),marginLeft:6}}>ร่าง · ยังไม่อนุมัติ</span>}
+            {!isDraft&&saved&&<span style={{...gs.badge(C.green,"#000"),marginLeft:6}}>อนุมัติแล้ว</span>}
+          </div>
+
+          {!shown&&(
+            <div style={{...gs.card,textAlign:"center",padding:30}}>
+              <div style={{fontSize:34,marginBottom:8}}>🗓</div>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:5}}>ยังไม่มีตารางของ {monthLabel}</div>
+              <div style={{fontSize:11.5,color:C.muted,lineHeight:1.6,maxWidth:520,margin:"0 auto"}}>
+                กด <b>⚙ สร้างร่าง</b> แล้วระบบจะจัดเวรให้ตามวันหยุดประจำ วันลา สาขาและกะที่แต่ละคนได้รับอนุญาต
+                จากนั้นจะแสดง <b>ยอดกะของทุกคน</b> และ <b>รายการที่ยังมีปัญหา</b> ให้ตรวจก่อน — ตารางจะยังไม่ถูกบันทึกจนกว่าจะกดอนุมัติ
+              </div>
+            </div>
+          )}
+
+          {shown&&(<>
+            {/* ── the report that has to be read before approving ── */}
+            <div style={{...gs.card,marginBottom:12,border:"1px solid "+(v.ok?C.green:C.red)+"55"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}>
+                <div style={{fontSize:12.5,fontWeight:800}}>{v.ok?"✅":"⚠"} รายงานตรวจสอบ · Validation</div>
+                <div style={{fontSize:10.5,color:C.muted}}>
+                  {shiftLocs.map(function(l){return l.name.replace("DANK ","")+" "+Math.round(v.hoursByLoc[l.id]||0)+"h";}).join("  ·  ")}
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(5,1fr)",gap:7}}>
+                {[
+                  {n:"กะที่ยังว่าง",e:"empty shifts",v:v.empty.length,bad:v.empty.length>0},
+                  {n:"ซ้ำวันเดียวกัน",e:"double shifts",v:v.doubles.length,bad:v.doubles.length>0},
+                  {n:"ผิดสาขา/กะ",e:"unauthorised",v:v.unauthorised.length,bad:v.unauthorised.length>0},
+                  {n:"ต่ำกว่า 24",e:"under 24",v:v.under.length,bad:v.under.length>0,warn:true},
+                  {n:"เกินเพดาน",e:"over max",v:v.over.length,bad:v.over.length>0},
+                ].map(function(k,i){
+                  return <div key={i} style={{...gs.card2,textAlign:"center",borderColor:k.bad?(k.warn?C.gold:C.red)+"66":C.border}}>
+                    <div style={{fontSize:22,fontWeight:800,color:k.bad?(k.warn?C.gold:C.red):C.green}}>{k.v}</div>
+                    <div style={{fontSize:10,fontWeight:700,marginTop:2}}>{k.n}</div>
+                    <div style={{fontSize:8.5,color:C.muted}}>{k.e}</div>
+                  </div>;
+                })}
+              </div>
+              {v.empty.length>0&&<div style={{marginTop:9,fontSize:10.5,color:C.red,lineHeight:1.6}}>
+                <b>ยังไม่มีคน:</b> {v.empty.slice(0,10).map(function(e){return e.date.slice(8)+"/"+e.date.slice(5,7)+" "+e.loc+" "+e.slot;}).join(" · ")}{v.empty.length>10?(" …อีก "+(v.empty.length-10)):""}
+              </div>}
+              {v.doubles.length>0&&<div style={{marginTop:6,fontSize:10.5,color:C.red}}>
+                <b>ซ้ำ:</b> {v.doubles.slice(0,8).map(function(d){return d.name+" "+d.date.slice(8);}).join(" · ")}
+              </div>}
+              {v.unauthorised.length>0&&<div style={{marginTop:6,fontSize:10.5,color:C.red}}>
+                <b>ผิดสิทธิ์:</b> {v.unauthorised.slice(0,8).map(function(u){return u.name+" @"+u.loc+"/"+u.slot;}).join(" · ")}
+              </div>}
+              {v.under.length>0&&<div style={{marginTop:6,fontSize:10.5,color:C.gold}}>
+                <b>ต่ำกว่า 24 กะ (พนักงานประจำ):</b> {v.under.map(function(u){return u.name+" "+u.shifts;}).join(" · ")} — ปกติเพราะวันหยุดประจำสองวัน/สัปดาห์ ถ้าไม่ใช่ให้แก้วันหยุดในหน้าพนักงาน
+              </div>}
+              {v.over.length>0&&<div style={{marginTop:6,fontSize:10.5,color:C.red}}>
+                <b>เกินเพดาน:</b> {v.over.map(function(u){return u.name+" "+u.shifts+"/"+u.max;}).join(" · ")}
+              </div>}
+              {isDraft&&<div style={{marginTop:10,fontSize:11,color:C.gold,fontWeight:700}}>
+                ⓘ นี่คือ<b>ร่าง</b> — ยังไม่ได้บันทึก ตรวจยอดกะข้างล่างให้เรียบร้อยก่อนกด ✅ อนุมัติ
+              </div>}
+            </div>
+
+            {/* ── the timetables, one block per shop ── */}
+            {locList.map(function(loc){
+              return <div key={loc.id} style={{...gs.card,marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,flexWrap:"wrap",gap:6}}>
+                  <div style={{fontSize:13,fontWeight:800}}>{loc.name}</div>
+                  <div style={{fontSize:9.5,color:C.muted,letterSpacing:"0.04em"}}>{loc.note}</div>
+                </div>
+                <div style={{overflowX:"auto"}}>
+                  {weeks.map(function(wk,wi){
+                    return <table key={wi} style={{width:"100%",minWidth:640,borderCollapse:"collapse",marginBottom:9,fontSize:10.5}}>
+                      <thead><tr>
+                        <th style={{textAlign:"left",padding:"4px 6px",color:C.muted,fontSize:9,fontWeight:700,width:118}}>SHIFT / POSITION</th>
+                        {wk.map(function(d){return <th key={d.date} style={{padding:"4px 3px",color:C.muted,fontSize:9,fontWeight:700}}>
+                          {SHIFT_DAY_NAMES[d.dow]}<div style={{color:C.text,fontSize:11,fontWeight:800}}>{d.day}</div></th>;})}
+                      </tr></thead>
+                      <tbody>
+                        {loc.slots.map(function(slot){
+                          return <tr key={slot.id} style={{borderTop:"1px solid "+C.borderSoft}}>
+                            <td style={{padding:"5px 6px",whiteSpace:"nowrap"}}>
+                              <div style={{fontSize:9.5,color:C.muted}}>{slot.label}</div>
+                              <div style={{fontSize:10,fontWeight:700}}>{slot.name||slot.id}</div>
+                            </td>
+                            {wk.map(function(d){
+                              var c=shown.cells[loc.id+"|"+d.date+"|"+slot.id];
+                              if(c&&c.closed)return <td key={d.date} style={{textAlign:"center",color:C.muted,padding:"5px 3px"}}>–</td>;
+                              if(!c)return <td key={d.date} style={{textAlign:"center",padding:"5px 3px",background:C.red+"22",color:C.red,fontWeight:800,fontSize:9.5}}>ว่าง</td>;
+                              var p=staffById[c.id];
+                              var duty=(shown.summary.filter(function(s){return s.id===c.id;})[0]||{duties:[]}).duties.filter(function(x){return x.date===d.date;})[0];
+                              return <td key={d.date} style={{textAlign:"center",padding:"5px 3px",color:inkFor(p),fontWeight:p&&p.kind==="manager"?800:600}}>
+                                {c.name}
+                                {c.window?<div style={{fontSize:8,color:C.gold}}>{c.window}</div>:null}
+                                {duty?<div style={{fontSize:8,color:"#c084fc",fontWeight:700}}>{duty.label}</div>:null}
+                              </td>;
+                            })}
+                          </tr>;
+                        })}
+                      </tbody>
+                    </table>;
+                  })}
+                </div>
+              </div>;
+            })}
+
+            {/* ── monthly staff summary ── */}
+            <div style={{...gs.card,marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7,flexWrap:"wrap",gap:6}}>
+                <div style={{fontSize:12.5,fontWeight:800}}>📋 สรุปพนักงานรายเดือน · Monthly Staff Summary</div>
+                {(function(){
+                  var base=0,ot=0,oth=0;
+                  shown.summary.forEach(function(s){base+=s.pay.salary;ot+=s.pay.otPay;oth+=s.pay.otHours;});
+                  return <div style={{fontSize:10.5,color:C.muted}}>
+                    เงินเดือนรวม <b style={{color:C.text}}>฿{Math.round(base).toLocaleString()}</b>
+                    {" · "}OT <b style={{color:ot?C.gold:C.text}}>฿{Math.round(ot).toLocaleString()}</b> ({Math.round(oth*10)/10} ชม. ×1.5)
+                    {" · "}รวม <b style={{color:C.green}}>฿{Math.round(base+ot).toLocaleString()}</b>
+                  </div>;
+                })()}
+              </div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",minWidth:700,borderCollapse:"collapse",fontSize:10.5}}>
+                  <thead><tr style={{color:C.muted,fontSize:9}}>
+                    {["พนักงาน","สาขา","หน้าที่","ประเภท","กะ","ชั่วโมง","฿/ชม.","OT ชม.","OT ฿","รวมจ่าย","ลา","งานพิเศษ"].map(function(h,i){
+                      return <th key={i} style={{textAlign:i<4?"left":"right",padding:"5px 6px",fontWeight:700}}>{h}</th>;})}
+                  </tr></thead>
+                  <tbody>
+                    {shown.summary.map(function(s){
+                      var p=staffById[s.id];
+                      var band=s.kind==="full"&&(s.shifts<24||s.shifts>s.max);
+                      return <tr key={s.id} style={{borderTop:"1px solid "+C.borderSoft}}>
+                        <td style={{padding:"5px 6px",fontWeight:700,color:inkFor(p)}}>{s.name}</td>
+                        <td style={{padding:"5px 6px",color:C.muted,fontSize:9.5}}>{s.locs.join(", ")}</td>
+                        <td style={{padding:"5px 6px",fontSize:9.5}}>{s.assignment}</td>
+                        <td style={{padding:"5px 6px",fontSize:9.5,color:C.muted}}>{s.kind==="full"?"ประจำ":s.kind==="part"?"พาร์ทไทม์":"ผู้บริหาร"}{p&&p.relief?" · relief":""}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:band?C.gold:C.text}}>{s.shifts}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",...gs.num}}>{s.hours}h</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.hourly?C.text:C.muted}}>{s.pay.hourly?s.pay.hourly.toFixed(2):"—"}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.otHours?C.gold:C.muted}}>{s.pay.otHours||"—"}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.otPay?C.gold:C.muted}}>{s.pay.otPay?("฿"+Math.round(s.pay.otPay).toLocaleString()):"—"}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",...gs.num,fontWeight:700}}>{s.pay.totalPay?("฿"+Math.round(s.pay.totalPay).toLocaleString()):"—"}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",color:s.leave.length?C.gold:C.muted}}>{s.leave.length}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",color:s.duties.length?"#c084fc":C.muted,fontSize:9.5}}>{s.duties.length?(s.duties[0].label+" ×"+s.duties.length):"—"}</td>
+                      </tr>;
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{marginTop:8,fontSize:9.5,color:C.muted,lineHeight:1.6}}>
+                กะข้ามคืนนับเป็น 1 กะของ<b>วันที่เริ่ม</b> · งานพิเศษที่ทำระหว่างกะปกติถูกบันทึกไว้ แต่<b>ไม่นับเป็นกะเพิ่มและไม่บวกชั่วโมงซ้ำ</b>
+                <span style={{marginLeft:10}}>สี: <span style={{color:C.text}}>■ ประจำ</span> <span style={{color:C.blue}}>■ พาร์ทไทม์/relief</span> <span style={{color:C.gold}}>■ ผู้บริหาร/CEO</span> <span style={{color:"#c084fc"}}>■ งานพิเศษ</span></span>
+              </div>
+            </div>
+          </>)}
+
+          {/* ── the roster assistant: answers off the grid, no key needed ── */}
+          {shiftAi&&shown&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.72)",zIndex:120,display:"flex",alignItems:"center",justifyContent:"center",padding:12}} onClick={function(e){if(e.target===e.currentTarget)setShiftAi(null);}}>
+              <div style={{...gs.card,width:"100%",maxWidth:620,maxHeight:"88vh",overflowY:"auto"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <div style={{fontSize:14,fontWeight:800}}>🤖 ถามเรื่องตารางกะ</div>
+                  <button onClick={function(){setShiftAi(null);}} style={{...gs.btn(C.card2,"#fff"),border:"1px solid "+C.border}}>✕</button>
+                </div>
+                <div style={{fontSize:10,color:C.muted,marginBottom:9}}>ตอบจากตารางที่เห็นอยู่ตรง ๆ — ไม่ต้องมีคีย์ AI และเดาตัวเลขไม่ได้</div>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:9}}>
+                  {["ใครทำงานวันนี้","ใครว่างแทนได้","ค่าแรงเดือนนี้เท่าไหร่","ใครมี OT บ้าง","ใครทำเกิน ใครทำน้อย"].map(function(qq,i){
+                    return <button key={i} onClick={function(){
+                      var q2=qq==="ใครทำงานวันนี้"?("ใครทำงานวันที่ "+new Date().toISOString().slice(0,10)):
+                             qq==="ใครว่างแทนได้"?("ใครว่างแทนได้วันที่ "+new Date().toISOString().slice(0,10)):qq;
+                      setShiftAi({q:q2,a:rosterAsk(q2,shown,shiftStaff,shiftLocs),busy:false});
+                    }} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"5px 10px",border:"1px solid "+C.border}}>{qq}</button>;
+                  })}
+                </div>
+                <div style={{display:"flex",gap:6,marginBottom:10}}>
+                  <input style={{...gs.input,flex:1}} placeholder="เช่น ใครทำงาน 14/9 · amoe ทำกี่กะ · OT ใครเยอะ"
+                    value={shiftAi.q} onChange={function(e){setShiftAi(Object.assign({},shiftAi,{q:e.target.value}));}}
+                    onKeyDown={function(e){if(e.key==="Enter")setShiftAi({q:shiftAi.q,a:rosterAsk(shiftAi.q,shown,shiftStaff,shiftLocs),busy:false,tried:true});}}/>
+                  <button onClick={function(){setShiftAi({q:shiftAi.q,a:rosterAsk(shiftAi.q,shown,shiftStaff,shiftLocs),busy:false,tried:true});}} style={{...gs.btn(C.green,"#000"),fontWeight:800}}>➤</button>
+                </div>
+                {shiftAi.a&&(
+                  <div style={{...gs.card2,borderColor:"#7c3aed55"}}>
+                    <div style={{fontSize:12,fontWeight:800,marginBottom:5,color:"#c084fc"}}>{shiftAi.a.title}</div>
+                    {shiftAi.a.lines.map(function(l,i){return <div key={i} style={{fontSize:11,lineHeight:1.75}}>{l}</div>;})}
+                  </div>
+                )}
+                {!shiftAi.a&&shiftAi.tried&&(
+                  <div style={{...gs.card2,fontSize:11,lineHeight:1.7,color:C.muted}}>
+                    คำถามนี้ตอบจากตารางตรง ๆ ไม่ได้ — ลองถามแบบนี้แทน:<br/>
+                    <b style={{color:C.text}}>ใครทำงานวันที่ 2026-09-14</b> · <b style={{color:C.text}}>ใครว่างแทนได้ 14/9</b> ·
+                    <b style={{color:C.text}}> ค่าแรงเดือนนี้</b> · <b style={{color:C.text}}>OT</b> ·
+                    <b style={{color:C.text}}> ใครทำเกิน</b> · หรือพิมพ์<b style={{color:C.text}}>ชื่อพนักงาน</b>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── staff editor ── */}
+          {shiftEdit&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.72)",zIndex:120,display:"flex",alignItems:"center",justifyContent:"center",padding:12}} onClick={function(e){if(e.target===e.currentTarget)setShiftEdit(null);}}>
+              <div style={{...gs.card,width:"100%",maxWidth:940,maxHeight:"90vh",overflowY:"auto"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:9}}>
+                  <div style={{fontSize:14,fontWeight:800}}>👤 พนักงานและสิทธิ์การขึ้นเวร</div>
+                  <button onClick={function(){setShiftEdit(null);}} style={{...gs.btn(C.card2,"#fff"),border:"1px solid "+C.border}}>✕</button>
+                </div>
+                <div style={{fontSize:10.5,color:C.muted,marginBottom:10,lineHeight:1.6}}>
+                  ตารางจะจัดคนตามช่องพวกนี้เท่านั้น — ใครไม่ได้รับอนุญาตสาขาหรือกะไหน ระบบจะไม่จับใส่ให้เด็ดขาด แม้ว่าจะทำให้กะนั้นว่าง
+                  (ช่องว่างเห็นแล้วแก้ได้ แต่บาร์เทนเดอร์ที่ถูกจับไปยืนกะ 01:00 แก้ไม่ได้)
+                </div>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",minWidth:860,borderCollapse:"collapse",fontSize:10.5}}>
+                    <thead><tr style={{color:C.muted,fontSize:9}}>
+                      {["ชื่อ","ประเภท","สาขา","กะที่ทำได้","วันหยุดประจำ","เป้ากะ","สูงสุด","เงินเดือน ฿","วันลา (คั่นด้วย ,)","งานพิเศษ"].map(function(h,i){
+                        return <th key={i} style={{textAlign:"left",padding:"5px 5px",fontWeight:700}}>{h}</th>;})}
+                    </tr></thead>
+                    <tbody>
+                      {shiftEdit.list.map(function(p,i){
+                        var upd=function(k,val){setShiftEdit(function(prev){var n=JSON.parse(JSON.stringify(prev));n.list[i][k]=val;return n;});};
+                        var inp={...gs.input,padding:"5px 7px",fontSize:10.5,borderRadius:8};
+                        return <tr key={p.id} style={{borderTop:"1px solid "+C.borderSoft}}>
+                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:96}} value={p.name} onChange={function(e){upd("name",e.target.value);}}/></td>
+                          <td style={{padding:"3px 4px"}}>
+                            <select style={{...inp,width:88}} value={p.kind||"full"} onChange={function(e){upd("kind",e.target.value);}}>
+                              <option value="full">ประจำ</option><option value="part">พาร์ทไทม์</option><option value="manager">ผู้บริหาร</option>
+                            </select>
+                          </td>
+                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:84}} value={(p.locs||[]).join(",")} onChange={function(e){upd("locs",e.target.value.split(",").map(function(x){return x.trim();}).filter(Boolean));}}/></td>
+                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:130}} value={(p.slots||[]).join(",")} onChange={function(e){upd("slots",e.target.value.split(",").map(function(x){return x.trim();}).filter(Boolean));}}/></td>
+                          <td style={{padding:"3px 4px",whiteSpace:"nowrap"}}>
+                            {[0,1,2,3,4,5,6].map(function(d){
+                              var on=(p.off||[]).indexOf(d)>=0;
+                              return <button key={d} onClick={function(){var cur=(p.off||[]).slice();var ix=cur.indexOf(d);if(ix>=0)cur.splice(ix,1);else cur.push(d);upd("off",cur.sort());}}
+                                style={{background:on?C.gold:C.card2,color:on?"#000":C.muted,border:"1px solid "+C.border,borderRadius:5,fontSize:8,padding:"3px 3px",cursor:"pointer",marginRight:1,minWidth:22,fontWeight:on?800:500}}>{SHIFT_DAY_NAMES[d].slice(0,2)}</button>;
+                            })}
+                          </td>
+                          <td style={{padding:"3px 4px"}}><input type="number" style={{...inp,width:52}} value={p.target||26} onChange={function(e){upd("target",+e.target.value||0);}}/></td>
+                          <td style={{padding:"3px 4px"}}><input type="number" style={{...inp,width:52}} value={p.max||28} onChange={function(e){upd("max",+e.target.value||0);}}/></td>
+                          <td style={{padding:"3px 4px"}}><input type="number" style={{...inp,width:76}} placeholder="26000" value={p.salary||""} onChange={function(e){upd("salary",+e.target.value||0);}}/></td>
+                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:150}} placeholder="2026-09-15,2026-09-16" value={(p.leave||[]).join(",")} onChange={function(e){upd("leave",e.target.value.split(",").map(function(x){return x.trim();}).filter(Boolean));}}/></td>
+                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:96}} placeholder="MKT" value={(p.duty&&p.duty.label)||""} onChange={function(e){upd("duty",e.target.value?{dow:(p.duty&&p.duty.dow)||3,label:e.target.value}:null);}}/></td>
+                        </tr>;
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{display:"flex",gap:7,marginTop:12}}>
+                  <button onClick={function(){setShiftEdit(null);}} style={{...gs.btn(C.card2,"#fff"),flex:1,border:"1px solid "+C.border}}>ยกเลิก</button>
+                  <button onClick={function(){
+                    setShiftStaff(shiftEdit.list); setShiftDraft(null); setShiftEdit(null);
+                    addAudit("SHIFT_STAFF_EDIT",shiftEdit.list.length+" คน",currentStaff&&currentStaff.name);
+                    notify("💾 บันทึกพนักงานแล้ว — กด ⚙ สร้างร่าง อีกครั้งเพื่อจัดตารางใหม่");
+                  }} style={{...gs.btn(C.green,"#000"),flex:2,fontWeight:800}}>💾 บันทึก + ลง Audit</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        );
+      })()}
+
       {activeTab==="staff"&&(
         <div style={gs.sec}>
           <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:12,flexWrap:"wrap"}}>
