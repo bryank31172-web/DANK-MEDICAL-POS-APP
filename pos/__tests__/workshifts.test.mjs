@@ -71,6 +71,7 @@ ok('the report is legible', !!counts.raw, counts.raw);
 console.log('\nnothing is saved until it is approved');
 const beforeApprove = await p.evaluate(() => localStorage.getItem('dank_shift_roster'));
 ok('localStorage has no roster yet', !beforeApprove || beforeApprove === '{}', String(beforeApprove).slice(0, 60));
+ok('the draft is honest about the holes it could not fill', /ยังไม่มีคน/.test(await body()));
 ok('Approve clicks', !!(await click('อนุมัติ Approve')));
 await p.waitForTimeout(1200);
 const afterApprove = await p.evaluate(() => localStorage.getItem('dank_shift_roster'));
@@ -82,19 +83,30 @@ console.log('\nthe approval is written to the audit log');
 const audit = await p.evaluate(() => localStorage.getItem('dank_audit') || '');
 ok('SHIFT_ROSTER_APPROVED is in the audit log', /SHIFT_ROSTER_APPROVED/.test(audit));
 
-console.log('\nthe split cover prints both names');
-const split = await p.evaluate(() => {
+console.log('\nCEO check-ins are on the sheet, and not in a slot');
+t = await body();
+ok('the check-in row is printed', /CEO ตรวจงาน/.test(t));
+ok('the summary marks them as checks, not shifts', /ตรวจ \d+×/.test(t),
+   (/ตรวจ \d+×/.exec(t) || ['not found'])[0]);
+const ceo = await p.evaluate(() => {
   const book = JSON.parse(localStorage.getItem('dank_shift_roster') || '{}');
   const key = Object.keys(book)[0];
   if (!key) return null;
-  const cells = book[key].cells;
-  const shared = Object.keys(cells).filter((k) => cells[k] && cells[k].extra && cells[k].extra.length);
-  return shared.length ? { n: shared.length, one: cells[shared[0]] } : { n: 0 };
+  const b = book[key];
+  const inSlot = Object.keys(b.cells).some((k) => {
+    const c = b.cells[k];
+    if (!c || c.closed) return false;
+    return ['bryan', 'keneth'].indexOf(c.id) >= 0 || (c.extra || []).some((e) => ['bryan', 'keneth'].indexOf(e.id) >= 0);
+  });
+  return { visits: (b.visits || []).length, inSlot };
 });
-ok('at least one night is shared by two windows', split && split.n > 0, split && split.n);
-ok('…the first window starts the shift and the second finishes it',
-   split && split.one && split.one.window === '17:00-21:00' && split.one.extra[0].window === '21:00-02:00',
-   split && split.one && JSON.stringify(split.one));
+ok('the visits are stored with the roster', ceo && ceo.visits > 0, ceo && ceo.visits);
+ok('…one per week each, so an even number for the two of them',
+   ceo && ceo.visits % 2 === 0 && ceo.visits >= 8 && ceo.visits <= 12, ceo && ceo.visits);
+ok('and no CEO is holding down a shop slot', ceo && ceo.inSlot === false);
+
+console.log('\nempty shifts say why they are empty');
+ok('the report names the blocker', /at their maximum|only covers/.test(t), t.slice(t.indexOf('ยังไม่มีคน'), t.indexOf('ยังไม่มีคน') + 220));
 
 console.log('\nthe assistant answers off the grid');
 ok('the AI button is there', !!(await click('ถาม AI')));

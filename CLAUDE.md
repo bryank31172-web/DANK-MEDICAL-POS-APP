@@ -170,7 +170,14 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   · a split night (`cell.extra[]`) lets two part-windows tile one slot: Keneth 17:00-21:00 hands
     over to Bryan 21:00-02:00. The head of a split must be the window that starts at the slot start.
 - Owner's rules, in the seed: Bank 4 at Phatthanakarn **and** 4 at Sathorn (`locMax`, two limits
-  not one of eight) · Bryan + Keneth 4 nights/month at Phatthanakarn, same nights.
+  not one of eight) · **Bryan and Keneth are CEOs (`kind:"ceo"`) who check in once a week — they
+  fill no slot at all.** `rosterVisits()` puts one visit per calendar week on the sheet's own
+  CEO row and in `result.visits`; hours land in `visitHours`, never in shift hours or the shop
+  labour total. Modelling them as cover hid the fact that the Phatthanakarn night shift was
+  three shifts short of staff cleared to stand it.
+- An empty required shift carries `blockers[]` — the trained staff who were rejected and why
+  ("Mon: at their maximum", "Pond: only covers C2 on MON"). Listing everyone at the shop instead
+  buried that under four lines of "not authorised on C2" for people who were never candidates.
 - Pay: hourly = monthly salary ÷ (target shifts × **that person's** shift length) — a 9h and an 8h
   shift do not share a divisor. OT = hours past that normal month, at **1.5×**.
 - 🤖 ถาม AI answers from the grid with no API key (`rosterAsk`): who is on a date, who can cover,

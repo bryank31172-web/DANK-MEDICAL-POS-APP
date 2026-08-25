@@ -233,6 +233,7 @@ function slotRunsOn(slot, dow) {
 function rosterEligible(person, loc, slot, day, assignedToday, count, byLoc) {
   byLoc = byLoc || {};
   if (!person || person.active === false) return null;
+  if (person.kind === "ceo") return "CEO check-in, not shift cover";
   if ((person.locs || []).indexOf(loc.id) < 0) return "not authorised at " + loc.id;
   if ((person.slots || []).indexOf(slot.id) < 0) return "not authorised on " + slot.id;
   if ((person.leave || []).indexOf(day.date) >= 0) return "on leave";
@@ -272,6 +273,40 @@ function rosterPick(cands, slot, count, slotSpan) {
     if (deficit(a) !== deficit(b)) return deficit(b) - deficit(a);
     return String(a.name).localeCompare(String(b.name));
   })[0] || null;
+}
+function rosterVisits(days, staff) {
+  var weeks = [], cur = [];
+  (days || []).forEach(function(d) {
+    cur.push(d);
+    if (d.dow === 0) {
+      weeks.push(cur);
+      cur = [];
+    }
+  });
+  if (cur.length) weeks.push(cur);
+  var out = [];
+  (staff || []).forEach(function(p) {
+    if (p.kind !== "ceo" || p.active === false) return;
+    var want = p.visit && p.visit.dow != null ? p.visit.dow : null;
+    weeks.forEach(function(wk) {
+      var free = wk.filter(function(d) {
+        return (p.leave || []).indexOf(d.date) < 0;
+      });
+      if (!free.length) return;
+      var day = want != null && free.filter(function(d) {
+        return d.dow === want;
+      })[0] || free[0];
+      out.push({
+        id: p.id,
+        name: p.name,
+        date: day.date,
+        loc: p.visit && p.visit.loc || (p.locs || [])[0] || "",
+        window: p.visit && p.visit.window || p.window || "",
+        label: p.visit && p.visit.label || "\u0E15\u0E23\u0E27\u0E08\u0E07\u0E32\u0E19 CHECK"
+      });
+    });
+  });
+  return out;
 }
 function rosterPay(person, actualHours, slotHours) {
   var salary = +(person.salary || 0);
@@ -325,7 +360,24 @@ function buildRoster(locations, staff, year, month1) {
           var pick = rosterPick(cands, slot, count, shiftSpan(slot.label));
           if (!pick) {
             cells[key] = null;
-            if (!slot.optional) empty.push({ loc: loc.id, locName: loc.name, date: day.date, slot: slot.id, label: slot.label });
+            if (!slot.optional) {
+              var why = [];
+              (staff || []).forEach(function(p) {
+                if (p.kind === "ceo") return;
+                if ((p.slots || []).indexOf(slot.id) < 0) return;
+                var r2 = rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc);
+                if (r2) why.push(p.name + ": " + r2);
+              });
+              if (!why.length) why.push("\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E04\u0E23\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E01\u0E30\u0E19\u0E35\u0E49\u0E17\u0E35\u0E48\u0E2A\u0E32\u0E02\u0E32\u0E19\u0E35\u0E49\u0E40\u0E25\u0E22 / nobody is cleared for this shift here");
+              empty.push({
+                loc: loc.id,
+                locName: loc.name,
+                date: day.date,
+                slot: slot.id,
+                label: slot.label,
+                blockers: why.slice(0, 5)
+              });
+            }
             return;
           }
           var take = function(p) {
@@ -390,6 +442,11 @@ function buildRoster(locations, staff, year, month1) {
     });
     return found;
   };
+  var visits = rosterVisits(days, staff);
+  var visitsBy = {};
+  visits.forEach(function(v) {
+    (visitsBy[v.id] = visitsBy[v.id] || []).push(v);
+  });
   var summary = (staff || []).filter(function(p) {
     return p.active !== false;
   }).map(function(p) {
@@ -416,6 +473,14 @@ function buildRoster(locations, staff, year, month1) {
       duties: duties[p.id] || [],
       target: p.target || 26,
       max: p.max || 28,
+      /* recorded, and deliberately not folded into shifts or hours — the
+       * owner's own rule is that management duties are kept separate */
+      visits: (visitsBy[p.id] || []).map(function(v) {
+        return v.date;
+      }),
+      visitHours: Math.round((visitsBy[p.id] || []).reduce(function(a, v) {
+        return a + (v.window ? shiftHours(v.window) : 0);
+      }, 0) * 10) / 10,
       pay: rosterPay(p, Math.round((hours[p.id] || 0) * 10) / 10, slotLenOf(p))
     };
   });
@@ -446,6 +511,7 @@ function buildRoster(locations, staff, year, month1) {
     days,
     cells,
     summary,
+    visits,
     validation: {
       empty,
       doubles,
@@ -697,31 +763,30 @@ var SHIFT_STAFF = [
     max: 24,
     only: { B1: [3] }
   },
-  /* four nights a month at Phatthanakarn, both on the same night: Keneth takes
-   * 17:00-21:00 and hands over to Bryan for 21:00-02:00 */
+  /* CEOs. They come in once a week to look over the shop — that is recorded on
+   * the sheet and kept out of the shift count, so it can never be mistaken for
+   * cover the shop can lean on. */
   {
     id: "bryan",
     name: "Bryan (CEO)",
-    kind: "manager",
+    kind: "ceo",
     locs: ["ptk"],
-    slots: ["C2"],
+    slots: [],
     off: [],
-    target: 4,
-    max: 4,
-    locMax: { ptk: 4 },
-    window: "21:00-02:00"
+    target: 0,
+    max: 0,
+    visit: { loc: "ptk", dow: 5, window: "21:00-02:00", label: "CEO \u0E15\u0E23\u0E27\u0E08\u0E07\u0E32\u0E19" }
   },
   {
     id: "keneth",
-    name: "Keneth",
-    kind: "manager",
+    name: "Keneth (CEO)",
+    kind: "ceo",
     locs: ["ptk"],
-    slots: ["C2"],
+    slots: [],
     off: [],
-    target: 4,
-    max: 4,
-    locMax: { ptk: 4 },
-    window: "17:00-21:00"
+    target: 0,
+    max: 0,
+    visit: { loc: "ptk", dow: 5, window: "17:00-21:00", label: "CEO \u0E15\u0E23\u0E27\u0E08\u0E07\u0E32\u0E19" }
   },
   /* Sathorn */
   { id: "raizo", name: "Raizo", kind: "full", locs: ["sat"], slots: ["EARLY"], off: [1], salary: 24e3 },
@@ -3045,7 +3110,19 @@ function GreenPOS() {
             return '<td class="' + cls(byId[c.id]) + '">' + esc(c.name) + (c.window ? "<u>" + esc(c.window) + "</u>" : "") + (du ? "<s>" + esc(du.label) + "</s>" : "") + "</td>";
           }).join("") + "</tr>";
         }).join("");
-        return "<table>" + head + body + "</table>";
+        var vis = (res.visits || []).filter(function(x) {
+          return x.loc === loc.id;
+        });
+        var visRow = vis.length ? '<tr><td class="sl"><i>\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C\u0E25\u0E30\u0E04\u0E23\u0E31\u0E49\u0E07</i><b>CEO CHECK</b></td>' + wk.map(function(d) {
+          var here = vis.filter(function(x) {
+            return x.date === d.date;
+          });
+          if (!here.length) return '<td class="dash">&ndash;</td>';
+          return '<td class="ceo">' + here.map(function(x) {
+            return esc(x.name.replace(" (CEO)", "")) + (x.window ? "<u>" + esc(x.window) + "</u>" : "");
+          }).join("<br>") + "</td>";
+        }).join("") + "</tr>" : "";
+        return "<table>" + head + body + visRow + "</table>";
       }).join("");
       var mine = res.summary.filter(function(s) {
         return s.locs.indexOf(loc.id) >= 0 && s.shifts > 0;
@@ -10662,9 +10739,9 @@ function GreenPOS() {
       { n: "\u0E40\u0E01\u0E34\u0E19\u0E40\u0E1E\u0E14\u0E32\u0E19", e: "over max", v: v.over.length, bad: v.over.length > 0 }
     ].map(function(k, i) {
       return /* @__PURE__ */ React.createElement("div", { key: i, style: __spreadProps(__spreadValues({}, gs.card2), { textAlign: "center", borderColor: k.bad ? (k.warn ? C.gold : C.red) + "66" : C.border }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 22, fontWeight: 800, color: k.bad ? k.warn ? C.gold : C.red : C.green } }, k.v), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, fontWeight: 700, marginTop: 2 } }, k.n), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, k.e));
-    })), v.empty.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 9, fontSize: 10.5, color: C.red, lineHeight: 1.6 } }, /* @__PURE__ */ React.createElement("b", null, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E19:"), " ", v.empty.slice(0, 10).map(function(e) {
-      return e.date.slice(8) + "/" + e.date.slice(5, 7) + " " + e.loc + " " + e.slot;
-    }).join(" \xB7 "), v.empty.length > 10 ? " \u2026\u0E2D\u0E35\u0E01 " + (v.empty.length - 10) : ""), v.doubles.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, fontSize: 10.5, color: C.red } }, /* @__PURE__ */ React.createElement("b", null, "\u0E0B\u0E49\u0E33:"), " ", v.doubles.slice(0, 8).map(function(d) {
+    })), v.empty.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 9, fontSize: 10.5, color: C.red, lineHeight: 1.7 } }, /* @__PURE__ */ React.createElement("b", null, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E19 \u2014 \u0E41\u0E25\u0E30\u0E15\u0E34\u0E14\u0E15\u0E23\u0E07\u0E44\u0E2B\u0E19:"), v.empty.slice(0, 6).map(function(e, i) {
+      return /* @__PURE__ */ React.createElement("div", { key: i, style: { marginTop: 3 } }, "\xB7 ", e.date, " ", e.loc, " ", e.slot, " (", e.label, ")", /* @__PURE__ */ React.createElement("span", { style: { color: C.muted, marginLeft: 6 } }, (e.blockers || []).join(" \xB7 ")));
+    }), v.empty.length > 6 ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, color: C.muted } }, "\u2026\u0E2D\u0E35\u0E01 ", v.empty.length - 6, " \u0E01\u0E30") : null), v.doubles.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, fontSize: 10.5, color: C.red } }, /* @__PURE__ */ React.createElement("b", null, "\u0E0B\u0E49\u0E33:"), " ", v.doubles.slice(0, 8).map(function(d) {
       return d.name + " " + d.date.slice(8);
     }).join(" \xB7 ")), v.unauthorised.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, fontSize: 10.5, color: C.red } }, /* @__PURE__ */ React.createElement("b", null, "\u0E1C\u0E34\u0E14\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C:"), " ", v.unauthorised.slice(0, 8).map(function(u) {
       return u.name + " @" + u.loc + "/" + u.slot;
@@ -10676,7 +10753,21 @@ function GreenPOS() {
       return /* @__PURE__ */ React.createElement("div", { key: loc.id, style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800 } }, loc.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, letterSpacing: "0.04em" } }, loc.note)), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, weeks.map(function(wk, wi) {
         return /* @__PURE__ */ React.createElement("table", { key: wi, style: { width: "100%", minWidth: 640, borderCollapse: "collapse", marginBottom: 9, fontSize: 10.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { textAlign: "left", padding: "4px 6px", color: C.muted, fontSize: 9, fontWeight: 700, width: 118 } }, "SHIFT / POSITION"), wk.map(function(d) {
           return /* @__PURE__ */ React.createElement("th", { key: d.date, style: { padding: "4px 3px", color: C.muted, fontSize: 9, fontWeight: 700 } }, SHIFT_DAY_NAMES[d.dow], /* @__PURE__ */ React.createElement("div", { style: { color: C.text, fontSize: 11, fontWeight: 800 } }, d.day));
-        }))), /* @__PURE__ */ React.createElement("tbody", null, loc.slots.map(function(slot) {
+        }))), /* @__PURE__ */ React.createElement("tbody", null, (function() {
+          var vis = (shown.visits || []).filter(function(x) {
+            return x.loc === loc.id;
+          });
+          if (!vis.length) return null;
+          return /* @__PURE__ */ React.createElement("tr", { style: { borderTop: "1px solid " + C.borderSoft } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, "\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C\u0E25\u0E30\u0E04\u0E23\u0E31\u0E49\u0E07"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: C.gold } }, "CEO \u0E15\u0E23\u0E27\u0E08\u0E07\u0E32\u0E19")), wk.map(function(d) {
+            var here = vis.filter(function(x) {
+              return x.date === d.date;
+            });
+            if (!here.length) return /* @__PURE__ */ React.createElement("td", { key: d.date, style: { textAlign: "center", color: C.muted, padding: "5px 3px" } }, "\u2013");
+            return /* @__PURE__ */ React.createElement("td", { key: d.date, style: { textAlign: "center", padding: "5px 3px", color: C.gold, fontWeight: 800, fontSize: 9 } }, here.map(function(x, i) {
+              return /* @__PURE__ */ React.createElement("div", { key: i }, x.name.replace(" (CEO)", ""), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 7.5, fontWeight: 500 } }, x.window));
+            }));
+          }));
+        })(), loc.slots.map(function(slot) {
           return /* @__PURE__ */ React.createElement("tr", { key: slot.id, style: { borderTop: "1px solid " + C.borderSoft } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, slot.label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, fontWeight: 700 } }, slot.name || slot.id)), wk.map(function(d) {
             var c = shown.cells[loc.id + "|" + d.date + "|" + slot.id];
             if (c && c.closed) return /* @__PURE__ */ React.createElement("td", { key: d.date, style: { textAlign: "center", color: C.muted, padding: "5px 3px" } }, "\u2013");
@@ -10704,8 +10795,8 @@ function GreenPOS() {
     }))), /* @__PURE__ */ React.createElement("tbody", null, shown.summary.map(function(s) {
       var p = staffById[s.id];
       var band = s.kind === "full" && (s.shifts < 24 || s.shifts > s.max);
-      return /* @__PURE__ */ React.createElement("tr", { key: s.id, style: { borderTop: "1px solid " + C.borderSoft } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontWeight: 700, color: inkFor(p) } }, s.name), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", color: C.muted, fontSize: 9.5 } }, s.locs.join(", ")), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5 } }, s.assignment), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5, color: C.muted } }, s.kind === "full" ? "\u0E1B\u0E23\u0E30\u0E08\u0E33" : s.kind === "part" ? "\u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C" : "\u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23", p && p.relief ? " \xB7 relief" : ""), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 800, color: band ? C.gold : C.text } }, s.shifts), /* @__PURE__ */ React.createElement("td", { style: __spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num) }, s.hours, "h"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.hourly ? C.text : C.muted }) }, s.pay.hourly ? s.pay.hourly.toFixed(2) : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otHours ? C.gold : C.muted }) }, s.pay.otHours || "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otPay ? C.gold : C.muted }) }, s.pay.otPay ? "\u0E3F" + Math.round(s.pay.otPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { fontWeight: 700 }) }, s.pay.totalPay ? "\u0E3F" + Math.round(s.pay.totalPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.leave.length ? C.gold : C.muted } }, s.leave.length), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.duties.length ? "#c084fc" : C.muted, fontSize: 9.5 } }, s.duties.length ? s.duties[0].label + " \xD7" + s.duties.length : "\u2014"));
-    })))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, fontSize: 9.5, color: C.muted, lineHeight: 1.6 } }, "\u0E01\u0E30\u0E02\u0E49\u0E32\u0E21\u0E04\u0E37\u0E19\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19 1 \u0E01\u0E30\u0E02\u0E2D\u0E07", /* @__PURE__ */ React.createElement("b", null, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21"), " \xB7 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29\u0E17\u0E35\u0E48\u0E17\u0E33\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E01\u0E30\u0E1B\u0E01\u0E15\u0E34\u0E16\u0E39\u0E01\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E27\u0E49 \u0E41\u0E15\u0E48", /* @__PURE__ */ React.createElement("b", null, "\u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E30\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E41\u0E25\u0E30\u0E44\u0E21\u0E48\u0E1A\u0E27\u0E01\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07\u0E0B\u0E49\u0E33"), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 10 } }, "\u0E2A\u0E35: ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "\u25A0 \u0E1B\u0E23\u0E30\u0E08\u0E33"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.blue } }, "\u25A0 \u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C/relief"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.gold } }, "\u25A0 \u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23/CEO"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "#c084fc" } }, "\u25A0 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29"))))), shiftAi && shown && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }, onClick: function(e) {
+      return /* @__PURE__ */ React.createElement("tr", { key: s.id, style: { borderTop: "1px solid " + C.borderSoft } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontWeight: 700, color: inkFor(p) } }, s.name), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", color: C.muted, fontSize: 9.5 } }, s.locs.join(", ")), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5 } }, s.assignment), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5, color: C.muted } }, s.kind === "full" ? "\u0E1B\u0E23\u0E30\u0E08\u0E33" : s.kind === "part" ? "\u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C" : "\u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23", p && p.relief ? " \xB7 relief" : ""), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 800, color: band ? C.gold : C.text } }, s.kind === "ceo" ? /* @__PURE__ */ React.createElement("span", { style: { color: C.gold, fontSize: 9.5 } }, "\u0E15\u0E23\u0E27\u0E08 ", s.visits.length, "\xD7") : s.shifts), /* @__PURE__ */ React.createElement("td", { style: __spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num) }, s.kind === "ceo" ? s.visitHours + "h*" : s.hours + "h"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.hourly ? C.text : C.muted }) }, s.pay.hourly ? s.pay.hourly.toFixed(2) : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otHours ? C.gold : C.muted }) }, s.pay.otHours || "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otPay ? C.gold : C.muted }) }, s.pay.otPay ? "\u0E3F" + Math.round(s.pay.otPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { fontWeight: 700 }) }, s.pay.totalPay ? "\u0E3F" + Math.round(s.pay.totalPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.leave.length ? C.gold : C.muted } }, s.leave.length), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.duties.length ? "#c084fc" : C.muted, fontSize: 9.5 } }, s.duties.length ? s.duties[0].label + " \xD7" + s.duties.length : "\u2014"));
+    })))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, fontSize: 9.5, color: C.muted, lineHeight: 1.6 } }, "\u0E01\u0E30\u0E02\u0E49\u0E32\u0E21\u0E04\u0E37\u0E19\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19 1 \u0E01\u0E30\u0E02\u0E2D\u0E07", /* @__PURE__ */ React.createElement("b", null, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21"), " \xB7 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29\u0E17\u0E35\u0E48\u0E17\u0E33\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E01\u0E30\u0E1B\u0E01\u0E15\u0E34\u0E16\u0E39\u0E01\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E27\u0E49 \u0E41\u0E15\u0E48", /* @__PURE__ */ React.createElement("b", null, "\u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E30\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E41\u0E25\u0E30\u0E44\u0E21\u0E48\u0E1A\u0E27\u0E01\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07\u0E0B\u0E49\u0E33"), " \xB7 ", /* @__PURE__ */ React.createElement("b", { style: { color: C.gold } }, "CEO \u0E40\u0E02\u0E49\u0E32\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C\u0E25\u0E30\u0E04\u0E23\u0E31\u0E49\u0E07"), " \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E22\u0E01 \u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E30\u0E02\u0E2D\u0E07\u0E23\u0E49\u0E32\u0E19 (*\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07\u0E15\u0E23\u0E27\u0E08\u0E07\u0E32\u0E19)", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 10 } }, "\u0E2A\u0E35: ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "\u25A0 \u0E1B\u0E23\u0E30\u0E08\u0E33"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.blue } }, "\u25A0 \u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C/relief"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.gold } }, "\u25A0 \u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23/CEO"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "#c084fc" } }, "\u25A0 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29"))))), shiftAi && shown && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }, onClick: function(e) {
       if (e.target === e.currentTarget) setShiftAi(null);
     } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 620, maxHeight: "88vh", overflowY: "auto" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 800 } }, "\u{1F916} \u0E16\u0E32\u0E21\u0E40\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setShiftAi(null);
