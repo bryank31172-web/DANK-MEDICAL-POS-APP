@@ -219,10 +219,10 @@ ok('CEOs are owners, not payroll', Math.abs(pr.total - r.summary.filter((s) => s
    .reduce((a, s) => a + s.pay.totalPay, 0)) < 1, pr.total);
 ok('…and a CEO contributes nothing to the wage bill',
    r.summary.filter((s) => s.kind === 'ceo').every((s) => s.pay.totalPay === 0));
-ok('kitchen, riders and back office are costed even with no counter shift', (() => {
-  const rider = by['Martin (มาร์ติน)'];
-  return rider.shifts === 0 && rider.pay.basePay === 700 * 26;
-})(), by['Martin (มาร์ติน)'].pay.basePay);
+ok('kitchen and riders are costed even with no counter shift', (() => {
+  const rider = by.Got;
+  return rider.shifts === 0 && rider.pay.basePay === 600 * 26;
+})(), by.Got && by.Got.pay.basePay);
 ok('…because a day-rate rider costed at zero days would vanish from the wage line',
    by.Zaw.pay.basePay > 0 && by.Soe.pay.basePay > 0);
 ok('anyone on payroll with no shift is named', pr.noShift.length > 0,

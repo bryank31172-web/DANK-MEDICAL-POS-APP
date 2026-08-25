@@ -752,11 +752,15 @@ var SHIFT_LOCATIONS = [
   ] }
 ];
 var SHIFT_STAFF = [
-  /* Wages are the shop's own sheet (พัฒนาการ / สาทร). Two contract types live
-   * side by side: a monthly salary, and a วันละ day rate paid per shift stood.
-   * `slots` is what each person is cleared to work — it is NOT on the wage
-   * sheet, so anyone new here starts with none and shows up in the report as
-   * on payroll but not on the roster, rather than being guessed onto a shift. */
+  /* The shop's own wage sheet (พัฒนาการ / สาทร), confirmed name by name — it is
+   * the authority on who works here, so anyone absent from it has left and is
+   * absent from here too. Two contract types live side by side: a monthly
+   * salary, and a วันละ day rate paid per shift stood.
+   *
+   * `slots` is what each person is cleared to work, and it is NOT on the wage
+   * sheet. Anyone new starts with none and is reported as on payroll but not
+   * yet rostered, rather than being guessed onto a shift — guessing wrong puts
+   * the wrong person on the 01:00 counter. */
   /* ── DANK PHATTHANAKARN ──────────────────────────────────────────────── */
   {
     id: "alex",
@@ -868,11 +872,10 @@ var SHIFT_STAFF = [
   /* On the wage sheet, off the shift roster by design — kitchen, riders and
    * back office do not stand counter shifts, but they are payroll and the
    * expense line is wrong without them. */
-  { id: "yin", name: "Yin (\u0E2B\u0E22\u0E34\u0E19)", role: "BACKED OPERATIONS", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "monthly", salary: 22500 },
   { id: "boom", name: "Boom", role: "KITCHEN", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "monthly", salary: 16e3 },
   { id: "soe", name: "Soe", role: "KITCHEN", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 500 },
   { id: "zaw", name: "Zaw", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 600 },
-  { id: "martin", name: "Martin (\u0E21\u0E32\u0E23\u0E4C\u0E15\u0E34\u0E19)", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 700 },
+  { id: "got", name: "Got", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 600 },
   /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
   {
     id: "raizo",
