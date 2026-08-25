@@ -224,17 +224,27 @@ ok('kitchen and riders are costed even with no counter shift', (() => {
   return rider.shifts === 0 && rider.pay.basePay === 600 * 26;
 })(), by.Got && by.Got.pay.basePay);
 ok('…because a day-rate rider costed at zero days would vanish from the wage line',
-   by.Zaw.pay.basePay > 0 && by.Soe.pay.basePay > 0);
-ok('anyone on payroll with no shift is named', pr.noShift.length > 0,
+   by.Zaw.pay.basePay > 0 && by.Got.pay.basePay > 0, by.Zaw.pay.basePay + ' / ' + by.Got.pay.basePay);
+/* Everybody left on the sheet who can stand a shift is standing one, so this
+ * list is empty — it must stay a list, not become an assertion that it is
+ * never empty, or it stops being able to report the case it exists for. */
+ok('nobody is on payroll with a slot and no shift', pr.noShift.length === 0,
    pr.noShift.map((x) => x.name).join(', '));
-ok('…and Beer and Gus are in that list, since no shift is assigned to them yet',
-   ['Beer', 'Gus'].every((n) => pr.noShift.some((x) => x.name === n)),
-   pr.noShift.map((x) => x.name).join(', '));
+ok('…and the check still fires when somebody is', (() => {
+  const idle = M.STAFF.concat([{ id: 'idle', name: 'Idle', role: 'BUDTENDER', kind: 'full',
+    locs: ['ptk'], slots: [], off: [], payType: 'daily', dailyRate: 600 }]);
+  const p2 = M.rosterPayroll(M.buildRoster(M.LOCS, idle, 2026, 9), idle, 353500);
+  return p2.noShift.some((x) => x.name === 'Idle');
+})());
 ok('…with the reason spelled out', pr.noShift.every((x) => !!x.why));
 ok('everybody on the wage sheet has a wage on file', pr.noPay.length === 0,
    pr.noPay.map((x) => x.name).join(', '));
-ok('…and having no shift yet is not mistaken for having no wage',
-   pr.noShift.some((x) => x.name === 'Beer') && !pr.noPay.some((x) => x.name === 'Beer'));
+ok('…and having no shift yet is not mistaken for having no wage', (() => {
+  const idle = M.STAFF.concat([{ id: 'idle2', name: 'Idle2', role: 'BUDTENDER', kind: 'full',
+    locs: ['ptk'], slots: [], off: [], payType: 'daily', dailyRate: 600 }]);
+  const p2 = M.rosterPayroll(M.buildRoster(M.LOCS, idle, 2026, 9), idle, 353500);
+  return p2.noShift.some((x) => x.name === 'Idle2') && !p2.noPay.some((x) => x.name === 'Idle2');
+})());
 
 console.log('\na duty inside a shift is recorded, never counted twice');
 const ploy = by['Ploy (พลอย)'];
@@ -352,9 +362,9 @@ ok('a balance question is answered', (ask('ใครทำเกิน ใคร
      a && a.lines.join(' | '));
 }
 ok('somebody with no wage on file is told so, not shown NaN', (() => {
-  const nw = M.STAFF.map((p) => (p.id === 'gus' ? Object.assign({}, p, { dailyRate: 0 }) : p));
+  const nw = M.STAFF.map((p) => (p.id === 'dylan' ? Object.assign({}, p, { dailyRate: 0, salary: 0 }) : p));
   const rn2 = M.buildRoster(M.LOCS, nw, 2026, 9);
-  const a = M.rosterAsk('gus', rn2, nw, M.LOCS);
+  const a = M.rosterAsk('dylan', rn2, nw, M.LOCS);
   return a && a.lines.some((l) => /ยังไม่ได้ใส่เงินเดือน/.test(l));
 })());
 ok('a question it cannot answer returns null rather than a guess',

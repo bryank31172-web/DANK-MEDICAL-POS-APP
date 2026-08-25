@@ -797,17 +797,6 @@ var SHIFT_STAFF = [
     dailyRate: 600
   },
   {
-    id: "beer",
-    name: "Beer",
-    role: "BUDTENDER",
-    kind: "full",
-    locs: ["ptk"],
-    slots: [],
-    off: [],
-    payType: "daily",
-    dailyRate: 650
-  },
-  {
     id: "pond",
     name: "Pond (\u0E28\u0E23\u0E31\u0E13\u0E0D\u0E4C \u0E2A\u0E34\u0E17\u0E18\u0E34\u0E21\u0E07\u0E04\u0E25)",
     role: "BUDTENDER",
@@ -834,17 +823,6 @@ var SHIFT_STAFF = [
     dailyRate: 600
   },
   {
-    id: "gus",
-    name: "Gus",
-    role: "BUDTENDER",
-    kind: "full",
-    locs: ["ptk"],
-    slots: [],
-    off: [],
-    payType: "daily",
-    dailyRate: 550
-  },
-  {
     id: "jack",
     name: "Jack",
     role: "BARTENDER",
@@ -869,11 +847,9 @@ var SHIFT_STAFF = [
     payType: "daily",
     dailyRate: 800
   },
-  /* On the wage sheet, off the shift roster by design — kitchen, riders and
-   * back office do not stand counter shifts, but they are payroll and the
-   * expense line is wrong without them. */
-  { id: "boom", name: "Boom", role: "KITCHEN", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "monthly", salary: 16e3 },
-  { id: "soe", name: "Soe", role: "KITCHEN", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 500 },
+  /* On the wage sheet, off the shift roster by design — riders do not stand
+   * counter shifts, but they are payroll and the expense line is wrong
+   * without them. */
   { id: "zaw", name: "Zaw", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 600 },
   { id: "got", name: "Got", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 600 },
   /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
