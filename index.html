@@ -203,6 +203,543 @@ function teamWorkload(tasks, staff, today) {
   });
   return out;
 }
+var SHIFT_DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+function shiftHours(label) {
+  var m = /^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/.exec(String(label || "").trim());
+  if (!m) return 0;
+  var a = +m[1] * 60 + +m[2], b = +m[3] * 60 + +m[4];
+  if (b <= a) b += 24 * 60;
+  return Math.round((b - a) / 60 * 100) / 100;
+}
+function shiftSpan(label) {
+  var m = /^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/.exec(String(label || "").trim());
+  if (!m) return null;
+  var a = +m[1] * 60 + +m[2], b = +m[3] * 60 + +m[4];
+  if (b <= a) b += 24 * 60;
+  return [a, b];
+}
+function monthDates(year, month1) {
+  var out = [], d = new Date(Date.UTC(year, month1 - 1, 1));
+  while (d.getUTCMonth() === month1 - 1) {
+    out.push({ date: d.toISOString().slice(0, 10), dow: d.getUTCDay(), day: d.getUTCDate() });
+    d = new Date(d.getTime() + 864e5);
+  }
+  return out;
+}
+function slotRunsOn(slot, dow) {
+  if (!slot.days || slot.days === "all") return true;
+  return slot.days.indexOf(dow) >= 0;
+}
+function rosterEligible(person, loc, slot, day, assignedToday, count, byLoc) {
+  byLoc = byLoc || {};
+  if (!person || person.active === false) return null;
+  if ((person.locs || []).indexOf(loc.id) < 0) return "not authorised at " + loc.id;
+  if ((person.slots || []).indexOf(slot.id) < 0) return "not authorised on " + slot.id;
+  if ((person.leave || []).indexOf(day.date) >= 0) return "on leave";
+  if (person.onlyDates && person.onlyDates.length && person.onlyDates.indexOf(day.date) < 0) return "not one of their dates";
+  if ((person.off || []).indexOf(day.dow) >= 0) return "fixed day off";
+  var only = (person.only || {})[slot.id];
+  if (only && only.indexOf(day.dow) < 0) return "only covers " + slot.id + " on " + only.map(function(d) {
+    return SHIFT_DAY_NAMES[d];
+  }).join("/");
+  if (assignedToday[person.id]) return "already on a shift today";
+  if (count[person.id] >= (person.max || 28)) return "at their maximum";
+  var lm = (person.locMax || {})[loc.id];
+  if (lm != null && (byLoc[person.id + "|" + loc.id] || 0) >= lm) return "at their maximum for " + loc.id;
+  return null;
+}
+function rosterPick(cands, slot, count, slotSpan) {
+  var startsFirst = function(p) {
+    if (!slotSpan) return 0;
+    var w = shiftSpan(p.window || (p.windows || {})[slot.id] || "");
+    if (!w) return 0;
+    return w[0] === slotSpan[0] ? 0 : 1;
+  };
+  var owns = function(p) {
+    if (p.relief) return 2;
+    return (p.slots || [])[0] === slot.id ? 0 : 1;
+  };
+  var deficit = function(p) {
+    return (p.target || 26) - (count[p.id] || 0);
+  };
+  var rank = function(p) {
+    return p.kind === "part" ? 1 : 0;
+  };
+  return cands.slice().sort(function(a, b) {
+    if (startsFirst(a) !== startsFirst(b)) return startsFirst(a) - startsFirst(b);
+    if (owns(a) !== owns(b)) return owns(a) - owns(b);
+    if (rank(a) !== rank(b)) return rank(a) - rank(b);
+    if (deficit(a) !== deficit(b)) return deficit(b) - deficit(a);
+    return String(a.name).localeCompare(String(b.name));
+  })[0] || null;
+}
+function rosterPay(person, actualHours, slotHours) {
+  var salary = +(person.salary || 0);
+  var target = person.target || 26;
+  var normal = Math.round(target * (slotHours || 0) * 100) / 100;
+  var hourly = salary > 0 && normal > 0 ? Math.round(salary / normal * 100) / 100 : 0;
+  var otH = Math.max(0, Math.round((actualHours - normal) * 100) / 100);
+  var otPay = Math.round(otH * hourly * 1.5 * 100) / 100;
+  return {
+    salary,
+    normalHours: normal,
+    hourly,
+    otHours: otH,
+    otRate: Math.round(hourly * 1.5 * 100) / 100,
+    otPay,
+    totalPay: Math.round((salary + otPay) * 100) / 100
+  };
+}
+function buildRoster(locations, staff, year, month1) {
+  var days = monthDates(year, month1);
+  var byId = {};
+  (staff || []).forEach(function(p) {
+    byId[p.id] = p;
+  });
+  var count = {}, hours = {}, dates = {}, duties = {};
+  (staff || []).forEach(function(p) {
+    count[p.id] = 0;
+    hours[p.id] = 0;
+    dates[p.id] = [];
+    duties[p.id] = [];
+  });
+  var cells = {};
+  var empty = [], unauthorised = [];
+  var assignedOn = {};
+  var byLoc = {};
+  [false, true].forEach(function(optionalPass) {
+    (locations || []).forEach(function(loc) {
+      days.forEach(function(day) {
+        assignedOn[day.date] = assignedOn[day.date] || {};
+        (loc.slots || []).forEach(function(slot) {
+          if (!!slot.optional !== optionalPass) return;
+          var key = loc.id + "|" + day.date + "|" + slot.id;
+          if (!slotRunsOn(slot, day.dow)) {
+            cells[key] = { closed: true };
+            return;
+          }
+          if (cells[key] !== void 0) return;
+          var cands = (staff || []).filter(function(p) {
+            return rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) === null;
+          });
+          var pick = rosterPick(cands, slot, count, shiftSpan(slot.label));
+          if (!pick) {
+            cells[key] = null;
+            if (!slot.optional) empty.push({ loc: loc.id, locName: loc.name, date: day.date, slot: slot.id, label: slot.label });
+            return;
+          }
+          var take = function(p) {
+            var w = p.window || (p.windows || {})[slot.id] || "";
+            var hh = shiftHours(w || slot.label);
+            assignedOn[day.date][p.id] = loc.id + "/" + slot.id;
+            count[p.id]++;
+            hours[p.id] += hh;
+            dates[p.id].push(day.date);
+            byLoc[p.id + "|" + loc.id] = (byLoc[p.id + "|" + loc.id] || 0) + 1;
+            if (p.duty && p.duty.dow === day.dow && (!p.duty.loc || p.duty.loc === loc.id)) {
+              duties[p.id].push({ date: day.date, label: p.duty.label });
+            }
+            return { id: p.id, name: p.name, window: w };
+          };
+          var head = take(pick);
+          cells[key] = { id: head.id, name: head.name, window: head.window, extra: [] };
+          var span = shiftSpan(slot.label);
+          var got = shiftSpan(head.window || slot.label);
+          while (span && got && got[1] < span[1]) {
+            var rest = (staff || []).filter(function(p) {
+              if (rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) !== null) return false;
+              var w = shiftSpan(p.window || (p.windows || {})[slot.id] || "");
+              return !!w && w[0] === got[1];
+            });
+            var next = rosterPick(rest, slot, count);
+            if (!next) break;
+            cells[key].extra.push(take(next));
+            got = shiftSpan(next.window || (next.windows || {})[slot.id] || "");
+          }
+        });
+      });
+    });
+  });
+  var locById = {};
+  (locations || []).forEach(function(l) {
+    locById[l.id] = l;
+  });
+  Object.keys(cells).forEach(function(key) {
+    var c = cells[key];
+    if (!c || c.closed) return;
+    var parts = key.split("|"), p = byId[c.id];
+    if (!p) return;
+    if ((p.locs || []).indexOf(parts[0]) < 0) unauthorised.push({ name: p.name, date: parts[1], loc: parts[0], slot: parts[2], why: "shop not authorised" });
+    else if ((p.slots || []).indexOf(parts[2]) < 0) unauthorised.push({ name: p.name, date: parts[1], loc: parts[0], slot: parts[2], why: "shift not authorised" });
+  });
+  var doubles = [];
+  Object.keys(assignedOn).sort().forEach(function(date) {
+    var seen = {};
+    Object.keys(assignedOn[date]).forEach(function(pid) {
+      seen[pid] = (seen[pid] || 0) + 1;
+      if (seen[pid] > 1) doubles.push({ id: pid, name: (byId[pid] || {}).name, date });
+    });
+  });
+  var slotLenOf = function(p) {
+    var want = (p.slots || [])[0];
+    var found = 0;
+    (locations || []).forEach(function(l) {
+      (l.slots || []).forEach(function(s) {
+        if (s.id === want && !found) found = shiftHours(p.window || s.label);
+      });
+    });
+    return found;
+  };
+  var summary = (staff || []).filter(function(p) {
+    return p.active !== false;
+  }).map(function(p) {
+    var worked = dates[p.id] || [];
+    var offDays = days.filter(function(d) {
+      return worked.indexOf(d.date) < 0;
+    }).map(function(d) {
+      return d.date;
+    });
+    return {
+      id: p.id,
+      name: p.name,
+      kind: p.kind || "full",
+      locs: (p.locs || []).slice(),
+      slots: (p.slots || []).slice(),
+      assignment: (p.slots || []).slice(0, 2).join(" / ") + ((p.off || []).length ? " | Off " + (p.off || []).map(function(d) {
+        return SHIFT_DAY_NAMES[d];
+      }).join("/") : ""),
+      dates: worked,
+      offDates: offDays,
+      shifts: count[p.id] || 0,
+      hours: Math.round((hours[p.id] || 0) * 10) / 10,
+      leave: (p.leave || []).slice(),
+      duties: duties[p.id] || [],
+      target: p.target || 26,
+      max: p.max || 28,
+      pay: rosterPay(p, Math.round((hours[p.id] || 0) * 10) / 10, slotLenOf(p))
+    };
+  });
+  var hoursByLoc = {};
+  (locations || []).forEach(function(loc) {
+    hoursByLoc[loc.id] = 0;
+  });
+  Object.keys(cells).forEach(function(key) {
+    var c = cells[key];
+    if (!c || c.closed) return;
+    var parts = key.split("|"), loc = locById[parts[0]];
+    if (!loc) return;
+    var slot = (loc.slots || []).filter(function(s) {
+      return s.id === parts[2];
+    })[0];
+    if (!slot) return;
+    hoursByLoc[parts[0]] += shiftHours(c.window || slot.label);
+    (c.extra || []).forEach(function(e) {
+      hoursByLoc[parts[0]] += shiftHours(e.window || slot.label);
+    });
+  });
+  var band = summary.filter(function(s) {
+    return s.kind === "full";
+  });
+  return {
+    year,
+    month: month1,
+    days,
+    cells,
+    summary,
+    validation: {
+      empty,
+      doubles,
+      unauthorised,
+      under: band.filter(function(s) {
+        return s.shifts < 24;
+      }).map(function(s) {
+        return { name: s.name, shifts: s.shifts };
+      }),
+      over: summary.filter(function(s) {
+        return s.shifts > s.max;
+      }).map(function(s) {
+        return { name: s.name, shifts: s.shifts, max: s.max };
+      }),
+      hoursByLoc,
+      ok: empty.length === 0 && doubles.length === 0 && unauthorised.length === 0
+    }
+  };
+}
+function rosterAskDate(q, days) {
+  var m = /(\d{4}-\d{2}-\d{2})/.exec(q);
+  if (m) return m[1];
+  m = /(\d{1,2})\s*(?:\/|-)\s*(\d{1,2})/.exec(q);
+  if (m && days.length) {
+    var d = ("0" + m[1]).slice(-2), mo = ("0" + m[2]).slice(-2);
+    var hit = days.filter(function(x) {
+      return x.date.slice(5) === mo + "-" + d;
+    })[0];
+    if (hit) return hit.date;
+  }
+  m = /(?:วันที่|day)\s*(\d{1,2})\b/.exec(q);
+  if (m && days.length) {
+    var want = +m[1];
+    var h2 = days.filter(function(x) {
+      return x.day === want;
+    })[0];
+    if (h2) return h2.date;
+  }
+  return null;
+}
+function rosterAsk(question, res, staff, locations) {
+  if (!res || !res.summary) return null;
+  var q = String(question || "").toLowerCase().trim();
+  if (!q) return null;
+  var baht = function(n) {
+    return "\u0E3F" + Math.round(n).toLocaleString();
+  };
+  var byId = {};
+  (staff || []).forEach(function(p) {
+    byId[p.id] = p;
+  });
+  var locName = {};
+  (locations || []).forEach(function(l) {
+    locName[l.id] = l.name.replace("DANK ", "");
+  });
+  var date = rosterAskDate(q, res.days || []);
+  if (date && /ใคร|who|เวร|shift|ทำงาน|working|on duty/.test(q) && !/ว่าง|free|cover|แทน|available/.test(q)) {
+    var on = [];
+    Object.keys(res.cells).forEach(function(k) {
+      var c = res.cells[k];
+      if (!c || c.closed) return;
+      var p = k.split("|");
+      if (p[1] !== date) return;
+      var names = [c.name + (c.window ? " (" + c.window + ")" : "")].concat((c.extra || []).map(function(e) {
+        return e.name + " (" + e.window + ")";
+      }));
+      on.push("\xB7 " + (locName[p[0]] || p[0]) + " " + p[2] + " \u2014 " + names.join(" + "));
+    });
+    return { kind: "onduty", title: "\u0E40\u0E27\u0E23\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 " + date, lines: on.length ? on.sort() : ["\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E04\u0E23\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E23\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49"] };
+  }
+  if (date && /ว่าง|free|cover|แทน|available|ใครแทน/.test(q)) {
+    var busy = {};
+    Object.keys(res.cells).forEach(function(k) {
+      var c = res.cells[k];
+      if (!c || c.closed) return;
+      if (k.split("|")[1] !== date) return;
+      busy[c.id] = 1;
+      (c.extra || []).forEach(function(e) {
+        busy[e.id] = 1;
+      });
+    });
+    var dow = (/* @__PURE__ */ new Date(date + "T00:00:00Z")).getUTCDay();
+    var freeList = res.summary.filter(function(s) {
+      var p = byId[s.id];
+      if (!p || busy[s.id]) return false;
+      if ((p.off || []).indexOf(dow) >= 0) return false;
+      if ((p.leave || []).indexOf(date) >= 0) return false;
+      return s.shifts < (p.max || 28);
+    }).map(function(s) {
+      var p = byId[s.id];
+      return "\xB7 " + s.name + " \u2014 \u0E27\u0E48\u0E32\u0E07 \xB7 \u0E15\u0E2D\u0E19\u0E19\u0E35\u0E49 " + s.shifts + "/" + (p.max || 28) + " \u0E01\u0E30 \xB7 \u0E17\u0E33\u0E44\u0E14\u0E49 " + (p.slots || []).join(", ");
+    });
+    return {
+      kind: "free",
+      title: "\u0E43\u0E04\u0E23\u0E41\u0E17\u0E19\u0E44\u0E14\u0E49\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 " + date,
+      lines: freeList.length ? freeList : ["\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E04\u0E23\u0E27\u0E48\u0E32\u0E07\u0E40\u0E25\u0E22 \u2014 \u0E17\u0E38\u0E01\u0E04\u0E19\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E23\u0E2B\u0E23\u0E37\u0E2D\u0E2B\u0E22\u0E38\u0E14\u0E15\u0E32\u0E21\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C"]
+    };
+  }
+  if (/ค่าแรง|เงินเดือน|payroll|labour|labor|cost|ต้นทุน|จ่ายเท่า/.test(q)) {
+    var base = 0, ot = 0, otH = 0;
+    res.summary.forEach(function(s) {
+      base += s.pay.salary;
+      ot += s.pay.otPay;
+      otH += s.pay.otHours;
+    });
+    var perLoc = Object.keys(res.validation.hoursByLoc).map(function(k) {
+      return "\xB7 " + (locName[k] || k) + " \u2014 " + Math.round(res.validation.hoursByLoc[k]) + " \u0E0A\u0E21.";
+    });
+    return {
+      kind: "cost",
+      title: "\u0E04\u0E48\u0E32\u0E41\u0E23\u0E07\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49",
+      lines: [
+        "\xB7 \u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E23\u0E27\u0E21 " + baht(base),
+        "\xB7 \u0E04\u0E48\u0E32 OT " + baht(ot) + " (" + Math.round(otH * 10) / 10 + " \u0E0A\u0E21. \u0E17\u0E35\u0E48 1.5 \u0E40\u0E17\u0E48\u0E32)",
+        "\xB7 \u0E23\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 " + baht(base + ot)
+      ].concat(perLoc)
+    };
+  }
+  if (/\bot\b|โอที|ล่วงเวลา|overtime/.test(q)) {
+    var hasOt = res.summary.filter(function(s) {
+      return s.pay.otHours > 0;
+    }).sort(function(a, b) {
+      return b.pay.otHours - a.pay.otHours;
+    }).map(function(s) {
+      return "\xB7 " + s.name + " \u2014 " + s.pay.otHours + " \u0E0A\u0E21. = " + baht(s.pay.otPay) + " (\u0E40\u0E23\u0E15 " + s.pay.otRate + "/\u0E0A\u0E21.)";
+    });
+    return {
+      kind: "ot",
+      title: "OT \u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49",
+      lines: hasOt.length ? hasOt : ["\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E04\u0E23\u0E21\u0E35 OT \u2014 \u0E17\u0E38\u0E01\u0E04\u0E19\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07\u0E1B\u0E01\u0E15\u0E34\u0E02\u0E2D\u0E07\u0E15\u0E31\u0E27\u0E40\u0E2D\u0E07"]
+    };
+  }
+  if (/เกิน|over|หนัก|ล้น|น้อย|under|ต่ำ|ไม่ครบ|balance|สมดุล/.test(q)) {
+    var v = res.validation;
+    var out = [];
+    v.over.forEach(function(o) {
+      out.push("\xB7 \u0E40\u0E01\u0E34\u0E19\u0E40\u0E1E\u0E14\u0E32\u0E19: " + o.name + " " + o.shifts + "/" + o.max);
+    });
+    v.under.forEach(function(u) {
+      out.push("\xB7 \u0E15\u0E48\u0E33\u0E01\u0E27\u0E48\u0E32 24: " + u.name + " " + u.shifts + " \u0E01\u0E30");
+    });
+    if (!out.length) out.push("\u0E17\u0E38\u0E01\u0E04\u0E19\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E0A\u0E48\u0E27\u0E07 24\u201328 \u0E01\u0E30 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E04\u0E23\u0E40\u0E01\u0E34\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E02\u0E32\u0E14");
+    var spare = res.summary.filter(function(s) {
+      var p = byId[s.id];
+      return p && s.shifts < (p.max || 28) - 1;
+    }).sort(function(a, b) {
+      return (byId[b.id].max || 28) - b.shifts - ((byId[a.id].max || 28) - a.shifts);
+    }).slice(0, 4);
+    if (spare.length) out.push("\xB7 \u0E22\u0E31\u0E07\u0E23\u0E31\u0E1A\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E44\u0E14\u0E49: " + spare.map(function(s) {
+      return s.name + " (+" + ((byId[s.id].max || 28) - s.shifts) + ")";
+    }).join(", "));
+    return { kind: "balance", title: "\u0E2A\u0E21\u0E14\u0E38\u0E25\u0E01\u0E30", lines: out };
+  }
+  var hit = res.summary.filter(function(s) {
+    return q.indexOf(String(s.name).toLowerCase().split(" ")[0]) >= 0;
+  }).sort(function(a, b) {
+    return b.name.length - a.name.length;
+  })[0];
+  if (hit) {
+    var p2 = byId[hit.id] || {};
+    return { kind: "person", title: hit.name, lines: [
+      "\xB7 " + hit.shifts + " \u0E01\u0E30 \xB7 " + hit.hours + " \u0E0A\u0E21. \xB7 \u0E40\u0E1B\u0E49\u0E32 " + hit.target + " \u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14 " + hit.max,
+      "\xB7 \u0E2A\u0E32\u0E02\u0E32 " + (hit.locs.map(function(l) {
+        return locName[l] || l;
+      }).join(", ") || "\u2014") + " \xB7 \u0E01\u0E30 " + (hit.slots.join(", ") || "\u2014"),
+      "\xB7 \u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E1B\u0E23\u0E30\u0E08\u0E33 " + ((p2.off || []).length ? (p2.off || []).map(function(d) {
+        return SHIFT_DAY_NAMES[d];
+      }).join("/") : "\u0E44\u0E21\u0E48\u0E21\u0E35"),
+      hit.pay.salary ? "\xB7 \u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 " + baht(hit.pay.salary) + " \u2192 " + hit.pay.hourly + "/\u0E0A\u0E21. \xB7 OT " + hit.pay.otHours + " \u0E0A\u0E21. = " + baht(hit.pay.otPay) + " \xB7 \u0E23\u0E27\u0E21 " + baht(hit.pay.totalPay) : "\xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E43\u0E2A\u0E48\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 \u0E40\u0E15\u0E34\u0E21\u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E41\u0E25\u0E49\u0E27\u0E04\u0E48\u0E32\u0E41\u0E23\u0E07/OT \u0E08\u0E30\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E49",
+      hit.duties.length ? "\xB7 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29 " + hit.duties[0].label + " \xD7" + hit.duties.length + " (\u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E30\u0E40\u0E1E\u0E34\u0E48\u0E21)" : "\xB7 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29",
+      hit.leave.length ? "\xB7 \u0E25\u0E32 " + hit.leave.join(", ") : "\xB7 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E27\u0E31\u0E19\u0E25\u0E32\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49"
+    ] };
+  }
+  return null;
+}
+var SHIFT_LOCATIONS = [
+  { id: "ptk", name: "DANK PHATTHANAKARN", note: "24 HOURS | 2 SHOP STAFF PER SHIFT", slots: [
+    { id: "A1", label: "01:00-10:00" },
+    { id: "A2", label: "01:00-10:00" },
+    { id: "B1", label: "09:00-18:00" },
+    { id: "B2", label: "09:00-18:00" },
+    { id: "C1", label: "17:00-02:00" },
+    { id: "C2", label: "17:00-02:00" },
+    { id: "STOCK", name: "STOCK / ADMIN", label: "17:00-02:00", days: [0], optional: true }
+  ] },
+  { id: "sat", name: "DANK SATHORN RAMA 3", note: "3 EXACT BASE SHIFTS | 2 STAFF ONLY DURING 11:00-19:00 PEAK", slots: [
+    { id: "EARLY", label: "01:00-09:00" },
+    { id: "DAY", label: "09:00-17:00" },
+    { id: "NIGHT", label: "17:00-01:00" },
+    { id: "PEAK", label: "11:00-19:00" }
+  ] },
+  { id: "bar", name: "DANK 224 BAR", note: "ONE BARTENDER PER SHIFT | NO BAR-SHIFT OVERLAP", slots: [
+    { id: "MONTHU", name: "MON-THU PM", label: "17:00-01:00", days: [1, 2, 3, 4] },
+    { id: "FSDAY", name: "FRI-SUN DAY", label: "09:00-17:00", days: [5, 6, 0] },
+    { id: "FSNIGHT", name: "FRI-SUN NIGHT", label: "17:00-02:00", days: [5, 6, 0] }
+  ] }
+];
+var SHIFT_STAFF = [
+  /* Phatthanakarn */
+  { id: "amoe", name: "Amoe", kind: "full", locs: ["ptk"], slots: ["A1"], off: [6], salary: 26e3 },
+  { id: "dylan", name: "Dylan", kind: "full", locs: ["ptk"], slots: ["A2"], off: [3, 0], salary: 24e3 },
+  {
+    id: "rena",
+    name: "Rena",
+    kind: "full",
+    locs: ["ptk"],
+    slots: ["B1"],
+    off: [5],
+    duty: { dow: 3, label: "MKT", salary: 28e3 }
+  },
+  { id: "alex", name: "Alex", kind: "full", locs: ["ptk"], slots: ["B2"], off: [4], salary: 26e3 },
+  { id: "palm", name: "Palm", kind: "full", locs: ["ptk"], slots: ["C1"], off: [2], salary: 26e3 },
+  { id: "mon", name: "Mon", kind: "full", locs: ["ptk"], slots: ["C2", "STOCK"], off: [], max: 26, salary: 27e3 },
+  { id: "steve", name: "Steve", kind: "part", relief: true, locs: ["ptk"], slots: ["A1", "A2", "B1", "C1"], off: [], target: 16, max: 20 },
+  {
+    id: "pond",
+    name: "Pond",
+    kind: "part",
+    relief: true,
+    locs: ["ptk"],
+    slots: ["A2", "C2"],
+    off: [],
+    target: 9,
+    max: 14,
+    only: { A2: [3], C2: [1] }
+  },
+  /* four at Phatthanakarn and four at Sathorn — two limits, not one of eight */
+  {
+    id: "bank",
+    name: "Bank",
+    kind: "part",
+    relief: true,
+    locs: ["ptk", "sat"],
+    slots: ["B2", "PEAK"],
+    off: [],
+    target: 8,
+    max: 8,
+    locMax: { ptk: 4, sat: 4 },
+    only: { B2: [4], PEAK: [1] }
+  },
+  {
+    id: "honey",
+    name: "Honey",
+    kind: "part",
+    locs: ["ptk", "bar"],
+    slots: ["MONTHU", "FSDAY", "B1"],
+    off: [],
+    target: 22,
+    max: 24,
+    only: { B1: [3] }
+  },
+  /* four nights a month at Phatthanakarn, both on the same night: Keneth takes
+   * 17:00-21:00 and hands over to Bryan for 21:00-02:00 */
+  {
+    id: "bryan",
+    name: "Bryan (CEO)",
+    kind: "manager",
+    locs: ["ptk"],
+    slots: ["C2"],
+    off: [],
+    target: 4,
+    max: 4,
+    locMax: { ptk: 4 },
+    window: "21:00-02:00"
+  },
+  {
+    id: "keneth",
+    name: "Keneth",
+    kind: "manager",
+    locs: ["ptk"],
+    slots: ["C2"],
+    off: [],
+    target: 4,
+    max: 4,
+    locMax: { ptk: 4 },
+    window: "17:00-21:00"
+  },
+  /* Sathorn */
+  { id: "raizo", name: "Raizo", kind: "full", locs: ["sat"], slots: ["EARLY"], off: [1], salary: 24e3 },
+  { id: "meng", name: "Meng", kind: "full", locs: ["sat"], slots: ["DAY"], off: [2], salary: 24e3 },
+  { id: "pok", name: "Pok", kind: "full", locs: ["sat"], slots: ["NIGHT"], off: [3, 5], salary: 24e3 },
+  {
+    id: "ploy",
+    name: "Ploy",
+    kind: "full",
+    locs: ["sat"],
+    slots: ["PEAK"],
+    off: [1],
+    duty: { dow: 6, label: "MEDIA/CRM", salary: 26e3 }
+  },
+  { id: "mel", name: "Mel", kind: "full", relief: true, locs: ["sat"], slots: ["EARLY", "DAY", "NIGHT", "PEAK"], off: [], salary: 25e3 },
+  /* 224 Bar */
+  { id: "jack", name: "Jack", kind: "full", locs: ["bar"], slots: ["MONTHU", "FSNIGHT"], off: [1], salary: 27e3 }
+];
 function asstNorm(s) {
   return String(s || "").toLowerCase().replace(/\([^)]*\)/g, " ").replace(/\b\d+(\.\d+)?\s*(g|gram|grams|mg|ml|pc|pcs|pack)\b/g, " ").replace(/[^a-z0-9฀-๿]+/g, " ").trim();
 }
@@ -2027,7 +2564,7 @@ function GreenPOS() {
     notify("\u{1F550} " + sc.staffName + " clocked out \xB7 \u0E3F" + delta.toLocaleString() + " sales" + (missG > 0.05 ? " \xB7 \u26A0 " + Math.round(missG * 100) / 100 + "g variance logged" : " \xB7 inventory \u2705"));
     if (printerConnected) printShiftReport({ staff: sc.staffName, shift: sh.slot || "", inAt: sh.inAt, outAt: (/* @__PURE__ */ new Date()).toISOString(), sales: delta, cashCounted: sc.cash, missingGrams: report.missG, missingCost: report.missCost, notesForNext: sc.notes });
   };
-  const shiftHours = function(sh) {
+  const shiftHours2 = function(sh) {
     var end = sh.outAt ? new Date(sh.outAt) : /* @__PURE__ */ new Date();
     return Math.round((end - new Date(sh.inAt)) / 36e5 * 10) / 10;
   };
@@ -2041,7 +2578,7 @@ function GreenPOS() {
       return Math.abs(x.d) >= 0.05;
     });
     var lines = [];
-    lines.push("\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E01\u0E30\u0E19\u0E35\u0E49 \u0E3F" + Math.round(sh.salesDelta || 0).toLocaleString() + " \xB7 " + shiftHours(sh) + "h \xB7 \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 " + (r.customers || 0) + " \u0E04\u0E19");
+    lines.push("\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E01\u0E30\u0E19\u0E35\u0E49 \u0E3F" + Math.round(sh.salesDelta || 0).toLocaleString() + " \xB7 " + shiftHours2(sh) + "h \xB7 \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 " + (r.customers || 0) + " \u0E04\u0E19");
     var issues = [];
     if ((r.missG || 0) > 0.05) issues.push("\u26A0 \u0E02\u0E2D\u0E07\u0E02\u0E32\u0E14\u0E23\u0E27\u0E21 " + r.missG + "g (\u0E17\u0E38\u0E19 \u0E3F" + (r.missCost || 0) + " \xB7 \u0E02\u0E32\u0E22\u0E44\u0E14\u0E49 \u0E3F" + (r.missRetail || 0) + ")");
     vari.forEach(function(v) {
@@ -2097,7 +2634,7 @@ function GreenPOS() {
       return a + (+x.salesDelta || 0);
     }, 0);
     var totalHours = shiftsForDay.reduce(function(a, x) {
-      return a + shiftHours(x);
+      return a + shiftHours2(x);
     }, 0);
     var totalMissG = shiftsForDay.reduce(function(a, x) {
       return a + (x.report && x.report.missG || 0);
@@ -2381,6 +2918,159 @@ function GreenPOS() {
   }, [expenseTargets]);
   const EXPENSE_TARGETS = expenseTargets;
   const [budgetEdit, setBudgetEdit] = useState(null);
+  const [shiftMonth, setShiftMonth] = useState(function() {
+    return (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+  });
+  const [shiftLoc, setShiftLoc] = useState("all");
+  const [shiftDraft, setShiftDraft] = useState(null);
+  const [shiftEdit, setShiftEdit] = useState(null);
+  const [shiftAi, setShiftAi] = useState(null);
+  const [shiftStaff, setShiftStaff] = useState(function() {
+    try {
+      var s = JSON.parse(localStorage.getItem("dank_shift_staff"));
+      return s && s.length ? s : SHIFT_STAFF;
+    } catch (e) {
+      return SHIFT_STAFF;
+    }
+  });
+  const [shiftLocs, setShiftLocs] = useState(function() {
+    try {
+      var s = JSON.parse(localStorage.getItem("dank_shift_locs"));
+      return s && s.length ? s : SHIFT_LOCATIONS;
+    } catch (e) {
+      return SHIFT_LOCATIONS;
+    }
+  });
+  const [shiftBooks, setShiftBooks] = useState(function() {
+    try {
+      return JSON.parse(localStorage.getItem("dank_shift_roster")) || {};
+    } catch (e) {
+      return {};
+    }
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_shift_staff", JSON.stringify(shiftStaff));
+    } catch (e) {
+    }
+  }, [shiftStaff]);
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_shift_locs", JSON.stringify(shiftLocs));
+    } catch (e) {
+    }
+  }, [shiftLocs]);
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_shift_roster", JSON.stringify(shiftBooks));
+    } catch (e) {
+    }
+  }, [shiftBooks]);
+  const shiftCsv = function(res, monthLabel) {
+    var rows = [["Employee", "Location", "Assignment", "Type", "Shifts", "Hours", "Days off", "Leave dates", "Special duties", "Working dates"]];
+    res.summary.forEach(function(s) {
+      rows.push([
+        s.name,
+        s.locs.join(" "),
+        s.assignment,
+        s.kind,
+        s.shifts,
+        s.hours,
+        s.offDates.length,
+        s.leave.join(" "),
+        s.duties.map(function(d) {
+          return d.label + " " + d.date;
+        }).join(" "),
+        s.dates.join(" ")
+      ]);
+    });
+    var csv = rows.map(function(r) {
+      return r.map(function(c) {
+        return '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"';
+      }).join(",");
+    }).join("\n");
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+    a.download = "dank-shifts-" + monthLabel.toLowerCase().replace(/\s+/g, "-") + ".csv";
+    a.click();
+  };
+  const shiftPrint = function(locs, staffList, res, monthLabel) {
+    var byId = {};
+    (staffList || []).forEach(function(p) {
+      byId[p.id] = p;
+    });
+    var esc = function(s) {
+      return String(s == null ? "" : s).replace(/[&<>]/g, function(c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c];
+      });
+    };
+    var cls = function(p) {
+      if (!p) return "";
+      if (p.kind === "manager") return "ceo";
+      if (p.relief) return "relief";
+      if (p.kind === "part") return "part";
+      return "";
+    };
+    var weeks = (function() {
+      var out = [], cur = [];
+      res.days.forEach(function(d) {
+        cur.push(d);
+        if (d.dow === 0 || cur.length === 7) {
+          out.push(cur);
+          cur = [];
+        }
+      });
+      if (cur.length) out.push(cur);
+      return out;
+    })();
+    var dutyOn = function(id, date) {
+      var s = res.summary.filter(function(x) {
+        return x.id === id;
+      })[0];
+      return s ? s.duties.filter(function(d) {
+        return d.date === date;
+      })[0] || null : null;
+    };
+    var pages = locs.map(function(loc, li) {
+      var tables2 = weeks.map(function(wk) {
+        var head = '<tr><th class="sl">SHIFT / POSITION</th>' + wk.map(function(d) {
+          return "<th>" + SHIFT_DAY_NAMES[d.dow] + "<b>" + d.day + "</b></th>";
+        }).join("") + "</tr>";
+        var body = loc.slots.map(function(slot) {
+          return '<tr><td class="sl"><i>' + esc(slot.label) + "</i><b>" + esc(slot.name || slot.id) + "</b></td>" + wk.map(function(d) {
+            var c = res.cells[loc.id + "|" + d.date + "|" + slot.id];
+            if (c && c.closed) return '<td class="dash">&ndash;</td>';
+            if (!c) return '<td class="hole">EMPTY</td>';
+            var du = dutyOn(c.id, d.date);
+            return '<td class="' + cls(byId[c.id]) + '">' + esc(c.name) + (c.window ? "<u>" + esc(c.window) + "</u>" : "") + (du ? "<s>" + esc(du.label) + "</s>" : "") + "</td>";
+          }).join("") + "</tr>";
+        }).join("");
+        return "<table>" + head + body + "</table>";
+      }).join("");
+      var mine = res.summary.filter(function(s) {
+        return s.locs.indexOf(loc.id) >= 0 && s.shifts > 0;
+      });
+      var summary = '<table class="sum"><tr><th>STAFF</th><th>ASSIGNMENT</th><th>SHIFTS</th><th>HOURS</th></tr>' + mine.map(function(s) {
+        return '<tr><td class="' + cls(byId[s.id]) + '">' + esc(s.name) + "</td><td>" + esc(s.assignment) + (s.duties.length ? " + " + s.duties.length + " " + esc(s.duties[0].label) : "") + (s.leave.length ? " | leave " + s.leave.length + "d" : "") + '</td><td class="n">' + s.shifts + '</td><td class="n">' + s.hours + "h</td></tr>";
+      }).join("") + "</table>";
+      return '<section class="page"><header><h1>' + esc(loc.name) + "</h1><span>" + esc(monthLabel) + '</span></header><p class="note">' + esc(loc.note || "") + "</p>" + tables2 + "<h2>MONTHLY STAFF SUMMARY <em>THIS LOCATION ONLY</em></h2>" + summary + '<p class="legend"><span class="k"></span>Full-time &nbsp; <span class="k relief"></span>Relief / part-time &nbsp; <span class="k ceo"></span>Management / CEO cover &nbsp; <span class="k mkt"></span>Marketing &amp; special duty</p><footer><div>SIGNATURE: ____________________</div><div>APPROVED BY: ____________________</div><div>DATE: __________</div><div class="pg">DANK GROUP | PAGE ' + (li + 1) + " OF " + locs.length + "</div></footer></section>";
+    }).join("");
+    var css = "@page{size:A3 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#fff;color:#111;font:12px/1.35 Arial,Helvetica,sans-serif}.page{page-break-after:always;padding:4mm 2mm}.page:last-child{page-break-after:auto}header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #111;padding-bottom:4px}h1{font-size:19px;margin:0;letter-spacing:.5px}header span{font-size:13px;font-weight:700}.note{margin:4px 0 9px;font-size:10px;letter-spacing:1px;color:#555}table{width:100%;border-collapse:collapse;margin-bottom:7px;table-layout:fixed}th,td{border:1px solid #c9c9c9;padding:3px 2px;text-align:center;font-size:10px;height:22px;overflow:hidden}th{background:#f2f2f2;font-size:8px;color:#444;font-weight:700}th b{display:block;font-size:11px;color:#111}td.sl,th.sl{text-align:left;width:118px}td.sl i{display:block;font-style:normal;font-size:8px;color:#666}td.sl b{font-size:10px}td u{display:block;text-decoration:none;font-size:7.5px;color:#8a6d00}td s{display:block;text-decoration:none;font-size:7.5px;color:#7c3aed;font-weight:700}td.dash{color:#bbb}td.hole{background:#ffe9e9;color:#c00;font-weight:700;font-size:8px}td.relief,td.part{color:#0b63a8;font-weight:700}td.ceo{color:#8a6d00;font-weight:800}h2{font-size:11px;margin:9px 0 4px;letter-spacing:1px}h2 em{float:right;font-style:normal;font-size:8px;color:#777}table.sum{table-layout:auto}table.sum th{font-size:8px}table.sum td{text-align:left;font-size:10px}table.sum td.n{text-align:right;width:52px;font-weight:700}.legend{font-size:8.5px;color:#555;margin:6px 0}.k{display:inline-block;width:9px;height:9px;border:1px solid #999;background:#111;vertical-align:-1px;margin-right:3px}.k.relief{background:#0b63a8}.k.ceo{background:#8a6d00}.k.mkt{background:#7c3aed}footer{display:flex;gap:22px;align-items:center;border-top:1px solid #111;margin-top:8px;padding-top:6px;font-size:10px;font-weight:700}footer .pg{margin-left:auto;color:#666;font-weight:400}";
+    var w = window.open("", "_blank");
+    if (!w) {
+      notify("\u26A0 \u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C\u0E1A\u0E25\u0E47\u0E2D\u0E01\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E1E\u0E34\u0E21\u0E1E\u0E4C \u2014 \u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 pop-up \u0E43\u0E2B\u0E49\u0E40\u0E27\u0E47\u0E1A\u0E19\u0E35\u0E49\u0E01\u0E48\u0E2D\u0E19");
+      return;
+    }
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>DANK ' + esc(monthLabel) + " \u2014 Working Shifts</title><style>" + css + "</style></head><body>" + pages + "</body></html>");
+    w.document.close();
+    setTimeout(function() {
+      try {
+        w.focus();
+        w.print();
+      } catch (e) {
+      }
+    }, 350);
+  };
   const getCatRevenue = function() {
     const cats = {};
     transactions.filter((t2) => !t2.isVoid).forEach((tx) => {
@@ -7948,6 +8638,7 @@ function GreenPOS() {
     ...canFinance ? [{ id: "notif", icon: "\u{1F514}", label: mob ? "Alerts" : "\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" }] : [],
     ...canEdit ? [{ id: "api", icon: "\u{1F50C}", label: mob ? "API" : "API / Website" }] : [],
     { id: "work", icon: "\u{1F4CB}", label: mob ? "Work" : "\u0E07\u0E32\u0E19 Work" },
+    { id: "workshifts", icon: "\u{1F5D3}", label: mob ? "Shifts" : "\u0E01\u0E30\u0E17\u0E33\u0E07\u0E32\u0E19 Shifts" },
     { id: "scale", icon: "\u2696", label: mob ? "Scale" : "Scale & Print" },
     { id: "bar", icon: "\u{1F378}", label: mob ? "Bar" : "\u0E1A\u0E32\u0E23\u0E4C Bar" },
     { id: "marketing", icon: "\u{1F4E3}", label: mob ? "Mktg" : "Marketing" },
@@ -8354,7 +9045,7 @@ function GreenPOS() {
     return /* @__PURE__ */ React.createElement("div", { key: sh.id, onClick: function() {
       setReportDetail(sh);
       setReportAI("");
-    }, style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 8, cursor: "pointer", borderLeft: "3px solid " + ((r.missG || 0) > 0.05 ? C.gold : C.green) }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } }, isDataImg(st && st.photo) ? /* @__PURE__ */ React.createElement("img", { src: st.photo, alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" } }) : /* @__PURE__ */ React.createElement("div", { style: { width: 32, height: 32, borderRadius: "50%", background: C.card3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "\u{1F464}"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, sh.staffName, " ", flags > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: C.gold } }, "*".repeat(flags))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, new Date(sh.inAt).toLocaleDateString("th-TH"), " \xB7 ", sh.slot || "", " \xB7 ", sh.branch || "-", " \xB7 ", shiftHours(sh), "h")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 900, color: C.green } }, "\u0E3F", Math.round(sh.salesDelta || 0).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: (r.missG || 0) > 0.05 ? C.gold : C.muted } }, (r.missG || 0) > 0.05 ? "\u26A0 \u0E02\u0E32\u0E14 " + r.missG + "g" : "\u2705 \u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E15\u0E23\u0E07")), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u203A")));
+    }, style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 8, cursor: "pointer", borderLeft: "3px solid " + ((r.missG || 0) > 0.05 ? C.gold : C.green) }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } }, isDataImg(st && st.photo) ? /* @__PURE__ */ React.createElement("img", { src: st.photo, alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" } }) : /* @__PURE__ */ React.createElement("div", { style: { width: 32, height: 32, borderRadius: "50%", background: C.card3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "\u{1F464}"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800 } }, sh.staffName, " ", flags > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: C.gold } }, "*".repeat(flags))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, new Date(sh.inAt).toLocaleDateString("th-TH"), " \xB7 ", sh.slot || "", " \xB7 ", sh.branch || "-", " \xB7 ", shiftHours2(sh), "h")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 900, color: C.green } }, "\u0E3F", Math.round(sh.salesDelta || 0).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: (r.missG || 0) > 0.05 ? C.gold : C.muted } }, (r.missG || 0) > 0.05 ? "\u26A0 \u0E02\u0E32\u0E14 " + r.missG + "g" : "\u2705 \u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E15\u0E23\u0E07")), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u203A")));
   })), activeTab === "dayrep" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 } }, [["reports", "\u{1F4D1}", "Reports"], ["notif", "\u{1F514}", "Alerts"], ["aisum", "\u{1F9E0}", "AI Summary"], ["dayrep", "\u{1F4C5}", "Day Reports"]].map(function(sb) {
     return /* @__PURE__ */ React.createElement("button", { key: sb[0], onClick: function() {
       setActiveTab(sb[0]);
@@ -9889,6 +10580,223 @@ function GreenPOS() {
         return /* @__PURE__ */ React.createElement("div", { key: ui, style: { padding: "4px 8px", borderLeft: "2px solid " + (u.type === "issue" ? C.gold : C.border), marginBottom: 4, background: u.type === "issue" ? "rgba(245,158,11,0.06)" : "transparent", borderRadius: "0 6px 6px 0" } }, /* @__PURE__ */ React.createElement("span", { style: { color: u.type === "issue" ? "#fcd34d" : C.muted } }, u.type === "issue" ? "\u{1F6A9} " : "", u.text), /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, " \u2014 ", u.by, " \xB7 ", String(u.at).slice(5, 16).replace("T", " ")));
       }))));
     }));
+  })(), activeTab === "workshifts" && (function() {
+    var yy = +shiftMonth.slice(0, 4), mm = +shiftMonth.slice(5, 7);
+    var monthLabel = new Date(Date.UTC(yy, mm - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).toUpperCase();
+    var saved = shiftBooks[shiftMonth] || null;
+    var res = shiftDraft && shiftDraft.key === shiftMonth ? shiftDraft.result : null;
+    var shown = res || saved;
+    var isDraft = !!res;
+    var v = shown ? shown.validation : null;
+    var locList = shiftLocs.filter(function(l) {
+      return shiftLoc === "all" || l.id === shiftLoc;
+    });
+    var staffById = {};
+    shiftStaff.forEach(function(p) {
+      staffById[p.id] = p;
+    });
+    var inkFor = function(p) {
+      if (!p) return C.muted;
+      if (p.kind === "manager") return C.gold;
+      if (p.relief) return C.blue;
+      if (p.kind === "part") return C.blue;
+      return C.text;
+    };
+    var weeks = (function() {
+      var out = [], cur = [];
+      (shown ? shown.days : monthDates(yy, mm)).forEach(function(d) {
+        cur.push(d);
+        if (d.dow === 0 || cur.length === 7) {
+          out.push(cur);
+          cur = [];
+        }
+      });
+      if (cur.length) out.push(cur);
+      return out;
+    })();
+    var generate = function() {
+      var r = buildRoster(shiftLocs, shiftStaff, yy, mm);
+      setShiftDraft({ key: shiftMonth, result: r });
+      notify(r.validation.ok ? "\u2705 \u0E23\u0E48\u0E32\u0E07\u0E15\u0E32\u0E23\u0E32\u0E07\u0E40\u0E2A\u0E23\u0E47\u0E08 \u2014 \u0E15\u0E23\u0E27\u0E08\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34" : "\u26A0 \u0E23\u0E48\u0E32\u0E07\u0E40\u0E2A\u0E23\u0E47\u0E08 \u0E41\u0E15\u0E48\u0E21\u0E35\u0E1B\u0E31\u0E0D\u0E2B\u0E32 " + (r.validation.empty.length + r.validation.doubles.length + r.validation.unauthorised.length) + " \u0E08\u0E38\u0E14");
+    };
+    var approve = function() {
+      if (!res) return;
+      var next = Object.assign({}, shiftBooks);
+      next[shiftMonth] = res;
+      setShiftBooks(next);
+      setShiftDraft(null);
+      addAudit("SHIFT_ROSTER_APPROVED", monthLabel + " \xB7 " + res.summary.length + " \u0E04\u0E19 \xB7 " + Object.keys(res.validation.hoursByLoc).map(function(k) {
+        return k + " " + res.validation.hoursByLoc[k] + "h";
+      }).join(" \xB7 "), currentStaff && currentStaff.name);
+      notify("\u2705 \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E15\u0E32\u0E23\u0E32\u0E07 " + monthLabel + " \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E25\u0E07 Audit \u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22");
+    };
+    return /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 18, fontWeight: 800 } }, "\u{1F5D3} \u0E01\u0E30\u0E17\u0E33\u0E07\u0E32\u0E19 \xB7 WORKING SHIFTS"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.muted, marginTop: 2 } }, "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E40\u0E27\u0E23\u0E17\u0E31\u0E49\u0E07 3 \u0E2A\u0E32\u0E02\u0E32 \xB7 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \u0E15\u0E23\u0E27\u0E08\u0E01\u0E48\u0E2D\u0E19 \u0E41\u0E25\u0E49\u0E27\u0E04\u0E48\u0E2D\u0E22\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: generate, style: __spreadProps(__spreadValues({}, gs.btn(C.green, "#000")), { fontSize: 11, fontWeight: 800 }) }, "\u2699 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E48\u0E32\u0E07 Generate"), isDraft && /* @__PURE__ */ React.createElement("button", { onClick: approve, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 11, fontWeight: 800 }) }, "\u2705 \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 Approve"), shown && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      shiftPrint(locList, shiftStaff, shown, monthLabel);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 11 }) }, "\u{1F5A8} \u0E1E\u0E34\u0E21\u0E1E\u0E4C / PDF"), shown && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      shiftCsv(shown, monthLabel);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 11, border: "1px solid " + C.border }) }, "\u2B07 CSV"), shown && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShiftAi({ q: "", a: null, busy: false });
+    }, style: __spreadProps(__spreadValues({}, gs.btn("#7c3aed", "#fff")), { fontSize: 11, fontWeight: 800 }) }, "\u{1F916} \u0E16\u0E32\u0E21 AI"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShiftEdit({ list: JSON.parse(JSON.stringify(shiftStaff)) });
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 11, border: "1px solid " + C.border }) }, "\u{1F464} \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E04\u0E19 + \u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      var d = new Date(Date.UTC(yy, mm - 2, 1));
+      setShiftMonth(d.toISOString().slice(0, 7));
+      setShiftDraft(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 12, padding: "6px 11px", border: "1px solid " + C.border, minHeight: 34 }) }, "\u25C0"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800, minWidth: 150, textAlign: "center" } }, monthLabel), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      var d = new Date(Date.UTC(yy, mm, 1));
+      setShiftMonth(d.toISOString().slice(0, 7));
+      setShiftDraft(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 12, padding: "6px 11px", border: "1px solid " + C.border, minHeight: 34 }) }, "\u25B6"), /* @__PURE__ */ React.createElement("div", { style: { width: 10 } }), [{ id: "all", n: "\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32 All" }].concat(shiftLocs.map(function(l) {
+      return { id: l.id, n: l.name.replace("DANK ", "") };
+    })).map(function(o) {
+      return /* @__PURE__ */ React.createElement("button", { key: o.id, onClick: function() {
+        setShiftLoc(o.id);
+      }, style: __spreadProps(__spreadValues({}, gs.btn(shiftLoc === o.id ? C.green : C.card2, shiftLoc === o.id ? "#000" : "#fff")), { fontSize: 11, border: shiftLoc === o.id ? "none" : "1px solid " + C.border, minHeight: 34 }) }, o.n);
+    }), isDraft && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.gold, "#000")), { marginLeft: 6 }) }, "\u0E23\u0E48\u0E32\u0E07 \xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"), !isDraft && saved && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.green, "#000")), { marginLeft: 6 }) }, "\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E41\u0E25\u0E49\u0E27")), !shown && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { textAlign: "center", padding: 30 }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 34, marginBottom: 8 } }, "\u{1F5D3}"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 700, marginBottom: 5 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E15\u0E32\u0E23\u0E32\u0E07\u0E02\u0E2D\u0E07 ", monthLabel), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: C.muted, lineHeight: 1.6, maxWidth: 520, margin: "0 auto" } }, "\u0E01\u0E14 ", /* @__PURE__ */ React.createElement("b", null, "\u2699 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E48\u0E32\u0E07"), " \u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E08\u0E31\u0E14\u0E40\u0E27\u0E23\u0E43\u0E2B\u0E49\u0E15\u0E32\u0E21\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E1B\u0E23\u0E30\u0E08\u0E33 \u0E27\u0E31\u0E19\u0E25\u0E32 \u0E2A\u0E32\u0E02\u0E32\u0E41\u0E25\u0E30\u0E01\u0E30\u0E17\u0E35\u0E48\u0E41\u0E15\u0E48\u0E25\u0E30\u0E04\u0E19\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 \u0E08\u0E32\u0E01\u0E19\u0E31\u0E49\u0E19\u0E08\u0E30\u0E41\u0E2A\u0E14\u0E07 ", /* @__PURE__ */ React.createElement("b", null, "\u0E22\u0E2D\u0E14\u0E01\u0E30\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E04\u0E19"), " \u0E41\u0E25\u0E30 ", /* @__PURE__ */ React.createElement("b", null, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E21\u0E35\u0E1B\u0E31\u0E0D\u0E2B\u0E32"), " \u0E43\u0E2B\u0E49\u0E15\u0E23\u0E27\u0E08\u0E01\u0E48\u0E2D\u0E19 \u2014 \u0E15\u0E32\u0E23\u0E32\u0E07\u0E08\u0E30\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E08\u0E19\u0E01\u0E27\u0E48\u0E32\u0E08\u0E30\u0E01\u0E14\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34")), shown && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid " + (v.ok ? C.green : C.red) + "55" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800 } }, v.ok ? "\u2705" : "\u26A0", " \u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A \xB7 Validation"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.muted } }, shiftLocs.map(function(l) {
+      return l.name.replace("DANK ", "") + " " + Math.round(v.hoursByLoc[l.id] || 0) + "h";
+    }).join("  \xB7  "))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "repeat(2,1fr)" : "repeat(5,1fr)", gap: 7 } }, [
+      { n: "\u0E01\u0E30\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E27\u0E48\u0E32\u0E07", e: "empty shifts", v: v.empty.length, bad: v.empty.length > 0 },
+      { n: "\u0E0B\u0E49\u0E33\u0E27\u0E31\u0E19\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19", e: "double shifts", v: v.doubles.length, bad: v.doubles.length > 0 },
+      { n: "\u0E1C\u0E34\u0E14\u0E2A\u0E32\u0E02\u0E32/\u0E01\u0E30", e: "unauthorised", v: v.unauthorised.length, bad: v.unauthorised.length > 0 },
+      { n: "\u0E15\u0E48\u0E33\u0E01\u0E27\u0E48\u0E32 24", e: "under 24", v: v.under.length, bad: v.under.length > 0, warn: true },
+      { n: "\u0E40\u0E01\u0E34\u0E19\u0E40\u0E1E\u0E14\u0E32\u0E19", e: "over max", v: v.over.length, bad: v.over.length > 0 }
+    ].map(function(k, i) {
+      return /* @__PURE__ */ React.createElement("div", { key: i, style: __spreadProps(__spreadValues({}, gs.card2), { textAlign: "center", borderColor: k.bad ? (k.warn ? C.gold : C.red) + "66" : C.border }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 22, fontWeight: 800, color: k.bad ? k.warn ? C.gold : C.red : C.green } }, k.v), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, fontWeight: 700, marginTop: 2 } }, k.n), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, k.e));
+    })), v.empty.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 9, fontSize: 10.5, color: C.red, lineHeight: 1.6 } }, /* @__PURE__ */ React.createElement("b", null, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E19:"), " ", v.empty.slice(0, 10).map(function(e) {
+      return e.date.slice(8) + "/" + e.date.slice(5, 7) + " " + e.loc + " " + e.slot;
+    }).join(" \xB7 "), v.empty.length > 10 ? " \u2026\u0E2D\u0E35\u0E01 " + (v.empty.length - 10) : ""), v.doubles.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, fontSize: 10.5, color: C.red } }, /* @__PURE__ */ React.createElement("b", null, "\u0E0B\u0E49\u0E33:"), " ", v.doubles.slice(0, 8).map(function(d) {
+      return d.name + " " + d.date.slice(8);
+    }).join(" \xB7 ")), v.unauthorised.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, fontSize: 10.5, color: C.red } }, /* @__PURE__ */ React.createElement("b", null, "\u0E1C\u0E34\u0E14\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C:"), " ", v.unauthorised.slice(0, 8).map(function(u) {
+      return u.name + " @" + u.loc + "/" + u.slot;
+    }).join(" \xB7 ")), v.under.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, fontSize: 10.5, color: C.gold } }, /* @__PURE__ */ React.createElement("b", null, "\u0E15\u0E48\u0E33\u0E01\u0E27\u0E48\u0E32 24 \u0E01\u0E30 (\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E1B\u0E23\u0E30\u0E08\u0E33):"), " ", v.under.map(function(u) {
+      return u.name + " " + u.shifts;
+    }).join(" \xB7 "), " \u2014 \u0E1B\u0E01\u0E15\u0E34\u0E40\u0E1E\u0E23\u0E32\u0E30\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E2A\u0E2D\u0E07\u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E43\u0E2B\u0E49\u0E41\u0E01\u0E49\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19"), v.over.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, fontSize: 10.5, color: C.red } }, /* @__PURE__ */ React.createElement("b", null, "\u0E40\u0E01\u0E34\u0E19\u0E40\u0E1E\u0E14\u0E32\u0E19:"), " ", v.over.map(function(u) {
+      return u.name + " " + u.shifts + "/" + u.max;
+    }).join(" \xB7 ")), isDraft && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontSize: 11, color: C.gold, fontWeight: 700 } }, "\u24D8 \u0E19\u0E35\u0E48\u0E04\u0E37\u0E2D", /* @__PURE__ */ React.createElement("b", null, "\u0E23\u0E48\u0E32\u0E07"), " \u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u0E15\u0E23\u0E27\u0E08\u0E22\u0E2D\u0E14\u0E01\u0E30\u0E02\u0E49\u0E32\u0E07\u0E25\u0E48\u0E32\u0E07\u0E43\u0E2B\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E01\u0E48\u0E2D\u0E19\u0E01\u0E14 \u2705 \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34")), locList.map(function(loc) {
+      return /* @__PURE__ */ React.createElement("div", { key: loc.id, style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800 } }, loc.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, letterSpacing: "0.04em" } }, loc.note)), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, weeks.map(function(wk, wi) {
+        return /* @__PURE__ */ React.createElement("table", { key: wi, style: { width: "100%", minWidth: 640, borderCollapse: "collapse", marginBottom: 9, fontSize: 10.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { textAlign: "left", padding: "4px 6px", color: C.muted, fontSize: 9, fontWeight: 700, width: 118 } }, "SHIFT / POSITION"), wk.map(function(d) {
+          return /* @__PURE__ */ React.createElement("th", { key: d.date, style: { padding: "4px 3px", color: C.muted, fontSize: 9, fontWeight: 700 } }, SHIFT_DAY_NAMES[d.dow], /* @__PURE__ */ React.createElement("div", { style: { color: C.text, fontSize: 11, fontWeight: 800 } }, d.day));
+        }))), /* @__PURE__ */ React.createElement("tbody", null, loc.slots.map(function(slot) {
+          return /* @__PURE__ */ React.createElement("tr", { key: slot.id, style: { borderTop: "1px solid " + C.borderSoft } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, slot.label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, fontWeight: 700 } }, slot.name || slot.id)), wk.map(function(d) {
+            var c = shown.cells[loc.id + "|" + d.date + "|" + slot.id];
+            if (c && c.closed) return /* @__PURE__ */ React.createElement("td", { key: d.date, style: { textAlign: "center", color: C.muted, padding: "5px 3px" } }, "\u2013");
+            if (!c) return /* @__PURE__ */ React.createElement("td", { key: d.date, style: { textAlign: "center", padding: "5px 3px", background: C.red + "22", color: C.red, fontWeight: 800, fontSize: 9.5 } }, "\u0E27\u0E48\u0E32\u0E07");
+            var p = staffById[c.id];
+            var duty = (shown.summary.filter(function(s) {
+              return s.id === c.id;
+            })[0] || { duties: [] }).duties.filter(function(x) {
+              return x.date === d.date;
+            })[0];
+            return /* @__PURE__ */ React.createElement("td", { key: d.date, style: { textAlign: "center", padding: "5px 3px", color: inkFor(p), fontWeight: p && p.kind === "manager" ? 800 : 600 } }, c.name, c.window ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.gold } }, c.window) : null, duty ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: "#c084fc", fontWeight: 700 } }, duty.label) : null);
+          }));
+        })));
+      })));
+    }), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800 } }, "\u{1F4CB} \u0E2A\u0E23\u0E38\u0E1B\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E23\u0E32\u0E22\u0E40\u0E14\u0E37\u0E2D\u0E19 \xB7 Monthly Staff Summary"), (function() {
+      var base = 0, ot = 0, oth = 0;
+      shown.summary.forEach(function(s) {
+        base += s.pay.salary;
+        ot += s.pay.otPay;
+        oth += s.pay.otHours;
+      });
+      return /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.muted } }, "\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E23\u0E27\u0E21 ", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, "\u0E3F", Math.round(base).toLocaleString()), " \xB7 ", "OT ", /* @__PURE__ */ React.createElement("b", { style: { color: ot ? C.gold : C.text } }, "\u0E3F", Math.round(ot).toLocaleString()), " (", Math.round(oth * 10) / 10, " \u0E0A\u0E21. \xD71.5)", " \xB7 ", "\u0E23\u0E27\u0E21 ", /* @__PURE__ */ React.createElement("b", { style: { color: C.green } }, "\u0E3F", Math.round(base + ot).toLocaleString()));
+    })()), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", minWidth: 700, borderCollapse: "collapse", fontSize: 10.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { color: C.muted, fontSize: 9 } }, ["\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19", "\u0E2A\u0E32\u0E02\u0E32", "\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48", "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17", "\u0E01\u0E30", "\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07", "\u0E3F/\u0E0A\u0E21.", "OT \u0E0A\u0E21.", "OT \u0E3F", "\u0E23\u0E27\u0E21\u0E08\u0E48\u0E32\u0E22", "\u0E25\u0E32", "\u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29"].map(function(h, i) {
+      return /* @__PURE__ */ React.createElement("th", { key: i, style: { textAlign: i < 4 ? "left" : "right", padding: "5px 6px", fontWeight: 700 } }, h);
+    }))), /* @__PURE__ */ React.createElement("tbody", null, shown.summary.map(function(s) {
+      var p = staffById[s.id];
+      var band = s.kind === "full" && (s.shifts < 24 || s.shifts > s.max);
+      return /* @__PURE__ */ React.createElement("tr", { key: s.id, style: { borderTop: "1px solid " + C.borderSoft } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontWeight: 700, color: inkFor(p) } }, s.name), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", color: C.muted, fontSize: 9.5 } }, s.locs.join(", ")), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5 } }, s.assignment), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5, color: C.muted } }, s.kind === "full" ? "\u0E1B\u0E23\u0E30\u0E08\u0E33" : s.kind === "part" ? "\u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C" : "\u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23", p && p.relief ? " \xB7 relief" : ""), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 800, color: band ? C.gold : C.text } }, s.shifts), /* @__PURE__ */ React.createElement("td", { style: __spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num) }, s.hours, "h"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.hourly ? C.text : C.muted }) }, s.pay.hourly ? s.pay.hourly.toFixed(2) : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otHours ? C.gold : C.muted }) }, s.pay.otHours || "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otPay ? C.gold : C.muted }) }, s.pay.otPay ? "\u0E3F" + Math.round(s.pay.otPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { fontWeight: 700 }) }, s.pay.totalPay ? "\u0E3F" + Math.round(s.pay.totalPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.leave.length ? C.gold : C.muted } }, s.leave.length), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.duties.length ? "#c084fc" : C.muted, fontSize: 9.5 } }, s.duties.length ? s.duties[0].label + " \xD7" + s.duties.length : "\u2014"));
+    })))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, fontSize: 9.5, color: C.muted, lineHeight: 1.6 } }, "\u0E01\u0E30\u0E02\u0E49\u0E32\u0E21\u0E04\u0E37\u0E19\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19 1 \u0E01\u0E30\u0E02\u0E2D\u0E07", /* @__PURE__ */ React.createElement("b", null, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21"), " \xB7 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29\u0E17\u0E35\u0E48\u0E17\u0E33\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E01\u0E30\u0E1B\u0E01\u0E15\u0E34\u0E16\u0E39\u0E01\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E27\u0E49 \u0E41\u0E15\u0E48", /* @__PURE__ */ React.createElement("b", null, "\u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E30\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E41\u0E25\u0E30\u0E44\u0E21\u0E48\u0E1A\u0E27\u0E01\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07\u0E0B\u0E49\u0E33"), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 10 } }, "\u0E2A\u0E35: ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "\u25A0 \u0E1B\u0E23\u0E30\u0E08\u0E33"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.blue } }, "\u25A0 \u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C/relief"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.gold } }, "\u25A0 \u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23/CEO"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "#c084fc" } }, "\u25A0 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29"))))), shiftAi && shown && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }, onClick: function(e) {
+      if (e.target === e.currentTarget) setShiftAi(null);
+    } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 620, maxHeight: "88vh", overflowY: "auto" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 800 } }, "\u{1F916} \u0E16\u0E32\u0E21\u0E40\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShiftAi(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { border: "1px solid " + C.border }) }, "\u2715")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 9 } }, "\u0E15\u0E2D\u0E1A\u0E08\u0E32\u0E01\u0E15\u0E32\u0E23\u0E32\u0E07\u0E17\u0E35\u0E48\u0E40\u0E2B\u0E47\u0E19\u0E2D\u0E22\u0E39\u0E48\u0E15\u0E23\u0E07 \u0E46 \u2014 \u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E35\u0E22\u0E4C AI \u0E41\u0E25\u0E30\u0E40\u0E14\u0E32\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 9 } }, ["\u0E43\u0E04\u0E23\u0E17\u0E33\u0E07\u0E32\u0E19\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", "\u0E43\u0E04\u0E23\u0E27\u0E48\u0E32\u0E07\u0E41\u0E17\u0E19\u0E44\u0E14\u0E49", "\u0E04\u0E48\u0E32\u0E41\u0E23\u0E07\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49\u0E40\u0E17\u0E48\u0E32\u0E44\u0E2B\u0E23\u0E48", "\u0E43\u0E04\u0E23\u0E21\u0E35 OT \u0E1A\u0E49\u0E32\u0E07", "\u0E43\u0E04\u0E23\u0E17\u0E33\u0E40\u0E01\u0E34\u0E19 \u0E43\u0E04\u0E23\u0E17\u0E33\u0E19\u0E49\u0E2D\u0E22"].map(function(qq, i) {
+      return /* @__PURE__ */ React.createElement("button", { key: i, onClick: function() {
+        var q2 = qq === "\u0E43\u0E04\u0E23\u0E17\u0E33\u0E07\u0E32\u0E19\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49" ? "\u0E43\u0E04\u0E23\u0E17\u0E33\u0E07\u0E32\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 " + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) : qq === "\u0E43\u0E04\u0E23\u0E27\u0E48\u0E32\u0E07\u0E41\u0E17\u0E19\u0E44\u0E14\u0E49" ? "\u0E43\u0E04\u0E23\u0E27\u0E48\u0E32\u0E07\u0E41\u0E17\u0E19\u0E44\u0E14\u0E49\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 " + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) : qq;
+        setShiftAi({ q: q2, a: rosterAsk(q2, shown, shiftStaff, shiftLocs), busy: false });
+      }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10, padding: "5px 10px", border: "1px solid " + C.border }) }, qq);
+    })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 10 } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        style: __spreadProps(__spreadValues({}, gs.input), { flex: 1 }),
+        placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E43\u0E04\u0E23\u0E17\u0E33\u0E07\u0E32\u0E19 14/9 \xB7 amoe \u0E17\u0E33\u0E01\u0E35\u0E48\u0E01\u0E30 \xB7 OT \u0E43\u0E04\u0E23\u0E40\u0E22\u0E2D\u0E30",
+        value: shiftAi.q,
+        onChange: function(e) {
+          setShiftAi(Object.assign({}, shiftAi, { q: e.target.value }));
+        },
+        onKeyDown: function(e) {
+          if (e.key === "Enter") setShiftAi({ q: shiftAi.q, a: rosterAsk(shiftAi.q, shown, shiftStaff, shiftLocs), busy: false, tried: true });
+        }
+      }
+    ), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShiftAi({ q: shiftAi.q, a: rosterAsk(shiftAi.q, shown, shiftStaff, shiftLocs), busy: false, tried: true });
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.green, "#000")), { fontWeight: 800 }) }, "\u27A4")), shiftAi.a && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card2), { borderColor: "#7c3aed55" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 5, color: "#c084fc" } }, shiftAi.a.title), shiftAi.a.lines.map(function(l, i) {
+      return /* @__PURE__ */ React.createElement("div", { key: i, style: { fontSize: 11, lineHeight: 1.75 } }, l);
+    })), !shiftAi.a && shiftAi.tried && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card2), { fontSize: 11, lineHeight: 1.7, color: C.muted }) }, "\u0E04\u0E33\u0E16\u0E32\u0E21\u0E19\u0E35\u0E49\u0E15\u0E2D\u0E1A\u0E08\u0E32\u0E01\u0E15\u0E32\u0E23\u0E32\u0E07\u0E15\u0E23\u0E07 \u0E46 \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2014 \u0E25\u0E2D\u0E07\u0E16\u0E32\u0E21\u0E41\u0E1A\u0E1A\u0E19\u0E35\u0E49\u0E41\u0E17\u0E19:", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, "\u0E43\u0E04\u0E23\u0E17\u0E33\u0E07\u0E32\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 2026-09-14"), " \xB7 ", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, "\u0E43\u0E04\u0E23\u0E27\u0E48\u0E32\u0E07\u0E41\u0E17\u0E19\u0E44\u0E14\u0E49 14/9"), " \xB7", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, " \u0E04\u0E48\u0E32\u0E41\u0E23\u0E07\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49"), " \xB7 ", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, "OT"), " \xB7", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, " \u0E43\u0E04\u0E23\u0E17\u0E33\u0E40\u0E01\u0E34\u0E19"), " \xB7 \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C", /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, "\u0E0A\u0E37\u0E48\u0E2D\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19")))), shiftEdit && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }, onClick: function(e) {
+      if (e.target === e.currentTarget) setShiftEdit(null);
+    } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 940, maxHeight: "90vh", overflowY: "auto" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 800 } }, "\u{1F464} \u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E41\u0E25\u0E30\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E01\u0E32\u0E23\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E23"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShiftEdit(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { border: "1px solid " + C.border }) }, "\u2715")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.muted, marginBottom: 10, lineHeight: 1.6 } }, "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E08\u0E30\u0E08\u0E31\u0E14\u0E04\u0E19\u0E15\u0E32\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E1E\u0E27\u0E01\u0E19\u0E35\u0E49\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u2014 \u0E43\u0E04\u0E23\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E2A\u0E32\u0E02\u0E32\u0E2B\u0E23\u0E37\u0E2D\u0E01\u0E30\u0E44\u0E2B\u0E19 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E08\u0E31\u0E1A\u0E43\u0E2A\u0E48\u0E43\u0E2B\u0E49\u0E40\u0E14\u0E47\u0E14\u0E02\u0E32\u0E14 \u0E41\u0E21\u0E49\u0E27\u0E48\u0E32\u0E08\u0E30\u0E17\u0E33\u0E43\u0E2B\u0E49\u0E01\u0E30\u0E19\u0E31\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07 (\u0E0A\u0E48\u0E2D\u0E07\u0E27\u0E48\u0E32\u0E07\u0E40\u0E2B\u0E47\u0E19\u0E41\u0E25\u0E49\u0E27\u0E41\u0E01\u0E49\u0E44\u0E14\u0E49 \u0E41\u0E15\u0E48\u0E1A\u0E32\u0E23\u0E4C\u0E40\u0E17\u0E19\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E08\u0E31\u0E1A\u0E44\u0E1B\u0E22\u0E37\u0E19\u0E01\u0E30 01:00 \u0E41\u0E01\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49)"), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", minWidth: 860, borderCollapse: "collapse", fontSize: 10.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { color: C.muted, fontSize: 9 } }, ["\u0E0A\u0E37\u0E48\u0E2D", "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17", "\u0E2A\u0E32\u0E02\u0E32", "\u0E01\u0E30\u0E17\u0E35\u0E48\u0E17\u0E33\u0E44\u0E14\u0E49", "\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E1B\u0E23\u0E30\u0E08\u0E33", "\u0E40\u0E1B\u0E49\u0E32\u0E01\u0E30", "\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14", "\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u0E3F", "\u0E27\u0E31\u0E19\u0E25\u0E32 (\u0E04\u0E31\u0E48\u0E19\u0E14\u0E49\u0E27\u0E22 ,)", "\u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29"].map(function(h, i) {
+      return /* @__PURE__ */ React.createElement("th", { key: i, style: { textAlign: "left", padding: "5px 5px", fontWeight: 700 } }, h);
+    }))), /* @__PURE__ */ React.createElement("tbody", null, shiftEdit.list.map(function(p, i) {
+      var upd = function(k, val) {
+        setShiftEdit(function(prev) {
+          var n = JSON.parse(JSON.stringify(prev));
+          n.list[i][k] = val;
+          return n;
+        });
+      };
+      var inp = __spreadProps(__spreadValues({}, gs.input), { padding: "5px 7px", fontSize: 10.5, borderRadius: 8 });
+      return /* @__PURE__ */ React.createElement("tr", { key: p.id, style: { borderTop: "1px solid " + C.borderSoft } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px" } }, /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, inp), { width: 96 }), value: p.name, onChange: function(e) {
+        upd("name", e.target.value);
+      } })), /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px" } }, /* @__PURE__ */ React.createElement("select", { style: __spreadProps(__spreadValues({}, inp), { width: 88 }), value: p.kind || "full", onChange: function(e) {
+        upd("kind", e.target.value);
+      } }, /* @__PURE__ */ React.createElement("option", { value: "full" }, "\u0E1B\u0E23\u0E30\u0E08\u0E33"), /* @__PURE__ */ React.createElement("option", { value: "part" }, "\u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C"), /* @__PURE__ */ React.createElement("option", { value: "manager" }, "\u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23"))), /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px" } }, /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, inp), { width: 84 }), value: (p.locs || []).join(","), onChange: function(e) {
+        upd("locs", e.target.value.split(",").map(function(x) {
+          return x.trim();
+        }).filter(Boolean));
+      } })), /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px" } }, /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, inp), { width: 130 }), value: (p.slots || []).join(","), onChange: function(e) {
+        upd("slots", e.target.value.split(",").map(function(x) {
+          return x.trim();
+        }).filter(Boolean));
+      } })), /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px", whiteSpace: "nowrap" } }, [0, 1, 2, 3, 4, 5, 6].map(function(d) {
+        var on = (p.off || []).indexOf(d) >= 0;
+        return /* @__PURE__ */ React.createElement(
+          "button",
+          {
+            key: d,
+            onClick: function() {
+              var cur = (p.off || []).slice();
+              var ix = cur.indexOf(d);
+              if (ix >= 0) cur.splice(ix, 1);
+              else cur.push(d);
+              upd("off", cur.sort());
+            },
+            style: { background: on ? C.gold : C.card2, color: on ? "#000" : C.muted, border: "1px solid " + C.border, borderRadius: 5, fontSize: 8, padding: "3px 3px", cursor: "pointer", marginRight: 1, minWidth: 22, fontWeight: on ? 800 : 500 }
+          },
+          SHIFT_DAY_NAMES[d].slice(0, 2)
+        );
+      })), /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px" } }, /* @__PURE__ */ React.createElement("input", { type: "number", style: __spreadProps(__spreadValues({}, inp), { width: 52 }), value: p.target || 26, onChange: function(e) {
+        upd("target", +e.target.value || 0);
+      } })), /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px" } }, /* @__PURE__ */ React.createElement("input", { type: "number", style: __spreadProps(__spreadValues({}, inp), { width: 52 }), value: p.max || 28, onChange: function(e) {
+        upd("max", +e.target.value || 0);
+      } })), /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px" } }, /* @__PURE__ */ React.createElement("input", { type: "number", style: __spreadProps(__spreadValues({}, inp), { width: 76 }), placeholder: "26000", value: p.salary || "", onChange: function(e) {
+        upd("salary", +e.target.value || 0);
+      } })), /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px" } }, /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, inp), { width: 150 }), placeholder: "2026-09-15,2026-09-16", value: (p.leave || []).join(","), onChange: function(e) {
+        upd("leave", e.target.value.split(",").map(function(x) {
+          return x.trim();
+        }).filter(Boolean));
+      } })), /* @__PURE__ */ React.createElement("td", { style: { padding: "3px 4px" } }, /* @__PURE__ */ React.createElement("input", { style: __spreadProps(__spreadValues({}, inp), { width: 96 }), placeholder: "MKT", value: p.duty && p.duty.label || "", onChange: function(e) {
+        upd("duty", e.target.value ? { dow: p.duty && p.duty.dow || 3, label: e.target.value } : null);
+      } })));
+    })))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, marginTop: 12 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShiftEdit(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setShiftStaff(shiftEdit.list);
+      setShiftDraft(null);
+      setShiftEdit(null);
+      addAudit("SHIFT_STAFF_EDIT", shiftEdit.list.length + " \u0E04\u0E19", currentStaff && currentStaff.name);
+      notify("\u{1F4BE} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E01\u0E14 \u2699 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E48\u0E32\u0E07 \u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E08\u0E31\u0E14\u0E15\u0E32\u0E23\u0E32\u0E07\u0E43\u0E2B\u0E21\u0E48");
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.green, "#000")), { flex: 2, fontWeight: 800 }) }, "\u{1F4BE} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 + \u0E25\u0E07 Audit")))));
   })(), activeTab === "staff" && /* @__PURE__ */ React.createElement("div", { style: gs.sec }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, marginBottom: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: mob ? 15 : 17, fontWeight: 900 } }, "\u{1F464} Staff \u2014 ", staff.length), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setRequestForm({ type: "leave_personal", date: "", detail: "" });
     setShowRequests(true);
@@ -9926,7 +10834,7 @@ function GreenPOS() {
   })(), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: C.muted, marginLeft: "auto" } }, "Today: ", shifts.filter(function(sh) {
     return String(sh.inAt).slice(0, 10) === (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   }).reduce(function(s2, sh) {
-    return s2 + shiftHours(sh);
+    return s2 + shiftHours2(sh);
   }, 0).toFixed(1), "h total")), (function() {
     var closed = shifts.filter(function(sh) {
       return sh.outAt && sh.report;
@@ -9955,7 +10863,7 @@ function GreenPOS() {
     return s.approved !== false && (!_branchKey || !s.branch || s.branch === _branchKey);
   }).map(function(s) {
     var sh = openShiftOf(s.id);
-    return /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 9, padding: "6px 8px", background: C.card2, borderRadius: 8, border: "1px solid " + (sh ? "rgba(74,222,128,0.4)" : C.border), marginBottom: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: sh ? C.green : C.card3, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700 } }, s.name, s.fromStoreHub ? /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.blue, "#000")), { fontSize: 7, marginLeft: 6 }) }, "StoreHub") : null), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, sh ? "since " + new Date(sh.inAt).toLocaleTimeString().slice(0, 5) + " \xB7 " + shiftHours(sh) + "h" : "off shift")), sh ? /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    return /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 9, padding: "6px 8px", background: C.card2, borderRadius: 8, border: "1px solid " + (sh ? "rgba(74,222,128,0.4)" : C.border), marginBottom: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: sh ? C.green : C.card3, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700 } }, s.name, s.fromStoreHub ? /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.blue, "#000")), { fontSize: 7, marginLeft: 6 }) }, "StoreHub") : null), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, sh ? "since " + new Date(sh.inAt).toLocaleTimeString().slice(0, 5) + " \xB7 " + shiftHours2(sh) + "h" : "off shift")), sh ? /* @__PURE__ */ React.createElement("button", { onClick: function() {
       clockOut(s);
     }, style: __spreadProps(__spreadValues({}, gs.btn("rgba(244,63,94,0.12)", "#f43f5e")), { fontSize: 9, padding: "4px 9px", border: "1px solid rgba(244,63,94,0.25)" }) }, "\u23F9 Out") : /* @__PURE__ */ React.createElement("button", { onClick: function() {
       clockIn(s);
@@ -9965,14 +10873,14 @@ function GreenPOS() {
   }).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 5 } }, "Recent shifts"), shifts.filter(function(sh) {
     return sh.outAt;
   }).slice(0, 8).map(function(sh) {
-    return /* @__PURE__ */ React.createElement("div", { key: sh.id, style: { display: "flex", justifyContent: "space-between", fontSize: 9.5, color: C.muted, padding: "3px 0", borderBottom: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", null, sh.staffName, " \xB7 ", String(sh.inAt).slice(5, 10), " ", new Date(sh.inAt).toLocaleTimeString().slice(0, 5), "\u2013", new Date(sh.outAt).toLocaleTimeString().slice(0, 5)), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, shiftHours(sh), "h"), sh.salesDelta > 0 ? /* @__PURE__ */ React.createElement("span", { style: { color: C.green } }, " \xB7 \u0E3F", (+sh.salesDelta).toLocaleString()) : null, sh.report && sh.report.missG > 0.05 ? /* @__PURE__ */ React.createElement("span", { style: { color: "#fda4af" } }, " \xB7 \u26A0", sh.report.missG, "g") : sh.report ? /* @__PURE__ */ React.createElement("span", { style: { color: C.green } }, " \xB7 \u2705") : null));
+    return /* @__PURE__ */ React.createElement("div", { key: sh.id, style: { display: "flex", justifyContent: "space-between", fontSize: 9.5, color: C.muted, padding: "3px 0", borderBottom: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", null, sh.staffName, " \xB7 ", String(sh.inAt).slice(5, 10), " ", new Date(sh.inAt).toLocaleTimeString().slice(0, 5), "\u2013", new Date(sh.outAt).toLocaleTimeString().slice(0, 5)), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("b", { style: { color: C.text } }, shiftHours2(sh), "h"), sh.salesDelta > 0 ? /* @__PURE__ */ React.createElement("span", { style: { color: C.green } }, " \xB7 \u0E3F", (+sh.salesDelta).toLocaleString()) : null, sh.report && sh.report.missG > 0.05 ? /* @__PURE__ */ React.createElement("span", { style: { color: "#fda4af" } }, " \xB7 \u26A0", sh.report.missG, "g") : sh.report ? /* @__PURE__ */ React.createElement("span", { style: { color: C.green } }, " \xB7 \u2705") : null));
   }), printerConnected && /* @__PURE__ */ React.createElement("button", { onClick: function() {
     var today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     var todays = shifts.filter(function(sh) {
       return String(sh.inAt).slice(0, 10) === today;
     });
     printShiftReport({ date: today, staffCount: todays.length, totalHours: todays.reduce(function(s2, sh) {
-      return s2 + shiftHours(sh);
+      return s2 + shiftHours2(sh);
     }, 0).toFixed(1) });
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10, border: "1px solid " + C.border, marginTop: 8 }) }, "\u{1F5A8} Print today's shift report"))), !canFinance && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { fontSize: 11, color: C.muted }) }, "Manager/Owner access required to manage staff."), canEdit && staff.filter(function(s) {
     return s.approved === false;
@@ -12385,7 +13293,7 @@ function GreenPOS() {
       setReportDetail(null);
     } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto" }), onClick: function(e) {
       e.stopPropagation();
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, marginBottom: 2 } }, "\u{1F4D1} \u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E01\u0E30 \xB7 ", sh.staffName), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, new Date(sh.inAt).toLocaleString("th-TH"), " \u2192 ", sh.outAt ? new Date(sh.outAt).toLocaleString("th-TH") : "-", " \xB7 ", sh.slot || "", " \xB7 ", sh.branch || "-"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "8px 9px" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 900, color: C.green } }, "\u0E3F", Math.round(sh.salesDelta || 0).toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "8px 9px" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 900 } }, shiftHours(sh), "h")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "8px 9px" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E40\u0E07\u0E34\u0E19\u0E2A\u0E14\u0E19\u0E31\u0E1A"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 900 } }, "\u0E3F", (+r.cash || 0).toLocaleString()))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, marginBottom: 5 } }, "\u26A0 \u0E2A\u0E48\u0E27\u0E19\u0E15\u0E48\u0E32\u0E07\u0E2A\u0E15\u0E4A\u0E2D\u0E01 \xB7 Stock differences"), vari.length ? vari.map(function(v, i) {
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 14, marginBottom: 2 } }, "\u{1F4D1} \u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E01\u0E30 \xB7 ", sh.staffName), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, new Date(sh.inAt).toLocaleString("th-TH"), " \u2192 ", sh.outAt ? new Date(sh.outAt).toLocaleString("th-TH") : "-", " \xB7 ", sh.slot || "", " \xB7 ", sh.branch || "-"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "8px 9px" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 900, color: C.green } }, "\u0E3F", Math.round(sh.salesDelta || 0).toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "8px 9px" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 900 } }, shiftHours2(sh), "h")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "8px 9px" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "\u0E40\u0E07\u0E34\u0E19\u0E2A\u0E14\u0E19\u0E31\u0E1A"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 900 } }, "\u0E3F", (+r.cash || 0).toLocaleString()))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, marginBottom: 5 } }, "\u26A0 \u0E2A\u0E48\u0E27\u0E19\u0E15\u0E48\u0E32\u0E07\u0E2A\u0E15\u0E4A\u0E2D\u0E01 \xB7 Stock differences"), vari.length ? vari.map(function(v, i) {
       return /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", justifyContent: "space-between", fontSize: 10, padding: "4px 0", borderBottom: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", null, v.n, v.reason ? /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, " \xB7 ", v.reason) : null), /* @__PURE__ */ React.createElement("span", { style: { color: v.d < 0 ? "#fda4af" : C.green, fontWeight: 700 } }, v.d > 0 ? "+" : "", v.d, v.u, " (\u0E23\u0E30\u0E1A\u0E1A ", v.exp, "\u2192", v.m, ")"));
     }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.green, marginBottom: 6 } }, "\u2705 \u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E15\u0E23\u0E07\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \u2014 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E48\u0E27\u0E19\u0E15\u0E48\u0E32\u0E07"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 9 } }, r.notes ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, marginBottom: 5 } }, /* @__PURE__ */ React.createElement("b", null, "\u0E42\u0E19\u0E49\u0E15\u0E16\u0E36\u0E07\u0E01\u0E30\u0E15\u0E48\u0E2D\u0E44\u0E1B:"), " ", r.notes) : null, r.issues ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, marginBottom: 5 } }, /* @__PURE__ */ React.createElement("b", { style: { color: C.gold } }, "\u0E1B\u0E31\u0E0D\u0E2B\u0E32\u0E04\u0E49\u0E32\u0E07:"), " ", r.issues) : null, r.comments ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, marginBottom: 5, background: C.card2, borderRadius: 8, padding: "7px 10px" } }, /* @__PURE__ */ React.createElement("b", null, "\u{1F4AC} \u0E04\u0E27\u0E32\u0E21\u0E04\u0E34\u0E14\u0E40\u0E2B\u0E47\u0E19\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19:"), " ", r.comments) : null, r.sigOut ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E2A\u0E48\u0E07\u0E01\u0E30: ", r.sigOut) : null), r.proofPhoto ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 4 } }, "\u{1F4F8} \u0E23\u0E39\u0E1B\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E08\u0E23\u0E34\u0E07 / Physical stock proof photo"), /* @__PURE__ */ React.createElement("img", { src: r.proofPhoto, alt: "Stock proof", style: { maxWidth: 180, borderRadius: 8, border: "1px solid " + C.border, display: "block" } })) : /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontSize: 9.5, color: C.red } }, "\u26A0 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E39\u0E1B\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E01\u0E30\u0E19\u0E35\u0E49 / No stock proof photo on file for this shift"), reportAI ? /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.25)", padding: "10px 12px", marginTop: 10, fontSize: 10.5, lineHeight: 1.7, whiteSpace: "pre-wrap" }) }, reportAI) : null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, marginTop: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setReportAI(analyzeShift(sh));
@@ -12432,7 +13340,7 @@ function GreenPOS() {
       }).filter(function(x) {
         return Math.abs(x.d) >= 0.05;
       });
-      return /* @__PURE__ */ React.createElement("div", { key: sh.id, style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, marginBottom: 9, padding: "10px 11px" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800 } }, sh.slot || "", " \xB7 ", sh.staffName), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 900, color: C.green } }, "\u0E3F", Math.round(sh.salesDelta || 0).toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted, marginBottom: 6 } }, new Date(sh.inAt).toLocaleString("th-TH"), " \u2192 ", sh.outAt ? new Date(sh.outAt).toLocaleString("th-TH") : "-", " \xB7 ", shiftHours(sh), "h \xB7 \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E14\u0E19\u0E31\u0E1A \u0E3F", (+r.cash || 0).toLocaleString()), vari.length ? vari.map(function(v, i) {
+      return /* @__PURE__ */ React.createElement("div", { key: sh.id, style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, marginBottom: 9, padding: "10px 11px" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800 } }, sh.slot || "", " \xB7 ", sh.staffName), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 900, color: C.green } }, "\u0E3F", Math.round(sh.salesDelta || 0).toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted, marginBottom: 6 } }, new Date(sh.inAt).toLocaleString("th-TH"), " \u2192 ", sh.outAt ? new Date(sh.outAt).toLocaleString("th-TH") : "-", " \xB7 ", shiftHours2(sh), "h \xB7 \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E14\u0E19\u0E31\u0E1A \u0E3F", (+r.cash || 0).toLocaleString()), vari.length ? vari.map(function(v, i) {
         return /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", justifyContent: "space-between", fontSize: 9.5, padding: "2px 0" } }, /* @__PURE__ */ React.createElement("span", null, v.n, v.reason ? /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, " \xB7 ", v.reason) : null), /* @__PURE__ */ React.createElement("span", { style: { color: v.d < 0 ? "#fda4af" : C.green, fontWeight: 700 } }, v.d > 0 ? "+" : "", v.d, v.u));
       }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.green } }, "\u2705 \u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E15\u0E23\u0E07 \u2014 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E48\u0E27\u0E19\u0E15\u0E48\u0E32\u0E07"), r.notes ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, marginTop: 4 } }, /* @__PURE__ */ React.createElement("b", null, "\u0E42\u0E19\u0E49\u0E15:"), " ", r.notes) : null, r.issues ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, marginTop: 2 } }, /* @__PURE__ */ React.createElement("b", { style: { color: C.gold } }, "\u0E1B\u0E31\u0E0D\u0E2B\u0E32\u0E04\u0E49\u0E32\u0E07:"), " ", r.issues) : null, r.comments ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, marginTop: 2 } }, /* @__PURE__ */ React.createElement("b", null, "\u{1F4AC}:"), " ", r.comments) : null, r.proofPhoto ? /* @__PURE__ */ React.createElement("img", { src: r.proofPhoto, alt: "Stock proof", style: { maxWidth: 120, borderRadius: 7, border: "1px solid " + C.border, display: "block", marginTop: 6 } }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.red, marginTop: 5 } }, "\u26A0 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E39\u0E1B\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2A\u0E15\u0E4A\u0E2D\u0E01"));
     }), dayReportAI ? /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.25)", padding: "10px 12px", marginTop: 6, fontSize: 10.5, lineHeight: 1.7, whiteSpace: "pre-wrap" }) }, dayReportAI) : null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, marginTop: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
