@@ -8376,46 +8376,117 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   <div style={{fontSize:14,fontWeight:800}}>👤 พนักงานและสิทธิ์การขึ้นเวร</div>
                   <button onClick={function(){setShiftEdit(null);}} style={{...gs.btn(C.card2,"#fff"),border:"1px solid "+C.border}}>✕</button>
                 </div>
-                <div style={{fontSize:10.5,color:C.muted,marginBottom:10,lineHeight:1.6}}>
-                  ตารางจะจัดคนตามช่องพวกนี้เท่านั้น — ใครไม่ได้รับอนุญาตสาขาหรือกะไหน ระบบจะไม่จับใส่ให้เด็ดขาด แม้ว่าจะทำให้กะนั้นว่าง
-                  (ช่องว่างเห็นแล้วแก้ได้ แต่บาร์เทนเดอร์ที่ถูกจับไปยืนกะ 01:00 แก้ไม่ได้)
+                <div style={{fontSize:10.5,color:C.muted,marginBottom:12,lineHeight:1.6}}>
+                  ตารางจะจัดคนตามช่องพวกนี้เท่านั้น — ใครไม่ได้ติ๊กสาขาหรือกะไหน ระบบจะไม่จับใส่ให้เด็ดขาด แม้จะทำให้กะนั้นว่าง
+                  (ช่องว่างเห็นแล้วแก้ได้ แต่บาร์เทนเดอร์ที่ถูกจับไปยืนกะตี 1 แก้ไม่ได้)
+                  <div style={{marginTop:5,color:C.gold}}>ติ๊ก <b>กะที่ขึ้นได้</b> เพิ่มให้คนที่ทำได้มากกว่าหนึ่งกะ แล้วกด 💾 → ⚙ สร้างร่าง ใหม่ ช่องว่างจะปิดเอง</div>
                 </div>
-                <div style={{overflowX:"auto"}}>
-                  <table style={{width:"100%",minWidth:860,borderCollapse:"collapse",fontSize:10.5}}>
-                    <thead><tr style={{color:C.muted,fontSize:9}}>
-                      {["ชื่อ","ประเภท","สาขา","กะที่ทำได้","วันหยุดประจำ","เป้ากะ","สูงสุด","เงินเดือน ฿","วันลา (คั่นด้วย ,)","งานพิเศษ"].map(function(h,i){
-                        return <th key={i} style={{textAlign:"left",padding:"5px 5px",fontWeight:700}}>{h}</th>;})}
-                    </tr></thead>
-                    <tbody>
-                      {shiftEdit.list.map(function(p,i){
-                        var upd=function(k,val){setShiftEdit(function(prev){var n=JSON.parse(JSON.stringify(prev));n.list[i][k]=val;return n;});};
-                        var inp={...gs.input,padding:"5px 7px",fontSize:10.5,borderRadius:8};
-                        return <tr key={p.id} style={{borderTop:"1px solid "+C.borderSoft}}>
-                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:96}} value={p.name} onChange={function(e){upd("name",e.target.value);}}/></td>
-                          <td style={{padding:"3px 4px"}}>
-                            <select style={{...inp,width:88}} value={p.kind||"full"} onChange={function(e){upd("kind",e.target.value);}}>
-                              <option value="full">ประจำ</option><option value="part">พาร์ทไทม์</option><option value="manager">ผู้บริหาร</option>
-                            </select>
-                          </td>
-                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:84}} value={(p.locs||[]).join(",")} onChange={function(e){upd("locs",e.target.value.split(",").map(function(x){return x.trim();}).filter(Boolean));}}/></td>
-                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:130}} value={(p.slots||[]).join(",")} onChange={function(e){upd("slots",e.target.value.split(",").map(function(x){return x.trim();}).filter(Boolean));}}/></td>
-                          <td style={{padding:"3px 4px",whiteSpace:"nowrap"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:9}}>
+                  {shiftEdit.list.map(function(p,i){
+                    var upd=function(k,val){setShiftEdit(function(prev){var n=JSON.parse(JSON.stringify(prev));n.list[i][k]=val;return n;});};
+                    var togg=function(k,val){
+                      var cur=(p[k]||[]).slice(); var ix=cur.indexOf(val);
+                      if(ix>=0)cur.splice(ix,1); else cur.push(val);
+                      upd(k,cur);
+                    };
+                    var inp={...gs.input,padding:"5px 8px",fontSize:11,borderRadius:8};
+                    var chip=function(on,tone){return {
+                      background:on?(tone||C.green):C.card2, color:on?"#000":C.muted,
+                      border:"1px solid "+(on?(tone||C.green):C.border), borderRadius:7,
+                      fontSize:9.5, padding:"4px 7px", cursor:"pointer", fontWeight:on?800:500,
+                      minHeight:28, lineHeight:1.15,
+                    };};
+                    var isCeo=p.kind==="ceo";
+                    return <div key={p.id} style={{...gs.card2,padding:10}}>
+                      {/* who, and what they are paid */}
+                      <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>
+                        <input style={{...inp,width:150,fontWeight:700}} value={p.name} onChange={function(e){upd("name",e.target.value);}}/>
+                        <input style={{...inp,width:112}} placeholder="ตำแหน่ง" value={p.role||""} onChange={function(e){upd("role",e.target.value);}}/>
+                        <select style={{...inp,width:96}} value={p.kind||"full"} onChange={function(e){upd("kind",e.target.value);}}>
+                          <option value="full">ประจำ</option><option value="part">พาร์ทไทม์</option><option value="ceo">CEO</option>
+                        </select>
+                        <select style={{...inp,width:88}} value={p.payType||(p.dailyRate?"daily":"monthly")} onChange={function(e){upd("payType",e.target.value);}}>
+                          <option value="monthly">รายเดือน</option><option value="daily">รายวัน</option>
+                        </select>
+                        {(p.payType||(p.dailyRate?"daily":"monthly"))==="daily"
+                          ? <input type="number" style={{...inp,width:86}} placeholder="วันละ" value={p.dailyRate||""} onChange={function(e){upd("dailyRate",+e.target.value||0);}}/>
+                          : <input type="number" style={{...inp,width:96}} placeholder="เงินเดือน" value={p.salary||""} onChange={function(e){upd("salary",+e.target.value||0);}}/>}
+                        <button onClick={function(){togg("__x","x");}} style={{display:"none"}}></button>
+                        <button onClick={function(){
+                          setShiftEdit(function(prev){var n=JSON.parse(JSON.stringify(prev));n.list.splice(i,1);return n;});
+                        }} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"4px 9px",border:"1px solid "+C.border,marginLeft:"auto"}}>ลบคนนี้</button>
+                      </div>
+
+                      {/* the shops, then the shifts inside them — this is the whole
+                          point of the editor: a shift nobody is ticked for is a shift
+                          the generator will leave empty and report */}
+                      <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"flex-start"}}>
+                        <div style={{minWidth:96}}>
+                          <div style={{fontSize:9,color:C.muted,marginBottom:3,letterSpacing:"0.05em"}}>สาขา</div>
+                          <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+                            {shiftLocs.map(function(l){
+                              var on=(p.locs||[]).indexOf(l.id)>=0;
+                              return <button key={l.id} onClick={function(){togg("locs",l.id);}} style={chip(on,C.blue)}>{l.name.replace("DANK ","").split(" ")[0]}</button>;
+                            })}
+                          </div>
+                        </div>
+
+                        {!isCeo&&<div style={{flex:1,minWidth:230}}>
+                          <div style={{fontSize:9,color:C.muted,marginBottom:3,letterSpacing:"0.05em"}}>กะที่ขึ้นได้ · ติ๊กได้หลายกะ</div>
+                          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                            {shiftLocs.filter(function(l){return (p.locs||[]).indexOf(l.id)>=0;}).map(function(l){
+                              return <div key={l.id} style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+                                {l.slots.map(function(s){
+                                  var on=(p.slots||[]).indexOf(s.id)>=0;
+                                  return <button key={s.id} onClick={function(){togg("slots",s.id);}} style={{...chip(on),textAlign:"center"}}>
+                                    {s.name||s.id}
+                                    <div style={{fontSize:8,fontWeight:500,opacity:0.85}}>{s.label}</div>
+                                  </button>;
+                                })}
+                              </div>;
+                            })}
+                            {!(p.locs||[]).length&&<span style={{fontSize:10,color:C.muted}}>เลือกสาขาก่อน</span>}
+                          </div>
+                        </div>}
+
+                        {isCeo&&<div style={{flex:1,minWidth:230,fontSize:10.5,color:C.gold,paddingTop:14}}>
+                          CEO เข้าตรวจสัปดาห์ละครั้ง ไม่ถูกจัดลงกะร้าน และไม่อยู่ในบัญชีเงินเดือน
+                        </div>}
+
+                        <div style={{minWidth:158}}>
+                          <div style={{fontSize:9,color:C.muted,marginBottom:3,letterSpacing:"0.05em"}}>วันหยุดประจำ</div>
+                          <div style={{display:"flex",gap:2}}>
                             {[0,1,2,3,4,5,6].map(function(d){
                               var on=(p.off||[]).indexOf(d)>=0;
-                              return <button key={d} onClick={function(){var cur=(p.off||[]).slice();var ix=cur.indexOf(d);if(ix>=0)cur.splice(ix,1);else cur.push(d);upd("off",cur.sort());}}
-                                style={{background:on?C.gold:C.card2,color:on?"#000":C.muted,border:"1px solid "+C.border,borderRadius:5,fontSize:8,padding:"3px 3px",cursor:"pointer",marginRight:1,minWidth:22,fontWeight:on?800:500}}>{SHIFT_DAY_NAMES[d].slice(0,2)}</button>;
+                              return <button key={d} onClick={function(){togg("off",d);}} style={{...chip(on,C.gold),padding:"4px 4px",minWidth:24}}>{SHIFT_DAY_NAMES[d].slice(0,2)}</button>;
                             })}
-                          </td>
-                          <td style={{padding:"3px 4px"}}><input type="number" style={{...inp,width:52}} value={p.target||26} onChange={function(e){upd("target",+e.target.value||0);}}/></td>
-                          <td style={{padding:"3px 4px"}}><input type="number" style={{...inp,width:52}} value={p.max||28} onChange={function(e){upd("max",+e.target.value||0);}}/></td>
-                          <td style={{padding:"3px 4px"}}><input type="number" style={{...inp,width:76}} placeholder="26000" value={p.salary||""} onChange={function(e){upd("salary",+e.target.value||0);}}/></td>
-                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:150}} placeholder="2026-09-15,2026-09-16" value={(p.leave||[]).join(",")} onChange={function(e){upd("leave",e.target.value.split(",").map(function(x){return x.trim();}).filter(Boolean));}}/></td>
-                          <td style={{padding:"3px 4px"}}><input style={{...inp,width:96}} placeholder="MKT" value={(p.duty&&p.duty.label)||""} onChange={function(e){upd("duty",e.target.value?{dow:(p.duty&&p.duty.dow)||3,label:e.target.value}:null);}}/></td>
-                        </tr>;
-                      })}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* the numbers that bound them */}
+                      <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginTop:8}}>
+                        <label style={{fontSize:9.5,color:C.muted}}>เป้ากะ <input type="number" style={{...inp,width:56,marginLeft:3}} value={p.target||26} onChange={function(e){upd("target",+e.target.value||0);}}/></label>
+                        <label style={{fontSize:9.5,color:C.muted}}>สูงสุด <input type="number" style={{...inp,width:56,marginLeft:3}} value={p.max||28} onChange={function(e){upd("max",+e.target.value||0);}}/></label>
+                        <label style={{fontSize:9.5,color:C.muted,flex:1,minWidth:190}}>วันลา <input style={{...inp,width:"100%",marginTop:2}} placeholder="2026-09-15,2026-09-16" value={(p.leave||[]).join(",")} onChange={function(e){upd("leave",e.target.value.split(",").map(function(x){return x.trim();}).filter(Boolean));}}/></label>
+                        <label style={{fontSize:9.5,color:C.muted}}>ขึ้นแทน
+                          <button onClick={function(){upd("relief",!p.relief);}} style={{...chip(!!p.relief,C.blue),marginLeft:4}}>{p.relief?"ใช่":"ไม่"}</button>
+                        </label>
+                        <label style={{fontSize:9.5,color:C.muted}}>ไม่ขึ้นเวรหน้าร้าน
+                          <button onClick={function(){upd("payrollOnly",!p.payrollOnly);}} style={{...chip(!!p.payrollOnly,C.gold),marginLeft:4}}>{p.payrollOnly?"ใช่":"ไม่"}</button>
+                        </label>
+                      </div>
+                    </div>;
+                  })}
                 </div>
+                <button onClick={function(){
+                  setShiftEdit(function(prev){
+                    var n=JSON.parse(JSON.stringify(prev));
+                    n.list.push({id:"s"+Date.now(),name:"พนักงานใหม่",role:"BUDTENDER",kind:"full",
+                      locs:[],slots:[],off:[],target:26,max:28,payType:"daily",dailyRate:600});
+                    return n;
+                  });
+                }} style={{...gs.btn(C.card2,"#fff"),fontSize:11,marginTop:10,border:"1px dashed "+C.border,width:"100%"}}>+ เพิ่มพนักงาน</button>
                 <div style={{display:"flex",gap:7,marginTop:12}}>
                   <button onClick={function(){setShiftEdit(null);}} style={{...gs.btn(C.card2,"#fff"),flex:1,border:"1px solid "+C.border}}>ยกเลิก</button>
                   <button onClick={function(){

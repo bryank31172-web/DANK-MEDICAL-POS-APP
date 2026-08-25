@@ -190,6 +190,8 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
 - `rosterPayroll()` rolls the bill up and reconciles it against `expenseTargets.byCategory.wages`,
   and names both drifts: on payroll with no shift, and on shift with no wage on file. Those are
   different problems with different fixes, so "basePay is 0" must not be read as either.
+- Who may work what is a **toggle grid** in `👤 ตั้งค่าคน + เงินเดือน`, not a comma-separated text
+  field — the field existed from the start and nobody would ever have typed `A1,C1` into it.
 - 🤖 ถาม AI answers from the grid with no API key (`rosterAsk`): who is on a date, who can cover,
   the labour bill, OT, who is over/under, one person by name. Returns null rather than guessing.
 - 🖨 prints white A3-landscape sheets — one page per shop, signature block on every page, colours
