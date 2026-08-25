@@ -384,11 +384,31 @@ function buildRoster(locations, staff, year, month1) {
    * of the 30th with nobody authorised to stand it. Nothing optional may
    * consume someone a required shift still needs, anywhere in the month — so
    * every required slot is filled first, and the extras get what is left. */
+  /* Within a day, fill the slot the fewest people can stand before the slot
+   * many can. One reliever can only be in one place, and filling in the order
+   * the slots happen to be printed meant Steve plugged whichever hole came
+   * first on the sheet — so 09:00-18:00, which Honey can also cover, got him
+   * every day, and 17:00-02:00, which nobody else is cleared for at all, was
+   * still empty thirty days out of thirty. Scarcest first. */
+  var eligibleCount = {};
+  (locations || []).forEach(function (loc) {
+    (loc.slots || []).forEach(function (slot) {
+      eligibleCount[loc.id + '|' + slot.id] = (staff || []).filter(function (p) {
+        return p.kind !== 'ceo' && (p.locs || []).indexOf(loc.id) >= 0 && (p.slots || []).indexOf(slot.id) >= 0;
+      }).length;
+    });
+  });
+
   [false, true].forEach(function (optionalPass) {
   (locations || []).forEach(function (loc) {
+    var ordered = (loc.slots || []).slice().sort(function (a, b) {
+      var ca = eligibleCount[loc.id + '|' + a.id], cb = eligibleCount[loc.id + '|' + b.id];
+      if (ca !== cb) return ca - cb;
+      return (loc.slots.indexOf(a) - loc.slots.indexOf(b));
+    });
     days.forEach(function (day) {
       assignedOn[day.date] = assignedOn[day.date] || {};
-      (loc.slots || []).forEach(function (slot) {
+      ordered.forEach(function (slot) {
         if (!!slot.optional !== optionalPass) return;
         var key = loc.id + '|' + day.date + '|' + slot.id;
         if (!slotRunsOn(slot, day.dow)) { cells[key] = { closed: true }; return; }
@@ -770,6 +790,13 @@ var SHIFT_STAFF = [
    * without them. */
   { id: 'zaw',    name: 'Zaw',             role: 'RIDER',   kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 600 },
   { id: 'got',    name: 'Got',             role: 'RIDER',   kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 600 },
+
+  /* Works both shops. Cleared for every counter shift at each, because the
+   * relief ranking already keeps him out of a slot its regular can stand —
+   * he only ever appears where somebody is off, at their cap, or missing. */
+  { id: 'steve', name: 'Steve', role: 'BUDTENDER', kind: 'full', relief: true,
+    locs: ['ptk', 'sat'], slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK'],
+    off: [], target: 26, max: 26, payType: 'daily', dailyRate: 650 },
 
   /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
   { id: 'raizo', name: 'Raizo', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['EARLY'], off: [1],

@@ -349,11 +349,24 @@ function buildRoster(locations, staff, year, month1) {
   var empty = [], unauthorised = [];
   var assignedOn = {};
   var byLoc = {};
+  var eligibleCount = {};
+  (locations || []).forEach(function(loc) {
+    (loc.slots || []).forEach(function(slot) {
+      eligibleCount[loc.id + "|" + slot.id] = (staff || []).filter(function(p) {
+        return p.kind !== "ceo" && (p.locs || []).indexOf(loc.id) >= 0 && (p.slots || []).indexOf(slot.id) >= 0;
+      }).length;
+    });
+  });
   [false, true].forEach(function(optionalPass) {
     (locations || []).forEach(function(loc) {
+      var ordered = (loc.slots || []).slice().sort(function(a, b) {
+        var ca = eligibleCount[loc.id + "|" + a.id], cb = eligibleCount[loc.id + "|" + b.id];
+        if (ca !== cb) return ca - cb;
+        return loc.slots.indexOf(a) - loc.slots.indexOf(b);
+      });
       days.forEach(function(day) {
         assignedOn[day.date] = assignedOn[day.date] || {};
-        (loc.slots || []).forEach(function(slot) {
+        ordered.forEach(function(slot) {
           if (!!slot.optional !== optionalPass) return;
           var key = loc.id + "|" + day.date + "|" + slot.id;
           if (!slotRunsOn(slot, day.dow)) {
@@ -852,6 +865,23 @@ var SHIFT_STAFF = [
    * without them. */
   { id: "zaw", name: "Zaw", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 600 },
   { id: "got", name: "Got", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 600 },
+  /* Works both shops. Cleared for every counter shift at each, because the
+   * relief ranking already keeps him out of a slot its regular can stand —
+   * he only ever appears where somebody is off, at their cap, or missing. */
+  {
+    id: "steve",
+    name: "Steve",
+    role: "BUDTENDER",
+    kind: "full",
+    relief: true,
+    locs: ["ptk", "sat"],
+    slots: ["A1", "A2", "B1", "B2", "C1", "C2", "EARLY", "DAY", "NIGHT", "PEAK"],
+    off: [],
+    target: 26,
+    max: 26,
+    payType: "daily",
+    dailyRate: 650
+  },
   /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
   {
     id: "raizo",
