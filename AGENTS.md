@@ -97,6 +97,7 @@ pageerror → commit `index.html`.
 | `handoff/` | artwork brief + scripts for generating the remaining images |
 | `docs/` | SOP deck, setup guide, image prompts |
 | `clinicworks/`, `landing/` | separate static pages served at `/clinicworks`, `/landing` |
+| `clinic-device-bridge/` | localhost gateway for thermometer/vendor SDK vital readings |
 
 ---
 

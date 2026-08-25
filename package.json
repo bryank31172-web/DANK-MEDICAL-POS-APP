@@ -5,9 +5,10 @@
   "scripts": {
     "pos:build": "bash pos/build.sh",
     "serve": "python3 -m http.server 8799",
-    "test": "npm run test:api && npm run test:pos",
+    "test": "npm run test:api && npm run test:pos && npm run test:bridge",
     "test:api": "for f in api/__tests__/*.test.mjs; do echo \"— $f\"; node \"$f\" || exit 1; done",
     "test:pos": "for f in pos/__tests__/*.test.cjs; do echo \"— $f\"; node \"$f\" || exit 1; done",
+    "test:bridge": "node clinic-device-bridge/server.test.mjs",
     "test:browser": "echo 'needs: npm run pos:build, then npm run serve in another shell' && for f in pos/__tests__/*.test.mjs; do echo \"— $f\"; node \"$f\" || exit 1; done",
     "docs:pack": "node docs/build-briefing-pack.cjs",
     "ux:audit": "node docs/ux-audit.mjs",

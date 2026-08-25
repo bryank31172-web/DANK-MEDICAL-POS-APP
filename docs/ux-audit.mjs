@@ -10,7 +10,7 @@
  * UX-UI-Apple-Brief.md cites, so re-run it after a UI change and the brief can
  * be rebuilt against real numbers rather than remembered ones.
  */
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { chromium } from '../pos/__tests__/_playwright.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

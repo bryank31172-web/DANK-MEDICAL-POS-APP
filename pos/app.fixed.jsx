@@ -1518,6 +1518,8 @@ function GreenPOS() {
   const [showDashCustomPicker,setShowDashCustomPicker]=useState(false);
   const [appointments,setAppointments]=useState(function(){try{return JSON.parse(localStorage.getItem("dank_appointments")||"[]");}catch(e){return [];}});
   useEffect(function(){try{localStorage.setItem("dank_appointments",JSON.stringify(appointments));}catch(e){}},[appointments]);
+  const [vitalSigns,setVitalSigns]=useState(function(){try{var v=JSON.parse(localStorage.getItem("dank_vital_signs")||"[]");return Array.isArray(v)?v:[];}catch(e){return [];}});
+  useEffect(function(){try{localStorage.setItem("dank_vital_signs",JSON.stringify(vitalSigns.slice(0,2000)));}catch(e){}},[vitalSigns]);
   const [showApptModal,setShowApptModal]=useState(false);
   const [newAppt,setNewAppt]=useState({custName:"",date:new Date().toISOString().slice(0,10),time:"10:00",doctor:"",note:"",certLink:""});
   const [medCards,setMedCards]=useState(function(){try{return JSON.parse(localStorage.getItem("dank_medcards")||"{}");}catch(e){return {};}});
@@ -1951,6 +1953,44 @@ function GreenPOS() {
     if(!issuesAll.length&&(rep.totals.missG||0)<=0.05)lines.push("• วันนี้เรียบร้อยดีทุกกะ — รักษามาตรฐานนี้ไว้ ชมพนักงานเพื่อรักษาแรงจูงใจ");
     return lines.join("\n");
   };
+  // Clinic vital-sign helpers are intentionally separate from the inventory
+  // scale below. Patient weight is stored in kg; product weight stays in grams.
+  const VITAL_LIMITS={temperatureC:[30,45],weightKg:[2,350],heightCm:[30,250]};
+  function vitalRound(n,places){var p=Math.pow(10,places||0);return Math.round(n*p)/p;}
+  function calcVitalBMI(weightKg,heightCm){
+    var w=parseFloat(weightKg),h=parseFloat(heightCm);
+    if(!isFinite(w)||!isFinite(h)||w<=0||h<=0)return null;
+    return vitalRound(w/Math.pow(h/100,2),1);
+  }
+  function validateVitalValue(key,value){
+    var n=parseFloat(value),lim=VITAL_LIMITS[key];
+    if(!lim||!isFinite(n))return {ok:false,value:null};
+    return {ok:n>=lim[0]&&n<=lim[1],value:n,min:lim[0],max:lim[1]};
+  }
+  function parsePatientScaleLine(buf){
+    var s=String(buf||"").replace(/,/g,".").replace(/\s+/g," ");
+    var out={},m;
+    m=s.match(/(?:\b(?:wt|weight|w)\b\s*[:=]?\s*)?(-?\d+(?:\.\d+)?)\s*(kg|lb)\b/i);
+    if(m){var w=parseFloat(m[1]);if(m[2].toLowerCase()==="lb")w*=0.45359237;out.weightKg=vitalRound(w,2);}
+    m=s.match(/(?:\b(?:ht|height|h)\b\s*[:=]?\s*)?(-?\d+(?:\.\d+)?)\s*(cm|m|in|inch|inches)\b/i);
+    if(m){var h=parseFloat(m[1]),u=m[2].toLowerCase();if(u==="m")h*=100;else if(u==="in"||u==="inch"||u==="inches")h*=2.54;out.heightCm=vitalRound(h,1);}
+    return Object.keys(out).length?out:null;
+  }
+  function normalizeVitalPayload(raw){
+    var root=raw&&typeof raw==="object"?raw:{};
+    var d=(root.data&&typeof root.data==="object"?root.data:null)||(root.reading&&typeof root.reading==="object"?root.reading:null)||(root.vitals&&typeof root.vitals==="object"?root.vitals:null)||root;
+    function pick(){for(var i=0;i<arguments.length;i++){var v=arguments[i];if(v!==undefined&&v!==null&&v!==""&&!isNaN(parseFloat(typeof v==="object"?v.value:v)))return v;}return null;}
+    function val(v){return v&&typeof v==="object"?parseFloat(v.value):parseFloat(v);}
+    function unit(v,fallback){return String((v&&typeof v==="object"&&v.unit)||fallback||"").toLowerCase();}
+    var tv=pick(d.temperatureC,d.temperature_c,d.temperature),wv=pick(d.weightKg,d.weight_kg,d.weight),hv=pick(d.heightCm,d.height_cm,d.height),out={};
+    if(tv!==null){var t=val(tv),tu=unit(tv,d.temperatureUnit||d.temperature_unit);if(tu==="f"||tu==="°f"||tu==="fahrenheit")t=(t-32)*5/9;out.temperatureC=vitalRound(t,1);}
+    if(wv!==null){var w=val(wv),wu=unit(wv,d.weightUnit||d.weight_unit);if(wu==="g")w/=1000;else if(wu==="lb"||wu==="lbs")w*=0.45359237;out.weightKg=vitalRound(w,2);}
+    if(hv!==null){var h=val(hv),hu=unit(hv,d.heightUnit||d.height_unit);if(hu==="m")h*=100;else if(hu==="in"||hu==="inch"||hu==="inches")h*=2.54;out.heightCm=vitalRound(h,1);}
+    out.measuredAt=d.measuredAt||d.measured_at||root.measuredAt||root.measured_at||"";
+    out.deviceId=d.deviceId||d.device_id||root.deviceId||root.device_id||"";
+    out.source=d.source||root.source||"device-bridge";
+    return out;
+  }
   // Serial scales send things like "ST,GS,+  0.132 kg" or "  132.0 g" or, on the
   // cheaper ones, just "0.132". Take the last number AND the unit written next
   // to it; fall back to what the operator picked when the scale says nothing.
@@ -1970,6 +2010,7 @@ function GreenPOS() {
     return {grams:Math.round(num*(SCALE_TO_G[use]||1)*10000)/10000,unit:u||(pref!=="auto"?pref+" (set)":"g (assumed)")};
   }
   const scaleStopRef=useRef({stop:false});
+  const patientScaleStopRef=useRef({stop:false});
   const connectScale=async function(){
     if(!("serial" in navigator)){
       notify("เบราว์เซอร์นี้ต่อเครื่องชั่งไม่ได้ — ใช้ Chrome/Edge บนคอม หรือพิมพ์น้ำหนักเอง","error");return;
@@ -2002,6 +2043,37 @@ function GreenPOS() {
   const disconnectScale=function(){
     try{scaleStopRef.current.stop=true;if(scaleStopRef.current.reader)scaleStopRef.current.reader.cancel().catch(function(){});if(scaleStopRef.current.port)setTimeout(function(){try{scaleStopRef.current.port.close();}catch(_e){}},200);}catch(_e){}
     setScaleConnected(false);setScaleReading(0);notify("Scale disconnected");
+  };
+  const applyPatientScaleReading=function(parsed,line){
+    if(!parsed)return;
+    setVitalForm(function(prev){return Object.assign({},prev,parsed.weightKg!==undefined?{weightKg:String(parsed.weightKg)}:{},parsed.heightCm!==undefined?{heightCm:String(parsed.heightCm)}:{});});
+    setVitalSources(function(prev){return Object.assign({},prev,{weightHeight:"patient-scale/web-serial"});});
+    setPatientScaleLastLine(String(line||"").trim().slice(-120));
+  };
+  const connectPatientScale=async function(){
+    if(!("serial" in navigator)){notify("เครื่องนี้ไม่รองรับ Web Serial — ใช้ Chrome/Edge บนคอม หรือกรอกค่าเอง","error");return;}
+    try{
+      const port=await navigator.serial.requestPort();
+      await port.open({baudRate:parseInt(patientScaleBaud)||9600});
+      patientScaleStopRef.current={stop:false,port:port};
+      const dec=new TextDecoder();let buf="";const reader=port.readable.getReader();patientScaleStopRef.current.reader=reader;
+      setPatientScaleConnected(true);notify("⚖ เชื่อมตาชั่งคนไข้แล้ว / Patient scale connected");
+      (async function(){
+        try{
+          while(!patientScaleStopRef.current.stop){
+            const r=await reader.read();if(r.done)break;buf+=dec.decode(r.value);
+            var lines=buf.split(/[\r\n]+/);buf=lines.pop()||"";
+            lines.forEach(function(line){applyPatientScaleReading(parsePatientScaleLine(line),line);});
+            var live=parsePatientScaleLine(buf);if(live)applyPatientScaleReading(live,buf);
+            if(buf.length>300)buf=buf.slice(-120);
+          }
+        }catch(_e){}
+      })();
+    }catch(e){if(e.name!=="NotFoundError")notify("ต่อเครื่องวัดไม่สำเร็จ: "+(e.message||"serial unavailable"),"error");}
+  };
+  const disconnectPatientScale=function(){
+    try{patientScaleStopRef.current.stop=true;if(patientScaleStopRef.current.reader)patientScaleStopRef.current.reader.cancel().catch(function(){});if(patientScaleStopRef.current.port)setTimeout(function(){try{patientScaleStopRef.current.port.close();}catch(_e){}},200);}catch(_e){}
+    setPatientScaleConnected(false);setPatientScaleLastLine("");notify("ยกเลิกการเชื่อมตาชั่งคนไข้แล้ว");
   };
   const weighToCart=function(p){
     var g=Math.round((+scaleReading||0)*10000)/10000;
@@ -2475,6 +2547,17 @@ function GreenPOS() {
   const [scaleUnit,setScaleUnit]=useState(function(){try{return localStorage.getItem("dank_scale_unit")||"auto";}catch(e){return "auto";}});
   useEffect(function(){try{localStorage.setItem("dank_scale_unit",scaleUnit);}catch(e){}},[scaleUnit]);
   const [scaleSrcUnit,setScaleSrcUnit]=useState("");
+  const [vitalForm,setVitalForm]=useState({temperatureC:"",weightKg:"",heightCm:"",temperatureSite:"forehead",note:""});
+  const [vitalSources,setVitalSources]=useState({temperature:"manual",weightHeight:"manual"});
+  const [patientScaleConnected,setPatientScaleConnected]=useState(false);
+  const [patientScaleBaud,setPatientScaleBaud]=useState(function(){try{return localStorage.getItem("dank_patient_scale_baud")||"9600";}catch(e){return "9600";}});
+  useEffect(function(){try{localStorage.setItem("dank_patient_scale_baud",patientScaleBaud);}catch(e){}},[patientScaleBaud]);
+  const [patientScaleLastLine,setPatientScaleLastLine]=useState("");
+  const [deviceBridgeUrl,setDeviceBridgeUrl]=useState(function(){try{return localStorage.getItem("dank_device_bridge_url")||"http://127.0.0.1:17891";}catch(e){return "http://127.0.0.1:17891";}});
+  useEffect(function(){try{localStorage.setItem("dank_device_bridge_url",deviceBridgeUrl);}catch(e){}},[deviceBridgeUrl]);
+  const [deviceBridgeStatus,setDeviceBridgeStatus]=useState("idle");
+  const [deviceBridgeAuto,setDeviceBridgeAuto]=useState(false);
+  const [deviceBridgeLast,setDeviceBridgeLast]=useState("");
   const [printerConn,setPrinterConn]=useState("USB");
   const [scaleChecklist,setScaleChecklist]=useState([]);
   const [scaleInterval,setScaleInterval]=useState(null);
@@ -3653,6 +3736,50 @@ function GreenPOS() {
   const addAudit = function(action, detail, user, reason) {
     setAuditLog(function(prev){return [{id:Date.now(),time:new Date().toLocaleString(),action,detail,user:user||(currentStaff?currentStaff.name:"System"),reason:reason||""},...prev].slice(0,500);});
   };
+  const applyBridgeVitalReading=function(payload,silent){
+    var v=normalizeVitalPayload(payload),patch={},has=false;
+    if(v.measuredAt){var age=Math.abs(Date.now()-new Date(v.measuredAt).getTime());if(isFinite(age)&&age>5*60*1000){if(!silent)notify("ค่าจาก Device Bridge เก่ากว่า 5 นาที — กรุณาวัดใหม่","error");return false;}}
+    if(v.temperatureC!==undefined&&validateVitalValue("temperatureC",v.temperatureC).ok){patch.temperatureC=String(v.temperatureC);has=true;}
+    if(v.weightKg!==undefined&&validateVitalValue("weightKg",v.weightKg).ok){patch.weightKg=String(v.weightKg);has=true;}
+    if(v.heightCm!==undefined&&validateVitalValue("heightCm",v.heightCm).ok){patch.heightCm=String(v.heightCm);has=true;}
+    if(!has){if(!silent)notify("Device Bridge ยังไม่มีค่าที่ใช้ได้ / No valid reading","error");return false;}
+    setVitalForm(function(prev){return Object.assign({},prev,patch);});
+    setVitalSources(function(prev){return Object.assign({},prev,v.temperatureC!==undefined?{temperature:"device-bridge"}:{},(v.weightKg!==undefined||v.heightCm!==undefined)?{weightHeight:"device-bridge"}:{});});
+    setDeviceBridgeLast(v.measuredAt||new Date().toISOString());setDeviceBridgeStatus("connected");
+    if(!silent)notify("รับค่าจาก Device Bridge แล้ว ✓");
+    return true;
+  };
+  const deviceBridgeBase=function(){return String(deviceBridgeUrl||"").trim().replace(/\/+$/,"");};
+  const testDeviceBridge=async function(){
+    var base=deviceBridgeBase();if(!base){notify("กรอก Device Bridge URL ก่อน","error");return;}
+    setDeviceBridgeStatus("connecting");
+    try{var r=await fetch(base+"/health",{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);var j=await r.json();setDeviceBridgeStatus("connected");setDeviceBridgeLast(j.time||new Date().toISOString());notify("เชื่อม Device Bridge สำเร็จ ✓");}
+    catch(e){setDeviceBridgeStatus("error");notify("เชื่อม Device Bridge ไม่ได้: "+(e.message||e)+" — ตรวจว่า Bridge เปิดอยู่และอนุญาต CORS","error");}
+  };
+  const pullDeviceBridge=async function(silent){
+    var base=deviceBridgeBase();if(!base)return;
+    try{
+      var q=selCustomer&&selCustomer.id?("?patientId="+encodeURIComponent(selCustomer.id)):"";
+      var r=await fetch(base+"/v1/vitals/latest"+q,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
+      var j=await r.json();applyBridgeVitalReading(j,!!silent);
+    }catch(e){setDeviceBridgeStatus("error");if(!silent)notify("ดึงค่าจาก Device Bridge ไม่ได้: "+(e.message||e),"error");}
+  };
+  useEffect(function(){
+    if(!deviceBridgeAuto)return;
+    var timer=setInterval(function(){pullDeviceBridge(true);},2000);
+    return function(){clearInterval(timer);};
+  },[deviceBridgeAuto,deviceBridgeUrl,selCustomer&&selCustomer.id]);
+  const saveVitalSigns=function(){
+    if(!selCustomer){notify("เลือกคนไข้จาก CRM/POS หรือสแกน Member QR ก่อน","error");return;}
+    var tc=validateVitalValue("temperatureC",vitalForm.temperatureC),wk=validateVitalValue("weightKg",vitalForm.weightKg),hc=validateVitalValue("heightCm",vitalForm.heightCm);
+    var bad=[];if(!tc.ok)bad.push("อุณหภูมิ 30–45°C");if(!wk.ok)bad.push("น้ำหนัก 2–350 kg");if(!hc.ok)bad.push("ส่วนสูง 30–250 cm");
+    if(bad.length){notify("ตรวจข้อมูล: "+bad.join(" · "),"error");return;}
+    var bmi=calcVitalBMI(wk.value,hc.value),entry={id:"VS-"+Date.now(),patientId:selCustomer.id,patientName:selCustomer.name,branch:_branchKey||(currentStaff&&currentStaff.branch)||"",measuredAt:new Date().toISOString(),temperatureC:vitalRound(tc.value,1),temperatureSite:vitalForm.temperatureSite||"forehead",weightKg:vitalRound(wk.value,2),heightCm:vitalRound(hc.value,1),bmi:bmi,note:String(vitalForm.note||"").trim(),deviceSource:Object.assign({},vitalSources),staffId:currentStaff&&currentStaff.id||null,staffName:currentStaff&&currentStaff.name||"Unknown",status:"verified"};
+    setVitalSigns(function(prev){return [entry].concat(prev).slice(0,2000);});
+    addAudit("VITAL_SIGNS_RECORDED",entry.patientName+" · "+entry.temperatureC+"°C · "+entry.weightKg+"kg · "+entry.heightCm+"cm · BMI "+entry.bmi,currentStaff&&currentStaff.name);
+    notify("บันทึก Vital Signs ของ "+entry.patientName+" แล้ว ✓");
+  };
+  const clearVitalForm=function(){setVitalForm({temperatureC:"",weightKg:"",heightCm:"",temperatureSite:"forehead",note:""});setVitalSources({temperature:"manual",weightHeight:"manual"});};
   const [editReason,setEditReason]=useState("");
   const [auditFilter,setAuditFilter]=useState("");
 
@@ -7701,6 +7828,61 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               )}
             </div>
           )}
+          {/* ── Vital Signs + clinic device integration ── */}
+          <div style={{...gs.card,marginBottom:12,border:"1px solid rgba(56,189,248,0.35)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:10}}>
+              <div style={{fontSize:13,fontWeight:900}}>🩺 Vital Signs · สัญญาณชีพ</div>
+              <span style={{...gs.badge("rgba(56,189,248,0.18)",C.blue),fontSize:8.5}}>Temperature · Weight · Height · BMI</span>
+              <span style={{marginLeft:"auto",fontSize:9,color:selCustomer?C.green:C.gold,fontWeight:700}}>{selCustomer?("👤 "+selCustomer.name):"⚠ ยังไม่ได้เลือกคนไข้"}</span>
+            </div>
+            {!selCustomer&&<div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:9,padding:"8px 10px",fontSize:10,color:C.gold,marginBottom:9}}>เลือกคนไข้จาก POS/CRM หรือสแกน Member QR ก่อนบันทึก เพื่อให้ผลวัดเข้าประวัติคนไข้ที่ถูกต้อง</div>}
+            <div style={{display:"flex",gap:6,marginBottom:11,flexWrap:"wrap"}}>
+              <input value={memberScanInput} onChange={function(e){setMemberScanInput(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){if(applyMemberScan(memberScanInput,"vital-signs scanner"))setMemberScanInput("");}}} placeholder="🪪 สแกน Member QR / DK-... / เบอร์โทร" style={{...gs.input,flex:"1 1 230px",padding:"7px 9px",fontSize:10}}/>
+              <button onClick={function(){if(applyMemberScan(memberScanInput,"vital-signs scanner"))setMemberScanInput("");}} style={{...gs.btn(C.gold,"#000"),fontSize:10,padding:"7px 12px"}}>เลือกคนไข้</button>
+              <button onClick={function(){setShowCustModal(true);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"7px 12px",border:"1px solid "+C.border}}>ค้นหา CRM</button>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:9,marginBottom:11}}>
+              <div style={{background:C.card2,border:"1px solid "+(patientScaleConnected?C.green:C.border),borderRadius:10,padding:"10px 11px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:7,flexWrap:"wrap"}}><b style={{fontSize:11}}>⚖ ตาชั่ง/วัดส่วนสูง USB–RS232</b><span style={{...gs.badge(patientScaleConnected?C.green:C.card3,patientScaleConnected?"#000":C.muted),fontSize:8}}>{patientScaleConnected?"● connected":"not connected"}</span></div>
+                <div style={{display:"flex",gap:6,alignItems:"end",flexWrap:"wrap"}}>
+                  <div style={{minWidth:86}}><label style={gs.label}>Baud rate</label><select value={patientScaleBaud} onChange={function(e){setPatientScaleBaud(e.target.value);}} style={{...gs.input,padding:"6px 7px",fontSize:10}}>{["9600","19200","38400","115200"].map(function(b){return <option value={b} key={b}>{b}</option>;})}</select></div>
+                  {!patientScaleConnected?<button onClick={connectPatientScale} style={{...gs.btn(C.green),fontSize:10,padding:"7px 11px"}}>🔌 Connect</button>:<button onClick={disconnectPatientScale} style={{...gs.btn(C.card3,"#fff"),fontSize:10,padding:"7px 11px"}}>Disconnect</button>}
+                </div>
+                <div style={{fontSize:8.5,color:C.muted,lineHeight:1.55,marginTop:7}}>รับเฉพาะค่าที่มีหน่วย kg/lb และ cm/m/in เพื่อลดความเสี่ยงอ่านผิด หากเครื่องรุ่น H151-5 ส่งเฉพาะน้ำหนัก ให้กรอกส่วนสูงเอง และขอ RS-232 protocol จากผู้ขายก่อนติดตั้ง</div>
+                {patientScaleLastLine&&<div style={{fontSize:8.5,color:C.green,fontFamily:"monospace",marginTop:5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>RX: {patientScaleLastLine}</div>}
+              </div>
+              <div style={{background:C.card2,border:"1px solid "+(deviceBridgeStatus==="connected"?C.green:deviceBridgeStatus==="error"?C.red:C.border),borderRadius:10,padding:"10px 11px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:7,flexWrap:"wrap"}}><b style={{fontSize:11}}>🌡 Clinic Device Bridge</b><span style={{...gs.badge(deviceBridgeStatus==="connected"?C.green:deviceBridgeStatus==="error"?C.red:C.card3,deviceBridgeStatus==="connected"?"#000":"#fff"),fontSize:8}}>{deviceBridgeStatus}</span></div>
+                <label style={gs.label}>Local Bridge URL</label>
+                <input value={deviceBridgeUrl} onChange={function(e){setDeviceBridgeUrl(e.target.value);}} style={{...gs.input,padding:"6px 8px",fontSize:9.5,marginBottom:6}} placeholder="http://127.0.0.1:17891"/>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                  <button onClick={testDeviceBridge} style={{...gs.btn(C.blue,"#000"),fontSize:9,padding:"5px 9px"}}>Test</button>
+                  <button onClick={function(){pullDeviceBridge(false);}} style={{...gs.btn(C.green),fontSize:9,padding:"5px 9px"}}>⬇ Read latest</button>
+                  <label style={{display:"flex",alignItems:"center",gap:5,fontSize:9,color:C.muted,cursor:"pointer"}}><input type="checkbox" checked={deviceBridgeAuto} onChange={function(e){setDeviceBridgeAuto(e.target.checked);}}/> Auto 2 sec</label>
+                </div>
+                <div style={{fontSize:8.5,color:C.muted,lineHeight:1.55,marginTop:7}}>ใช้รับอุณหภูมิจาก iHealth/vendor SDK หรือ Bluetooth gateway และรับค่าจากอุปกรณ์อื่นผ่าน API เดียวกัน ไม่เดา BLE UUID ของเครื่องแพทย์</div>
+                {deviceBridgeLast&&<div style={{fontSize:8,color:C.green,marginTop:4}}>ล่าสุด: {new Date(deviceBridgeLast).toLocaleString("th-TH")}</div>}
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:9}}>
+              <div><label style={gs.label}>🌡 อุณหภูมิ °C</label><input type="number" step="0.1" min="30" max="45" value={vitalForm.temperatureC} onChange={function(e){var v=e.target.value;setVitalForm(function(p){return Object.assign({},p,{temperatureC:v});});setVitalSources(function(p){return Object.assign({},p,{temperature:"manual"});});}} style={{...gs.input,fontSize:13,fontWeight:800}} placeholder="36.5"/><div style={{fontSize:8,color:C.muted,marginTop:2}}>{vitalSources.temperature}</div></div>
+              <div><label style={gs.label}>⚖ น้ำหนัก kg</label><input type="number" step="0.01" min="2" max="350" value={vitalForm.weightKg} onChange={function(e){var v=e.target.value;setVitalForm(function(p){return Object.assign({},p,{weightKg:v});});setVitalSources(function(p){return Object.assign({},p,{weightHeight:"manual"});});}} style={{...gs.input,fontSize:13,fontWeight:800}} placeholder="65.00"/><div style={{fontSize:8,color:C.muted,marginTop:2}}>{vitalSources.weightHeight}</div></div>
+              <div><label style={gs.label}>📏 ส่วนสูง cm</label><input type="number" step="0.1" min="30" max="250" value={vitalForm.heightCm} onChange={function(e){var v=e.target.value;setVitalForm(function(p){return Object.assign({},p,{heightCm:v});});setVitalSources(function(p){return Object.assign({},p,{weightHeight:"manual"});});}} style={{...gs.input,fontSize:13,fontWeight:800}} placeholder="170.0"/></div>
+              <div style={{background:"rgba(56,189,248,0.08)",border:"1px solid rgba(56,189,248,0.25)",borderRadius:9,padding:"8px 10px"}}><div style={{fontSize:8.5,color:C.muted}}>BMI (คำนวณอัตโนมัติ)</div><div style={{fontSize:22,fontWeight:900,color:C.blue}}>{calcVitalBMI(vitalForm.weightKg,vitalForm.heightCm)||"—"}</div><div style={{fontSize:8,color:C.muted}}>kg/m²</div></div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"150px 1fr",gap:8,marginBottom:10}}>
+              <div><label style={gs.label}>ตำแหน่งวัดอุณหภูมิ</label><select value={vitalForm.temperatureSite} onChange={function(e){var v=e.target.value;setVitalForm(function(p){return Object.assign({},p,{temperatureSite:v});});}} style={gs.input}><option value="forehead">หน้าผาก Forehead</option><option value="ear">หู Ear</option><option value="oral">ช่องปาก Oral</option><option value="axillary">รักแร้ Axillary</option></select></div>
+              <div><label style={gs.label}>หมายเหตุ / Note</label><input value={vitalForm.note} onChange={function(e){var v=e.target.value;setVitalForm(function(p){return Object.assign({},p,{note:v});});}} style={gs.input} placeholder="เช่น วัดซ้ำแล้ว / rechecked"/></div>
+            </div>
+            <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:10}}>
+              <button onClick={saveVitalSigns} disabled={!selCustomer} style={{...gs.btn(C.green),fontSize:11,padding:"8px 14px",opacity:selCustomer?1:0.5}}>💾 บันทึกเข้าประวัติคนไข้</button>
+              <button onClick={clearVitalForm} style={{...gs.btn(C.card3,"#fff"),fontSize:10,padding:"8px 12px"}}>ล้างค่า</button>
+              <div style={{fontSize:8.5,color:C.muted,alignSelf:"center"}}>ระบบตรวจช่วงค่า: 30–45°C · 2–350kg · 30–250cm และลง Audit Log ทุกครั้ง</div>
+            </div>
+            {selCustomer&&(function(){var hist=vitalSigns.filter(function(v){return String(v.patientId)===String(selCustomer.id);}).slice(0,5);return (<div style={{borderTop:"1px solid "+C.border,paddingTop:8}}><div style={{fontSize:10,fontWeight:800,marginBottom:5}}>📋 ประวัติล่าสุดของ {selCustomer.name} ({hist.length?Math.min(hist.length,5):0})</div>{hist.length===0?<div style={{fontSize:9,color:C.muted}}>ยังไม่มี Vital Signs ที่บันทึกไว้</div>:hist.map(function(v){return <div key={v.id} style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap",fontSize:9.5,padding:"4px 0",borderBottom:"1px solid "+C.border}}><span>{new Date(v.measuredAt).toLocaleString("th-TH")} · {v.staffName}</span><b style={{color:C.blue}}>{v.temperatureC}°C · {v.weightKg}kg · {v.heightCm}cm · BMI {v.bmi}</b></div>;})}</div>);})()}
+          </div>
           {/* ── วันนัดหมอ · Doctor appointments ── */}
           <div style={{...gs.card,marginBottom:12}}>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:10}}>
@@ -11464,4 +11646,3 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     const el=document.getElementById('loading');
     if(el){el.style.opacity='0';setTimeout(function(){el.remove();},600);}
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(GreenPOS));
-  

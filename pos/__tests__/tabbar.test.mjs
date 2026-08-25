@@ -6,7 +6,7 @@
  *   python3 -m http.server 8799 &      # from the REPO ROOT
  *   node pos/__tests__/tabbar.test.mjs
  */
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { chromium } from './_playwright.mjs';
 
 const errs = [], fails = [];
 const ok = (n, c, x) => {
