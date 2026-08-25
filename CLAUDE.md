@@ -178,8 +178,18 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
 - An empty required shift carries `blockers[]` — the trained staff who were rejected and why
   ("Mon: at their maximum", "Pond: only covers C2 on MON"). Listing everyone at the shop instead
   buried that under four lines of "not authorised on C2" for people who were never candidates.
-- Pay: hourly = monthly salary ÷ (target shifts × **that person's** shift length) — a 9h and an 8h
-  shift do not share a divisor. OT = hours past that normal month, at **1.5×**.
+- **Two contract types, from the shop's own wage sheet.** `payType:"monthly"` is owed the salary
+  for the month; `payType:"daily"` (วันละ) is owed `dailyRate × days actually stood`. Paying a
+  daily person a flat month overpays a short month and underpays a long one.
+- Hourly = salary ÷ (target × **that person's** shift length) for monthly, or `dailyRate ÷ shift
+  length` for daily — a 9h and an 8h shift never share a divisor. OT = hours past that normal
+  month at **1.5×**, on both contract types.
+- Kitchen / riders / back-office carry `payrollOnly:true`: no counter slot, but costed at their
+  contracted `target` days. A day-rate rider costed at zero days takes ~฿18k/month straight out
+  of the wage line with nothing on screen to show it.
+- `rosterPayroll()` rolls the bill up and reconciles it against `expenseTargets.byCategory.wages`,
+  and names both drifts: on payroll with no shift, and on shift with no wage on file. Those are
+  different problems with different fixes, so "basePay is 0" must not be read as either.
 - 🤖 ถาม AI answers from the grid with no API key (`rosterAsk`): who is on a date, who can cover,
   the labour bill, OT, who is over/under, one person by name. Returns null rather than guessing.
 - 🖨 prints white A3-landscape sheets — one page per shop, signature block on every page, colours

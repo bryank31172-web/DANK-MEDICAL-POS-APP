@@ -308,21 +308,28 @@ function rosterVisits(days, staff) {
   });
   return out;
 }
-function rosterPay(person, actualHours, slotHours) {
-  var salary = +(person.salary || 0);
+function rosterPay(person, actualHours, slotHours, shifts) {
   var target = person.target || 26;
   var normal = Math.round(target * (slotHours || 0) * 100) / 100;
-  var hourly = salary > 0 && normal > 0 ? Math.round(salary / normal * 100) / 100 : 0;
+  var daily = +(person.dailyRate || 0);
+  var isDaily = person.payType === "daily" || !person.salary && daily > 0;
+  var days = shifts || (person.payrollOnly ? target : 0);
+  var base = isDaily ? Math.round(daily * days * 100) / 100 : +(person.salary || 0);
+  var hourly = isDaily ? slotHours > 0 ? Math.round(daily / slotHours * 100) / 100 : 0 : base > 0 && normal > 0 ? Math.round(base / normal * 100) / 100 : 0;
   var otH = Math.max(0, Math.round((actualHours - normal) * 100) / 100);
   var otPay = Math.round(otH * hourly * 1.5 * 100) / 100;
   return {
-    salary,
+    payType: isDaily ? "daily" : "monthly",
+    paidDays: days,
+    salary: isDaily ? 0 : base,
+    dailyRate: isDaily ? daily : 0,
+    basePay: base,
     normalHours: normal,
     hourly,
     otHours: otH,
     otRate: Math.round(hourly * 1.5 * 100) / 100,
     otPay,
-    totalPay: Math.round((salary + otPay) * 100) / 100
+    totalPay: Math.round((base + otPay) * 100) / 100
   };
 }
 function buildRoster(locations, staff, year, month1) {
@@ -481,7 +488,7 @@ function buildRoster(locations, staff, year, month1) {
       visitHours: Math.round((visitsBy[p.id] || []).reduce(function(a, v) {
         return a + (v.window ? shiftHours(v.window) : 0);
       }, 0) * 10) / 10,
-      pay: rosterPay(p, Math.round((hours[p.id] || 0) * 10) / 10, slotLenOf(p))
+      pay: rosterPay(p, Math.round((hours[p.id] || 0) * 10) / 10, slotLenOf(p), count[p.id] || 0)
     };
   });
   var hoursByLoc = {};
@@ -529,6 +536,39 @@ function buildRoster(locations, staff, year, month1) {
       hoursByLoc,
       ok: empty.length === 0 && doubles.length === 0 && unauthorised.length === 0
     }
+  };
+}
+function rosterPayroll(res, staff, wagesBudget) {
+  var byLoc = {}, base = 0, ot = 0, otH = 0;
+  var noShift = [], noPay = [];
+  (res.summary || []).forEach(function(s) {
+    if (s.kind === "ceo") return;
+    base += s.pay.basePay;
+    ot += s.pay.otPay;
+    otH += s.pay.otHours;
+    (s.locs.length ? s.locs : ["\u2014"]).forEach(function(l) {
+      byLoc[l] = (byLoc[l] || 0) + s.pay.totalPay / Math.max(1, s.locs.length);
+    });
+    var p = (staff || []).filter(function(x) {
+      return x.id === s.id;
+    })[0] || {};
+    if (s.shifts === 0 && !p.payrollOnly) noShift.push({ name: s.name, role: p.role || "", why: (p.slots || []).length ? "\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E27\u0E23\u0E40\u0E25\u0E22\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49" : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E30\u0E17\u0E35\u0E48\u0E17\u0E33\u0E44\u0E14\u0E49" });
+    if (!p.salary && !p.dailyRate) noPay.push({ name: s.name, role: p.role || "" });
+  });
+  Object.keys(byLoc).forEach(function(k) {
+    byLoc[k] = Math.round(byLoc[k]);
+  });
+  var total = Math.round(base + ot);
+  return {
+    base: Math.round(base),
+    ot: Math.round(ot),
+    otHours: Math.round(otH * 10) / 10,
+    total,
+    byLoc,
+    budget: wagesBudget || 0,
+    diff: wagesBudget ? total - wagesBudget : null,
+    noShift,
+    noPay
   };
 }
 function rosterAskDate(q, days) {
@@ -680,7 +720,9 @@ function rosterAsk(question, res, staff, locations) {
       "\xB7 \u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E1B\u0E23\u0E30\u0E08\u0E33 " + ((p2.off || []).length ? (p2.off || []).map(function(d) {
         return SHIFT_DAY_NAMES[d];
       }).join("/") : "\u0E44\u0E21\u0E48\u0E21\u0E35"),
-      hit.pay.salary ? "\xB7 \u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 " + baht(hit.pay.salary) + " \u2192 " + hit.pay.hourly + "/\u0E0A\u0E21. \xB7 OT " + hit.pay.otHours + " \u0E0A\u0E21. = " + baht(hit.pay.otPay) + " \xB7 \u0E23\u0E27\u0E21 " + baht(hit.pay.totalPay) : "\xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E43\u0E2A\u0E48\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 \u0E40\u0E15\u0E34\u0E21\u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E41\u0E25\u0E49\u0E27\u0E04\u0E48\u0E32\u0E41\u0E23\u0E07/OT \u0E08\u0E30\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E49",
+      /* A day-rate person has a wage; it is just not a monthly salary. Reading
+       * only `salary` told half the shop they had no wage on file. */
+      hit.pay.salary || hit.pay.dailyRate ? "\xB7 " + (hit.pay.payType === "daily" ? "\u0E27\u0E31\u0E19\u0E25\u0E30 " + baht(hit.pay.dailyRate) + " \xD7 " + hit.shifts + " \u0E27\u0E31\u0E19 = " + baht(hit.pay.basePay) : "\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 " + baht(hit.pay.salary)) + " \u2192 " + hit.pay.hourly + "/\u0E0A\u0E21. \xB7 OT " + hit.pay.otHours + " \u0E0A\u0E21. = " + baht(hit.pay.otPay) + " \xB7 \u0E23\u0E27\u0E21 " + baht(hit.pay.totalPay) : "\xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E43\u0E2A\u0E48\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u2014 \u0E40\u0E15\u0E34\u0E21\u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E41\u0E25\u0E49\u0E27\u0E04\u0E48\u0E32\u0E41\u0E23\u0E07/OT \u0E08\u0E30\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E49",
       hit.duties.length ? "\xB7 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29 " + hit.duties[0].label + " \xD7" + hit.duties.length + " (\u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E30\u0E40\u0E1E\u0E34\u0E48\u0E21)" : "\xB7 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29",
       hit.leave.length ? "\xB7 \u0E25\u0E32 " + hit.leave.join(", ") : "\xB7 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E27\u0E31\u0E19\u0E25\u0E32\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49"
     ] };
@@ -710,25 +752,61 @@ var SHIFT_LOCATIONS = [
   ] }
 ];
 var SHIFT_STAFF = [
-  /* Phatthanakarn */
-  { id: "amoe", name: "Amoe", kind: "full", locs: ["ptk"], slots: ["A1"], off: [6], salary: 26e3 },
-  { id: "dylan", name: "Dylan", kind: "full", locs: ["ptk"], slots: ["A2"], off: [3, 0], salary: 24e3 },
+  /* Wages are the shop's own sheet (พัฒนาการ / สาทร). Two contract types live
+   * side by side: a monthly salary, and a วันละ day rate paid per shift stood.
+   * `slots` is what each person is cleared to work — it is NOT on the wage
+   * sheet, so anyone new here starts with none and shows up in the report as
+   * on payroll but not on the roster, rather than being guessed onto a shift. */
+  /* ── DANK PHATTHANAKARN ──────────────────────────────────────────────── */
   {
-    id: "rena",
-    name: "Rena",
+    id: "alex",
+    name: "Alex",
+    role: "BUDTENDER",
     kind: "full",
     locs: ["ptk"],
-    slots: ["B1"],
-    off: [5],
-    duty: { dow: 3, label: "MKT", salary: 28e3 }
+    slots: ["B2"],
+    off: [4],
+    payType: "monthly",
+    salary: 19e3
   },
-  { id: "alex", name: "Alex", kind: "full", locs: ["ptk"], slots: ["B2"], off: [4], salary: 26e3 },
-  { id: "palm", name: "Palm", kind: "full", locs: ["ptk"], slots: ["C1"], off: [2], salary: 26e3 },
-  { id: "mon", name: "Mon", kind: "full", locs: ["ptk"], slots: ["C2", "STOCK"], off: [], max: 26, salary: 27e3 },
-  { id: "steve", name: "Steve", kind: "part", relief: true, locs: ["ptk"], slots: ["A1", "A2", "B1", "C1"], off: [], target: 16, max: 20 },
+  {
+    id: "mon",
+    name: "Mon (\u0E21\u0E48\u0E2D\u0E19 \u0E2D\u0E32\u0E0A\u0E32)",
+    role: "BUDTENDER",
+    kind: "full",
+    locs: ["ptk"],
+    slots: ["C2", "STOCK"],
+    off: [],
+    max: 26,
+    payType: "monthly",
+    salary: 18e3
+  },
+  {
+    id: "amoe",
+    name: "Amoe",
+    role: "BUDTENDER",
+    kind: "full",
+    locs: ["ptk"],
+    slots: ["A1"],
+    off: [6],
+    payType: "daily",
+    dailyRate: 600
+  },
+  {
+    id: "beer",
+    name: "Beer",
+    role: "BUDTENDER",
+    kind: "full",
+    locs: ["ptk"],
+    slots: [],
+    off: [],
+    payType: "daily",
+    dailyRate: 650
+  },
   {
     id: "pond",
-    name: "Pond",
+    name: "Pond (\u0E28\u0E23\u0E31\u0E13\u0E0D\u0E4C \u0E2A\u0E34\u0E17\u0E18\u0E34\u0E21\u0E07\u0E04\u0E25)",
+    role: "BUDTENDER",
     kind: "part",
     relief: true,
     locs: ["ptk"],
@@ -736,39 +814,128 @@ var SHIFT_STAFF = [
     off: [],
     target: 9,
     max: 14,
-    only: { A2: [3], C2: [1] }
+    only: { A2: [3], C2: [1] },
+    payType: "daily",
+    dailyRate: 600
   },
-  /* four at Phatthanakarn and four at Sathorn — two limits, not one of eight */
   {
-    id: "bank",
-    name: "Bank",
-    kind: "part",
-    relief: true,
-    locs: ["ptk", "sat"],
-    slots: ["B2", "PEAK"],
+    id: "dylan",
+    name: "Dylan",
+    role: "BUDTENDER",
+    kind: "full",
+    locs: ["ptk"],
+    slots: ["A2"],
+    off: [3, 0],
+    payType: "daily",
+    dailyRate: 600
+  },
+  {
+    id: "gus",
+    name: "Gus",
+    role: "BUDTENDER",
+    kind: "full",
+    locs: ["ptk"],
+    slots: [],
     off: [],
-    target: 8,
-    max: 8,
-    locMax: { ptk: 4, sat: 4 },
-    only: { B2: [4], PEAK: [1] }
+    payType: "daily",
+    dailyRate: 550
+  },
+  {
+    id: "jack",
+    name: "Jack",
+    role: "BARTENDER",
+    kind: "full",
+    locs: ["bar"],
+    slots: ["MONTHU", "FSNIGHT"],
+    off: [1],
+    payType: "monthly",
+    salary: 18e3
   },
   {
     id: "honey",
-    name: "Honey",
+    name: "Honey (\u0E21\u0E14)",
+    role: "BARTENDER",
     kind: "part",
     locs: ["ptk", "bar"],
     slots: ["MONTHU", "FSDAY", "B1"],
     off: [],
     target: 22,
     max: 24,
-    only: { B1: [3] }
+    only: { B1: [3] },
+    payType: "daily",
+    dailyRate: 800
   },
-  /* CEOs. They come in once a week to look over the shop — that is recorded on
-   * the sheet and kept out of the shift count, so it can never be mistaken for
-   * cover the shop can lean on. */
+  /* On the wage sheet, off the shift roster by design — kitchen, riders and
+   * back office do not stand counter shifts, but they are payroll and the
+   * expense line is wrong without them. */
+  { id: "yin", name: "Yin (\u0E2B\u0E22\u0E34\u0E19)", role: "BACKED OPERATIONS", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "monthly", salary: 22500 },
+  { id: "boom", name: "Boom", role: "KITCHEN", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "monthly", salary: 16e3 },
+  { id: "soe", name: "Soe", role: "KITCHEN", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 500 },
+  { id: "zaw", name: "Zaw", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 600 },
+  { id: "martin", name: "Martin (\u0E21\u0E32\u0E23\u0E4C\u0E15\u0E34\u0E19)", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 700 },
+  /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
+  {
+    id: "raizo",
+    name: "Raizo",
+    role: "BUDTENDER",
+    kind: "full",
+    locs: ["sat"],
+    slots: ["EARLY"],
+    off: [1],
+    payType: "monthly",
+    salary: 17e3
+  },
+  {
+    id: "ploy",
+    name: "Ploy (\u0E1E\u0E25\u0E2D\u0E22)",
+    role: "BUDTENDER",
+    kind: "full",
+    locs: ["sat"],
+    slots: ["PEAK"],
+    off: [1],
+    duty: { dow: 6, label: "MEDIA/CRM" },
+    payType: "monthly",
+    salary: 18e3
+  },
+  {
+    id: "meng",
+    name: "Meng (\u0E40\u0E21\u0E49\u0E07)",
+    role: "BUDTENDER",
+    kind: "full",
+    locs: ["sat"],
+    slots: ["DAY"],
+    off: [2],
+    payType: "monthly",
+    salary: 19e3
+  },
+  {
+    id: "pok",
+    name: "Pok",
+    role: "BUDTENDER",
+    kind: "full",
+    locs: ["sat"],
+    slots: ["NIGHT"],
+    off: [3, 5],
+    payType: "daily",
+    dailyRate: 650
+  },
+  {
+    id: "mel",
+    name: "Mel",
+    role: "BUDTENDER",
+    kind: "full",
+    relief: true,
+    locs: ["sat"],
+    slots: ["EARLY", "DAY", "NIGHT", "PEAK"],
+    off: [],
+    payType: "monthly",
+    salary: 18e3
+  },
+  /* ── CEOs. Once a week to look over the shop; no slot, and not payroll. ── */
   {
     id: "bryan",
     name: "Bryan (CEO)",
+    role: "CEO",
     kind: "ceo",
     locs: ["ptk"],
     slots: [],
@@ -780,6 +947,7 @@ var SHIFT_STAFF = [
   {
     id: "keneth",
     name: "Keneth (CEO)",
+    role: "CEO",
     kind: "ceo",
     locs: ["ptk"],
     slots: [],
@@ -787,23 +955,7 @@ var SHIFT_STAFF = [
     target: 0,
     max: 0,
     visit: { loc: "ptk", dow: 5, window: "17:00-21:00", label: "CEO \u0E15\u0E23\u0E27\u0E08\u0E07\u0E32\u0E19" }
-  },
-  /* Sathorn */
-  { id: "raizo", name: "Raizo", kind: "full", locs: ["sat"], slots: ["EARLY"], off: [1], salary: 24e3 },
-  { id: "meng", name: "Meng", kind: "full", locs: ["sat"], slots: ["DAY"], off: [2], salary: 24e3 },
-  { id: "pok", name: "Pok", kind: "full", locs: ["sat"], slots: ["NIGHT"], off: [3, 5], salary: 24e3 },
-  {
-    id: "ploy",
-    name: "Ploy",
-    kind: "full",
-    locs: ["sat"],
-    slots: ["PEAK"],
-    off: [1],
-    duty: { dow: 6, label: "MEDIA/CRM", salary: 26e3 }
-  },
-  { id: "mel", name: "Mel", kind: "full", relief: true, locs: ["sat"], slots: ["EARLY", "DAY", "NIGHT", "PEAK"], off: [], salary: 25e3 },
-  /* 224 Bar */
-  { id: "jack", name: "Jack", kind: "full", locs: ["bar"], slots: ["MONTHU", "FSNIGHT"], off: [1], salary: 27e3 }
+  }
 ];
 function asstNorm(s) {
   return String(s || "").toLowerCase().replace(/\([^)]*\)/g, " ").replace(/\b\d+(\.\d+)?\s*(g|gram|grams|mg|ml|pc|pcs|pack)\b/g, " ").replace(/[^a-z0-9฀-๿]+/g, " ").trim();
@@ -10749,7 +10901,26 @@ function GreenPOS() {
       return u.name + " " + u.shifts;
     }).join(" \xB7 "), " \u2014 \u0E1B\u0E01\u0E15\u0E34\u0E40\u0E1E\u0E23\u0E32\u0E30\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E2A\u0E2D\u0E07\u0E27\u0E31\u0E19/\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E43\u0E2B\u0E49\u0E41\u0E01\u0E49\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14\u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19"), v.over.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, fontSize: 10.5, color: C.red } }, /* @__PURE__ */ React.createElement("b", null, "\u0E40\u0E01\u0E34\u0E19\u0E40\u0E1E\u0E14\u0E32\u0E19:"), " ", v.over.map(function(u) {
       return u.name + " " + u.shifts + "/" + u.max;
-    }).join(" \xB7 ")), isDraft && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontSize: 11, color: C.gold, fontWeight: 700 } }, "\u24D8 \u0E19\u0E35\u0E48\u0E04\u0E37\u0E2D", /* @__PURE__ */ React.createElement("b", null, "\u0E23\u0E48\u0E32\u0E07"), " \u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u0E15\u0E23\u0E27\u0E08\u0E22\u0E2D\u0E14\u0E01\u0E30\u0E02\u0E49\u0E32\u0E07\u0E25\u0E48\u0E32\u0E07\u0E43\u0E2B\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E01\u0E48\u0E2D\u0E19\u0E01\u0E14 \u2705 \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34")), locList.map(function(loc) {
+    }).join(" \xB7 ")), isDraft && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontSize: 11, color: C.gold, fontWeight: 700 } }, "\u24D8 \u0E19\u0E35\u0E48\u0E04\u0E37\u0E2D", /* @__PURE__ */ React.createElement("b", null, "\u0E23\u0E48\u0E32\u0E07"), " \u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u0E15\u0E23\u0E27\u0E08\u0E22\u0E2D\u0E14\u0E01\u0E30\u0E02\u0E49\u0E32\u0E07\u0E25\u0E48\u0E32\u0E07\u0E43\u0E2B\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E01\u0E48\u0E2D\u0E19\u0E01\u0E14 \u2705 \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34")), (function() {
+      var pr = rosterPayroll(shown, shiftStaff, EXPENSE_TARGETS.byCategory && EXPENSE_TARGETS.byCategory.wages && EXPENSE_TARGETS.byCategory.wages.monthly || 0);
+      var over = pr.diff != null && pr.diff > 0;
+      return /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800 } }, "\u{1F4B0} \u0E04\u0E48\u0E32\u0E41\u0E23\u0E07\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49 \xB7 Payroll"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E07\u0E1A\u0E2B\u0E21\u0E27\u0E14 Wages \u0E43\u0E19\u0E41\u0E17\u0E47\u0E1A\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 7 } }, [
+        { n: "\u0E10\u0E32\u0E19\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 + \u0E23\u0E32\u0E22\u0E27\u0E31\u0E19", v: "\u0E3F" + pr.base.toLocaleString(), c: C.text },
+        { n: "OT (" + pr.otHours + " \u0E0A\u0E21. \xD71.5)", v: "\u0E3F" + pr.ot.toLocaleString(), c: pr.ot ? C.gold : C.muted },
+        { n: "\u0E23\u0E27\u0E21\u0E04\u0E48\u0E32\u0E41\u0E23\u0E07", v: "\u0E3F" + pr.total.toLocaleString(), c: C.green },
+        {
+          n: pr.budget ? over ? "\u0E40\u0E01\u0E34\u0E19\u0E07\u0E1A" : "\u0E15\u0E48\u0E33\u0E01\u0E27\u0E48\u0E32\u0E07\u0E1A" : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E15\u0E31\u0E49\u0E07\u0E07\u0E1A",
+          v: pr.budget ? (over ? "+" : "") + "\u0E3F" + Math.abs(pr.diff).toLocaleString() : "\u2014",
+          c: pr.budget ? over ? C.red : C.green : C.muted
+        }
+      ].map(function(k, i) {
+        return /* @__PURE__ */ React.createElement("div", { key: i, style: __spreadProps(__spreadValues({}, gs.card2), { textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: __spreadValues({ fontSize: 17, fontWeight: 800, color: k.c }, gs.num) }, k.v), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 2 } }, k.n));
+      })), pr.budget ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 7, fontSize: 10, color: C.muted } }, "\u0E07\u0E1A Wages \u0E17\u0E35\u0E48\u0E15\u0E31\u0E49\u0E07\u0E44\u0E27\u0E49 \u0E3F", pr.budget.toLocaleString(), "/\u0E40\u0E14\u0E37\u0E2D\u0E19 \xB7 \u0E41\u0E01\u0E49\u0E17\u0E35\u0E48 \u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19 \u2192 \u{1F4B8} \u0E04\u0E48\u0E32\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22 \u2192 \u270F \u0E41\u0E01\u0E49\u0E07\u0E1A") : null, pr.noShift.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 9, fontSize: 10.5, color: C.gold, lineHeight: 1.7 } }, /* @__PURE__ */ React.createElement("b", null, "\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \u0E41\u0E15\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E23\u0E40\u0E25\u0E22:"), pr.noShift.map(function(x, i) {
+        return /* @__PURE__ */ React.createElement("div", { key: i }, "\xB7 ", x.name, " ", x.role ? "(" + x.role + ")" : "", " \u2014 ", x.why);
+      })), pr.noPay.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 7, fontSize: 10.5, color: C.red, lineHeight: 1.7 } }, /* @__PURE__ */ React.createElement("b", null, "\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E23\u0E41\u0E15\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32\u0E41\u0E23\u0E07\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A:"), " ", pr.noPay.map(function(x) {
+        return x.name;
+      }).join(" \xB7 "), " \u2014 \u0E43\u0E2A\u0E48\u0E40\u0E07\u0E34\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19/\u0E04\u0E48\u0E32\u0E41\u0E23\u0E07\u0E23\u0E32\u0E22\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E1B\u0E38\u0E48\u0E21 \u{1F464} \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E04\u0E19"));
+    })(), locList.map(function(loc) {
       return /* @__PURE__ */ React.createElement("div", { key: loc.id, style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800 } }, loc.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, letterSpacing: "0.04em" } }, loc.note)), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, weeks.map(function(wk, wi) {
         return /* @__PURE__ */ React.createElement("table", { key: wi, style: { width: "100%", minWidth: 640, borderCollapse: "collapse", marginBottom: 9, fontSize: 10.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { textAlign: "left", padding: "4px 6px", color: C.muted, fontSize: 9, fontWeight: 700, width: 118 } }, "SHIFT / POSITION"), wk.map(function(d) {
           return /* @__PURE__ */ React.createElement("th", { key: d.date, style: { padding: "4px 3px", color: C.muted, fontSize: 9, fontWeight: 700 } }, SHIFT_DAY_NAMES[d.dow], /* @__PURE__ */ React.createElement("div", { style: { color: C.text, fontSize: 11, fontWeight: 800 } }, d.day));
@@ -10795,7 +10966,7 @@ function GreenPOS() {
     }))), /* @__PURE__ */ React.createElement("tbody", null, shown.summary.map(function(s) {
       var p = staffById[s.id];
       var band = s.kind === "full" && (s.shifts < 24 || s.shifts > s.max);
-      return /* @__PURE__ */ React.createElement("tr", { key: s.id, style: { borderTop: "1px solid " + C.borderSoft } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontWeight: 700, color: inkFor(p) } }, s.name), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", color: C.muted, fontSize: 9.5 } }, s.locs.join(", ")), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5 } }, s.assignment), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5, color: C.muted } }, s.kind === "full" ? "\u0E1B\u0E23\u0E30\u0E08\u0E33" : s.kind === "part" ? "\u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C" : "\u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23", p && p.relief ? " \xB7 relief" : ""), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 800, color: band ? C.gold : C.text } }, s.kind === "ceo" ? /* @__PURE__ */ React.createElement("span", { style: { color: C.gold, fontSize: 9.5 } }, "\u0E15\u0E23\u0E27\u0E08 ", s.visits.length, "\xD7") : s.shifts), /* @__PURE__ */ React.createElement("td", { style: __spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num) }, s.kind === "ceo" ? s.visitHours + "h*" : s.hours + "h"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.hourly ? C.text : C.muted }) }, s.pay.hourly ? s.pay.hourly.toFixed(2) : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otHours ? C.gold : C.muted }) }, s.pay.otHours || "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otPay ? C.gold : C.muted }) }, s.pay.otPay ? "\u0E3F" + Math.round(s.pay.otPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { fontWeight: 700 }) }, s.pay.totalPay ? "\u0E3F" + Math.round(s.pay.totalPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.leave.length ? C.gold : C.muted } }, s.leave.length), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.duties.length ? "#c084fc" : C.muted, fontSize: 9.5 } }, s.duties.length ? s.duties[0].label + " \xD7" + s.duties.length : "\u2014"));
+      return /* @__PURE__ */ React.createElement("tr", { key: s.id, style: { borderTop: "1px solid " + C.borderSoft } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontWeight: 700, color: inkFor(p) } }, s.name), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", color: C.muted, fontSize: 9.5 } }, s.locs.join(", ")), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5 } }, s.assignment), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", fontSize: 9.5, color: C.muted } }, s.kind === "full" ? "\u0E1B\u0E23\u0E30\u0E08\u0E33" : s.kind === "part" ? "\u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C" : "\u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23", p && p.relief ? " \xB7 relief" : ""), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 800, color: band ? C.gold : C.text } }, s.kind === "ceo" ? /* @__PURE__ */ React.createElement("span", { style: { color: C.gold, fontSize: 9.5 } }, "\u0E15\u0E23\u0E27\u0E08 ", s.visits.length, "\xD7") : s.shifts), /* @__PURE__ */ React.createElement("td", { style: __spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num) }, s.kind === "ceo" ? s.visitHours + "h*" : s.hours + "h"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.hourly ? C.text : C.muted }) }, s.pay.hourly ? s.pay.hourly.toFixed(2) : "\u2014", /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted, fontWeight: 500 } }, s.pay.payType === "daily" ? "\u0E27\u0E31\u0E19\u0E25\u0E30 " + s.pay.dailyRate : s.pay.salary ? "\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E25\u0E30 " + s.pay.salary / 1e3 + "k" : "")), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otHours ? C.gold : C.muted }) }, s.pay.otHours || "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { color: s.pay.otPay ? C.gold : C.muted }) }, s.pay.otPay ? "\u0E3F" + Math.round(s.pay.otPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: __spreadProps(__spreadValues({ padding: "5px 6px", textAlign: "right" }, gs.num), { fontWeight: 700 }) }, s.pay.totalPay ? "\u0E3F" + Math.round(s.pay.totalPay).toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.leave.length ? C.gold : C.muted } }, s.leave.length), /* @__PURE__ */ React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", color: s.duties.length ? "#c084fc" : C.muted, fontSize: 9.5 } }, s.duties.length ? s.duties[0].label + " \xD7" + s.duties.length : "\u2014"));
     })))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, fontSize: 9.5, color: C.muted, lineHeight: 1.6 } }, "\u0E01\u0E30\u0E02\u0E49\u0E32\u0E21\u0E04\u0E37\u0E19\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19 1 \u0E01\u0E30\u0E02\u0E2D\u0E07", /* @__PURE__ */ React.createElement("b", null, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21"), " \xB7 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29\u0E17\u0E35\u0E48\u0E17\u0E33\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E01\u0E30\u0E1B\u0E01\u0E15\u0E34\u0E16\u0E39\u0E01\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E27\u0E49 \u0E41\u0E15\u0E48", /* @__PURE__ */ React.createElement("b", null, "\u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E30\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E41\u0E25\u0E30\u0E44\u0E21\u0E48\u0E1A\u0E27\u0E01\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07\u0E0B\u0E49\u0E33"), " \xB7 ", /* @__PURE__ */ React.createElement("b", { style: { color: C.gold } }, "CEO \u0E40\u0E02\u0E49\u0E32\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E31\u0E1B\u0E14\u0E32\u0E2B\u0E4C\u0E25\u0E30\u0E04\u0E23\u0E31\u0E49\u0E07"), " \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E22\u0E01 \u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E30\u0E02\u0E2D\u0E07\u0E23\u0E49\u0E32\u0E19 (*\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07\u0E15\u0E23\u0E27\u0E08\u0E07\u0E32\u0E19)", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 10 } }, "\u0E2A\u0E35: ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "\u25A0 \u0E1B\u0E23\u0E30\u0E08\u0E33"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.blue } }, "\u25A0 \u0E1E\u0E32\u0E23\u0E4C\u0E17\u0E44\u0E17\u0E21\u0E4C/relief"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.gold } }, "\u25A0 \u0E1C\u0E39\u0E49\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23/CEO"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "#c084fc" } }, "\u25A0 \u0E07\u0E32\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29"))))), shiftAi && shown && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }, onClick: function(e) {
       if (e.target === e.currentTarget) setShiftAi(null);
     } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { width: "100%", maxWidth: 620, maxHeight: "88vh", overflowY: "auto" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 800 } }, "\u{1F916} \u0E16\u0E32\u0E21\u0E40\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30"), /* @__PURE__ */ React.createElement("button", { onClick: function() {

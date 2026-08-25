@@ -331,17 +331,35 @@ function rosterVisits(days, staff) {
  *
  * Overtime is every hour past that normal month, at 1.5x. Hours inside the
  * normal month are already covered by the salary and are not paid twice. */
-function rosterPay(person, actualHours, slotHours) {
-  var salary = +(person.salary || 0);
+function rosterPay(person, actualHours, slotHours, shifts) {
   var target = person.target || 26;
   var normal = Math.round(target * (slotHours || 0) * 100) / 100;
-  var hourly = (salary > 0 && normal > 0) ? Math.round((salary / normal) * 100) / 100 : 0;
+  var daily = +(person.dailyRate || 0);
+  var isDaily = person.payType === 'daily' || (!person.salary && daily > 0);
+
+  /* The shop runs two kinds of contract and they are not the same sum.
+   * A monthly person is owed their salary for the month; a วันละ person is
+   * owed the days they actually stood. Paying a daily person a flat month
+   * overpays a short month and underpays a long one, and running a monthly
+   * person through a day rate invents a wage nobody agreed to. */
+  /* Kitchen, riders and back office are on payroll but stand no counter shift,
+   * so their roster count is zero — and a day-rate rider costed at zero days
+   * takes ~50k a month straight out of the wage line without anyone noticing.
+   * They are budgeted at the days they are contracted for instead. */
+  var days = shifts || (person.payrollOnly ? target : 0);
+  var base = isDaily ? Math.round(daily * days * 100) / 100 : +(person.salary || 0);
+  var hourly = isDaily
+    ? (slotHours > 0 ? Math.round((daily / slotHours) * 100) / 100 : 0)
+    : (base > 0 && normal > 0 ? Math.round((base / normal) * 100) / 100 : 0);
+
   var otH = Math.max(0, Math.round((actualHours - normal) * 100) / 100);
   var otPay = Math.round(otH * hourly * 1.5 * 100) / 100;
   return {
-    salary: salary, normalHours: normal, hourly: hourly,
+    payType: isDaily ? 'daily' : 'monthly', paidDays: days,
+    salary: isDaily ? 0 : base, dailyRate: isDaily ? daily : 0,
+    basePay: base, normalHours: normal, hourly: hourly,
     otHours: otH, otRate: Math.round(hourly * 1.5 * 100) / 100,
-    otPay: otPay, totalPay: Math.round((salary + otPay) * 100) / 100,
+    otPay: otPay, totalPay: Math.round((base + otPay) * 100) / 100,
   };
 }
 
@@ -500,7 +518,7 @@ function buildRoster(locations, staff, year, month1) {
       visits: (visitsBy[p.id] || []).map(function (v) { return v.date; }),
       visitHours: Math.round((visitsBy[p.id] || []).reduce(function (a, v) {
         return a + (v.window ? shiftHours(v.window) : 0); }, 0) * 10) / 10,
-      pay: rosterPay(p, Math.round((hours[p.id] || 0) * 10) / 10, slotLenOf(p)),
+      pay: rosterPay(p, Math.round((hours[p.id] || 0) * 10) / 10, slotLenOf(p), count[p.id] || 0),
     };
   });
 
@@ -531,6 +549,40 @@ function buildRoster(locations, staff, year, month1) {
     },
   };
 }
+/* The wage bill the roster implies, and where it disagrees with the shop.
+ *
+ * Two lists that are supposed to describe the same people drift apart quietly:
+ * somebody leaves and stays on the roster, somebody is hired and never gets a
+ * shift. Neither shows up as an error anywhere — the roster just quietly stops
+ * matching the wage sheet, and the wage line in Finance stops meaning anything.
+ * So both directions are named. */
+function rosterPayroll(res, staff, wagesBudget) {
+  var byLoc = {}, base = 0, ot = 0, otH = 0;
+  var noShift = [], noPay = [];
+  (res.summary || []).forEach(function (s) {
+    if (s.kind === 'ceo') return;                 // owners, not payroll
+    base += s.pay.basePay; ot += s.pay.otPay; otH += s.pay.otHours;
+    (s.locs.length ? s.locs : ['—']).forEach(function (l) {
+      byLoc[l] = (byLoc[l] || 0) + (s.pay.totalPay / Math.max(1, s.locs.length));
+    });
+    var p = (staff || []).filter(function (x) { return x.id === s.id; })[0] || {};
+    if (s.shifts === 0 && !p.payrollOnly) noShift.push({ name: s.name, role: p.role || '', why: (p.slots || []).length ? 'ไม่ได้เวรเลยเดือนนี้' : 'ยังไม่ได้กำหนดกะที่ทำได้' });
+    /* Beer and Gus have a day rate on file and no shifts yet — that is a
+     * roster gap, already reported above, not a missing wage. Reading it
+     * off basePay conflates the two and sends the manager to the wrong fix. */
+    if (!p.salary && !p.dailyRate) noPay.push({ name: s.name, role: p.role || '' });
+  });
+  Object.keys(byLoc).forEach(function (k) { byLoc[k] = Math.round(byLoc[k]); });
+  var total = Math.round(base + ot);
+  return {
+    base: Math.round(base), ot: Math.round(ot), otHours: Math.round(otH * 10) / 10,
+    total: total, byLoc: byLoc,
+    budget: wagesBudget || 0,
+    diff: wagesBudget ? total - wagesBudget : null,
+    noShift: noShift, noPay: noPay,
+  };
+}
+
 // ——— end of the working shifts block —————————————————————————————————————
 
 // ——— roster assistant block ——————————————————————————————————————————————
@@ -647,8 +699,15 @@ function rosterAsk(question, res, staff, locations) {
       '· ' + hit.shifts + ' กะ · ' + hit.hours + ' ชม. · เป้า ' + hit.target + ' สูงสุด ' + hit.max,
       '· สาขา ' + (hit.locs.map(function (l) { return locName[l] || l; }).join(', ') || '—') + ' · กะ ' + (hit.slots.join(', ') || '—'),
       '· วันหยุดประจำ ' + ((p2.off || []).length ? (p2.off || []).map(function (d) { return SHIFT_DAY_NAMES[d]; }).join('/') : 'ไม่มี'),
-      hit.pay.salary ? ('· เงินเดือน ' + baht(hit.pay.salary) + ' → ' + hit.pay.hourly + '/ชม. · OT ' + hit.pay.otHours + ' ชม. = ' + baht(hit.pay.otPay) + ' · รวม ' + baht(hit.pay.totalPay))
-                     : '· ยังไม่ได้ใส่เงินเดือน — เติมในหน้าพนักงานแล้วค่าแรง/OT จะคำนวณให้',
+      /* A day-rate person has a wage; it is just not a monthly salary. Reading
+       * only `salary` told half the shop they had no wage on file. */
+      (hit.pay.salary || hit.pay.dailyRate)
+        ? ('· ' + (hit.pay.payType === 'daily'
+             ? ('วันละ ' + baht(hit.pay.dailyRate) + ' × ' + hit.shifts + ' วัน = ' + baht(hit.pay.basePay))
+             : ('เงินเดือน ' + baht(hit.pay.salary)))
+           + ' → ' + hit.pay.hourly + '/ชม. · OT ' + hit.pay.otHours + ' ชม. = ' + baht(hit.pay.otPay)
+           + ' · รวม ' + baht(hit.pay.totalPay))
+        : '· ยังไม่ได้ใส่เงินเดือน — เติมในหน้าพนักงานแล้วค่าแรง/OT จะคำนวณให้',
       hit.duties.length ? ('· งานพิเศษ ' + hit.duties[0].label + ' ×' + hit.duties.length + ' (ไม่นับเป็นกะเพิ่ม)') : '· ไม่มีงานพิเศษ',
       hit.leave.length ? ('· ลา ' + hit.leave.join(', ')) : '· ไม่มีวันลาเดือนนี้',
     ] };
@@ -680,38 +739,58 @@ var SHIFT_LOCATIONS = [
 
 /* off/duty weekdays: 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat */
 var SHIFT_STAFF = [
-  /* Phatthanakarn */
-  { id: 'amoe',  name: 'Amoe',       kind: 'full', locs: ['ptk'], slots: ['A1'],       off: [6] , salary: 26000 },
-  { id: 'dylan', name: 'Dylan',      kind: 'full', locs: ['ptk'], slots: ['A2'],       off: [3, 0] , salary: 24000 },
-  { id: 'rena',  name: 'Rena',       kind: 'full', locs: ['ptk'], slots: ['B1'],       off: [5],
-    duty: { dow: 3, label: 'MKT' , salary: 28000 } },
-  { id: 'alex',  name: 'Alex',       kind: 'full', locs: ['ptk'], slots: ['B2'],       off: [4] , salary: 26000 },
-  { id: 'palm',  name: 'Palm',       kind: 'full', locs: ['ptk'], slots: ['C1'],       off: [2] , salary: 26000 },
-  { id: 'mon',   name: 'Mon',        kind: 'full', locs: ['ptk'], slots: ['C2', 'STOCK'], off: [], max: 26 , salary: 27000 },
-  { id: 'steve', name: 'Steve',      kind: 'part', relief: true, locs: ['ptk'], slots: ['A1', 'A2', 'B1', 'C1'], off: [], target: 16, max: 20 },
-  { id: 'pond',  name: 'Pond',       kind: 'part', relief: true, locs: ['ptk'], slots: ['A2', 'C2'], off: [], target: 9, max: 14,
-    only: { A2: [3], C2: [1] } },
-  /* four at Phatthanakarn and four at Sathorn — two limits, not one of eight */
-  { id: 'bank',  name: 'Bank',       kind: 'part', relief: true, locs: ['ptk', 'sat'], slots: ['B2', 'PEAK'], off: [], target: 8, max: 8,
-    locMax: { ptk: 4, sat: 4 }, only: { B2: [4], PEAK: [1] } },
-  { id: 'honey', name: 'Honey',      kind: 'part', locs: ['ptk', 'bar'], slots: ['MONTHU', 'FSDAY', 'B1'], off: [], target: 22, max: 24,
-    only: { B1: [3] } },
-  /* CEOs. They come in once a week to look over the shop — that is recorded on
-   * the sheet and kept out of the shift count, so it can never be mistaken for
-   * cover the shop can lean on. */
-  { id: 'bryan', name: 'Bryan (CEO)', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,
-    visit: { loc: 'ptk', dow: 5, window: '21:00-02:00', label: 'CEO ตรวจงาน' } },
-  { id: 'keneth', name: 'Keneth (CEO)', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,
-    visit: { loc: 'ptk', dow: 5, window: '17:00-21:00', label: 'CEO ตรวจงาน' } },
-  /* Sathorn */
-  { id: 'raizo', name: 'Raizo', kind: 'full', locs: ['sat'], slots: ['EARLY'], off: [1] , salary: 24000 },
-  { id: 'meng',  name: 'Meng',  kind: 'full', locs: ['sat'], slots: ['DAY'],   off: [2] , salary: 24000 },
-  { id: 'pok',   name: 'Pok',   kind: 'full', locs: ['sat'], slots: ['NIGHT'], off: [3, 5] , salary: 24000 },
-  { id: 'ploy',  name: 'Ploy',  kind: 'full', locs: ['sat'], slots: ['PEAK'],  off: [1],
-    duty: { dow: 6, label: 'MEDIA/CRM' , salary: 26000 } },
-  { id: 'mel',   name: 'Mel',   kind: 'full', relief: true, locs: ['sat'], slots: ['EARLY', 'DAY', 'NIGHT', 'PEAK'], off: [] , salary: 25000 },
-  /* 224 Bar */
-  { id: 'jack',  name: 'Jack',  kind: 'full', locs: ['bar'], slots: ['MONTHU', 'FSNIGHT'], off: [1] , salary: 27000 },
+  /* Wages are the shop's own sheet (พัฒนาการ / สาทร). Two contract types live
+   * side by side: a monthly salary, and a วันละ day rate paid per shift stood.
+   * `slots` is what each person is cleared to work — it is NOT on the wage
+   * sheet, so anyone new here starts with none and shows up in the report as
+   * on payroll but not on the roster, rather than being guessed onto a shift. */
+
+  /* ── DANK PHATTHANAKARN ──────────────────────────────────────────────── */
+  { id: 'alex',  name: 'Alex',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['B2'], off: [4],
+    payType: 'monthly', salary: 19000 },
+  { id: 'mon',   name: 'Mon (ม่อน อาชา)', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['C2', 'STOCK'], off: [], max: 26,
+    payType: 'monthly', salary: 18000 },
+  { id: 'amoe',  name: 'Amoe',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A1'], off: [6],
+    payType: 'daily', dailyRate: 600 },
+  { id: 'beer',  name: 'Beer',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: [], off: [],
+    payType: 'daily', dailyRate: 650 },
+  { id: 'pond',  name: 'Pond (ศรัณญ์ สิทธิมงคล)', role: 'BUDTENDER', kind: 'part', relief: true, locs: ['ptk'], slots: ['A2', 'C2'], off: [], target: 9, max: 14,
+    only: { A2: [3], C2: [1] }, payType: 'daily', dailyRate: 600 },
+  { id: 'dylan', name: 'Dylan', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A2'], off: [3, 0],
+    payType: 'daily', dailyRate: 600 },
+  { id: 'gus',   name: 'Gus',   role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: [], off: [],
+    payType: 'daily', dailyRate: 550 },
+  { id: 'jack',  name: 'Jack',  role: 'BARTENDER', kind: 'full', locs: ['bar'], slots: ['MONTHU', 'FSNIGHT'], off: [1],
+    payType: 'monthly', salary: 18000 },
+  { id: 'honey', name: 'Honey (มด)', role: 'BARTENDER', kind: 'part', locs: ['ptk', 'bar'], slots: ['MONTHU', 'FSDAY', 'B1'], off: [], target: 22, max: 24,
+    only: { B1: [3] }, payType: 'daily', dailyRate: 800 },
+
+  /* On the wage sheet, off the shift roster by design — kitchen, riders and
+   * back office do not stand counter shifts, but they are payroll and the
+   * expense line is wrong without them. */
+  { id: 'yin',    name: 'Yin (หยิน)',     role: 'BACKED OPERATIONS', kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'monthly', salary: 22500 },
+  { id: 'boom',   name: 'Boom',            role: 'KITCHEN', kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'monthly', salary: 16000 },
+  { id: 'soe',    name: 'Soe',             role: 'KITCHEN', kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 500 },
+  { id: 'zaw',    name: 'Zaw',             role: 'RIDER',   kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 600 },
+  { id: 'martin', name: 'Martin (มาร์ติน)', role: 'RIDER',  kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 700 },
+
+  /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
+  { id: 'raizo', name: 'Raizo', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['EARLY'], off: [1],
+    payType: 'monthly', salary: 17000 },
+  { id: 'ploy',  name: 'Ploy (พลอย)', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['PEAK'], off: [1],
+    duty: { dow: 6, label: 'MEDIA/CRM' }, payType: 'monthly', salary: 18000 },
+  { id: 'meng',  name: 'Meng (เม้ง)', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['DAY'], off: [2],
+    payType: 'monthly', salary: 19000 },
+  { id: 'pok',   name: 'Pok',   role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['NIGHT'], off: [3, 5],
+    payType: 'daily', dailyRate: 650 },
+  { id: 'mel',   name: 'Mel',   role: 'BUDTENDER', kind: 'full', relief: true, locs: ['sat'], slots: ['EARLY', 'DAY', 'NIGHT', 'PEAK'], off: [],
+    payType: 'monthly', salary: 18000 },
+
+  /* ── CEOs. Once a week to look over the shop; no slot, and not payroll. ── */
+  { id: 'bryan', name: 'Bryan (CEO)', role: 'CEO', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,
+    visit: { loc: 'ptk', dow: 5, window: '21:00-02:00', label: 'CEO \u0e15\u0e23\u0e27\u0e08\u0e07\u0e32\u0e19' } },
+  { id: 'keneth', name: 'Keneth (CEO)', role: 'CEO', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,
+    visit: { loc: 'ptk', dow: 5, window: '17:00-21:00', label: 'CEO \u0e15\u0e23\u0e27\u0e08\u0e07\u0e32\u0e19' } },
 ];
 
 
@@ -8094,6 +8173,42 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               </div>}
             </div>
 
+            {/* ── payroll, and where it disagrees with the shop ── */}
+            {(function(){
+              var pr=rosterPayroll(shown,shiftStaff,(EXPENSE_TARGETS.byCategory&&EXPENSE_TARGETS.byCategory.wages&&EXPENSE_TARGETS.byCategory.wages.monthly)||0);
+              var over=pr.diff!=null&&pr.diff>0;
+              return <div style={{...gs.card,marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}>
+                  <div style={{fontSize:12.5,fontWeight:800}}>💰 ค่าแรงเดือนนี้ · Payroll</div>
+                  <div style={{fontSize:10,color:C.muted}}>ผูกกับงบหมวด Wages ในแท็บการเงิน</div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:7}}>
+                  {[
+                    {n:"ฐานเงินเดือน + รายวัน",v:"฿"+pr.base.toLocaleString(),c:C.text},
+                    {n:"OT ("+pr.otHours+" ชม. ×1.5)",v:"฿"+pr.ot.toLocaleString(),c:pr.ot?C.gold:C.muted},
+                    {n:"รวมค่าแรง",v:"฿"+pr.total.toLocaleString(),c:C.green},
+                    {n:pr.budget?(over?"เกินงบ":"ต่ำกว่างบ"):"ยังไม่ได้ตั้งงบ",
+                     v:pr.budget?((over?"+":"")+"฿"+Math.abs(pr.diff).toLocaleString()):"—",c:pr.budget?(over?C.red:C.green):C.muted},
+                  ].map(function(k,i){
+                    return <div key={i} style={{...gs.card2,textAlign:"center"}}>
+                      <div style={{fontSize:17,fontWeight:800,color:k.c,...gs.num}}>{k.v}</div>
+                      <div style={{fontSize:9.5,color:C.muted,marginTop:2}}>{k.n}</div>
+                    </div>;
+                  })}
+                </div>
+                {pr.budget?<div style={{marginTop:7,fontSize:10,color:C.muted}}>
+                  งบ Wages ที่ตั้งไว้ ฿{pr.budget.toLocaleString()}/เดือน · แก้ที่ การเงิน → 💸 ค่าใช้จ่าย → ✏ แก้งบ
+                </div>:null}
+                {pr.noShift.length>0&&<div style={{marginTop:9,fontSize:10.5,color:C.gold,lineHeight:1.7}}>
+                  <b>อยู่ในบัญชีเงินเดือน แต่ยังไม่ได้ขึ้นเวรเลย:</b>
+                  {pr.noShift.map(function(x,i){return <div key={i}>· {x.name} {x.role?("("+x.role+")"):""} — {x.why}</div>;})}
+                </div>}
+                {pr.noPay.length>0&&<div style={{marginTop:7,fontSize:10.5,color:C.red,lineHeight:1.7}}>
+                  <b>ขึ้นเวรแต่ยังไม่มีค่าแรงในระบบ:</b> {pr.noPay.map(function(x){return x.name;}).join(" · ")} — ใส่เงินเดือน/ค่าแรงรายวันที่ปุ่ม 👤 ตั้งค่าคน
+                </div>}
+              </div>;
+            })()}
+
             {/* ── the timetables, one block per shop ── */}
             {locList.map(function(loc){
               return <div key={loc.id} style={{...gs.card,marginBottom:12}}>
@@ -8190,7 +8305,12 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                           {s.kind==="ceo"?<span style={{color:C.gold,fontSize:9.5}}>ตรวจ {s.visits.length}×</span>:s.shifts}
                         </td>
                         <td style={{padding:"5px 6px",textAlign:"right",...gs.num}}>{s.kind==="ceo"?(s.visitHours+"h*"):(s.hours+"h")}</td>
-                        <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.hourly?C.text:C.muted}}>{s.pay.hourly?s.pay.hourly.toFixed(2):"—"}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.hourly?C.text:C.muted}}>
+                          {s.pay.hourly?s.pay.hourly.toFixed(2):"—"}
+                          <div style={{fontSize:8,color:C.muted,fontWeight:500}}>
+                            {s.pay.payType==="daily"?("วันละ "+s.pay.dailyRate):(s.pay.salary?("เดือนละ "+(s.pay.salary/1000)+"k"):"")}
+                          </div>
+                        </td>
                         <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.otHours?C.gold:C.muted}}>{s.pay.otHours||"—"}</td>
                         <td style={{padding:"5px 6px",textAlign:"right",...gs.num,color:s.pay.otPay?C.gold:C.muted}}>{s.pay.otPay?("฿"+Math.round(s.pay.otPay).toLocaleString()):"—"}</td>
                         <td style={{padding:"5px 6px",textAlign:"right",...gs.num,fontWeight:700}}>{s.pay.totalPay?("฿"+Math.round(s.pay.totalPay).toLocaleString()):"—"}</td>
