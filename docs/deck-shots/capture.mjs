@@ -14,7 +14,7 @@
  * a fixed element reports offsetParent === null, so an offsetParent filter
  * silently skips exactly the two things this script needs to click.
  */
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { chromium } from '../../pos/__tests__/_playwright.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

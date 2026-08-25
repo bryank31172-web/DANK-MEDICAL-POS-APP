@@ -37,6 +37,12 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   `?member=<id>` auto-selects customer after login; manual entry box in POS cart panel.
 - Every mutation calls addAudit(action, detail, user) → Audit Log (🪪 button).
 - `clinicworks/` = separate ClinicWorks Cannabis landing page served at /clinicworks.
+- Medical → Vital Signs stores confirmed temperature/weight/height/BMI per
+  selected CRM patient in `dank_vital_signs` and audits every save. The patient
+  scale has its own Web Serial connection (never reuse the per-gram inventory
+  scale). BLE/vendor-SDK readings enter through the local Node gateway in
+  `clinic-device-bridge/`, default `http://127.0.0.1:17891`; manual entry remains
+  the fallback.
 
 ## Customer website notes (dankbkk-site — NOT this repo)
 - Fixed index.html (cart NaN + Add-button crash for 6 tier-only/no-tier products; hardening in

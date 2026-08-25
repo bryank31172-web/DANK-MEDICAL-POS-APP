@@ -1953,6 +1953,20 @@ function GreenPOS() {
     } catch (e) {
     }
   }, [appointments]);
+  const [vitalSigns, setVitalSigns] = useState(function() {
+    try {
+      var v = JSON.parse(localStorage.getItem("dank_vital_signs") || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_vital_signs", JSON.stringify(vitalSigns.slice(0, 2e3)));
+    } catch (e) {
+    }
+  }, [vitalSigns]);
   const [showApptModal, setShowApptModal] = useState(false);
   const [newAppt, setNewAppt] = useState({ custName: "", date: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), time: "10:00", doctor: "", note: "", certLink: "" });
   const [medCards, setMedCards] = useState(function() {
@@ -2953,6 +2967,78 @@ function GreenPOS() {
     if (!issuesAll.length && (rep.totals.missG || 0) <= 0.05) lines.push("\u2022 \u0E27\u0E31\u0E19\u0E19\u0E35\u0E49\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22\u0E14\u0E35\u0E17\u0E38\u0E01\u0E01\u0E30 \u2014 \u0E23\u0E31\u0E01\u0E29\u0E32\u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19\u0E19\u0E35\u0E49\u0E44\u0E27\u0E49 \u0E0A\u0E21\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E23\u0E31\u0E01\u0E29\u0E32\u0E41\u0E23\u0E07\u0E08\u0E39\u0E07\u0E43\u0E08");
     return lines.join("\n");
   };
+  const VITAL_LIMITS = { temperatureC: [30, 45], weightKg: [2, 350], heightCm: [30, 250] };
+  function vitalRound(n, places) {
+    var p = Math.pow(10, places || 0);
+    return Math.round(n * p) / p;
+  }
+  function calcVitalBMI(weightKg, heightCm) {
+    var w = parseFloat(weightKg), h = parseFloat(heightCm);
+    if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
+    return vitalRound(w / Math.pow(h / 100, 2), 1);
+  }
+  function validateVitalValue(key, value) {
+    var n = parseFloat(value), lim = VITAL_LIMITS[key];
+    if (!lim || !isFinite(n)) return { ok: false, value: null };
+    return { ok: n >= lim[0] && n <= lim[1], value: n, min: lim[0], max: lim[1] };
+  }
+  function parsePatientScaleLine(buf) {
+    var s = String(buf || "").replace(/,/g, ".").replace(/\s+/g, " ");
+    var out = {}, m;
+    m = s.match(/(?:\b(?:wt|weight|w)\b\s*[:=]?\s*)?(-?\d+(?:\.\d+)?)\s*(kg|lb)\b/i);
+    if (m) {
+      var w = parseFloat(m[1]);
+      if (m[2].toLowerCase() === "lb") w *= 0.45359237;
+      out.weightKg = vitalRound(w, 2);
+    }
+    m = s.match(/(?:\b(?:ht|height|h)\b\s*[:=]?\s*)?(-?\d+(?:\.\d+)?)\s*(cm|m|in|inch|inches)\b/i);
+    if (m) {
+      var h = parseFloat(m[1]), u = m[2].toLowerCase();
+      if (u === "m") h *= 100;
+      else if (u === "in" || u === "inch" || u === "inches") h *= 2.54;
+      out.heightCm = vitalRound(h, 1);
+    }
+    return Object.keys(out).length ? out : null;
+  }
+  function normalizeVitalPayload(raw) {
+    var root = raw && typeof raw === "object" ? raw : {};
+    var d = (root.data && typeof root.data === "object" ? root.data : null) || (root.reading && typeof root.reading === "object" ? root.reading : null) || (root.vitals && typeof root.vitals === "object" ? root.vitals : null) || root;
+    function pick2() {
+      for (var i = 0; i < arguments.length; i++) {
+        var v = arguments[i];
+        if (v !== void 0 && v !== null && v !== "" && !isNaN(parseFloat(typeof v === "object" ? v.value : v))) return v;
+      }
+      return null;
+    }
+    function val(v) {
+      return v && typeof v === "object" ? parseFloat(v.value) : parseFloat(v);
+    }
+    function unit(v, fallback) {
+      return String(v && typeof v === "object" && v.unit || fallback || "").toLowerCase();
+    }
+    var tv = pick2(d.temperatureC, d.temperature_c, d.temperature), wv = pick2(d.weightKg, d.weight_kg, d.weight), hv = pick2(d.heightCm, d.height_cm, d.height), out = {};
+    if (tv !== null) {
+      var t2 = val(tv), tu = unit(tv, d.temperatureUnit || d.temperature_unit);
+      if (tu === "f" || tu === "\xB0f" || tu === "fahrenheit") t2 = (t2 - 32) * 5 / 9;
+      out.temperatureC = vitalRound(t2, 1);
+    }
+    if (wv !== null) {
+      var w = val(wv), wu = unit(wv, d.weightUnit || d.weight_unit);
+      if (wu === "g") w /= 1e3;
+      else if (wu === "lb" || wu === "lbs") w *= 0.45359237;
+      out.weightKg = vitalRound(w, 2);
+    }
+    if (hv !== null) {
+      var h = val(hv), hu = unit(hv, d.heightUnit || d.height_unit);
+      if (hu === "m") h *= 100;
+      else if (hu === "in" || hu === "inch" || hu === "inches") h *= 2.54;
+      out.heightCm = vitalRound(h, 1);
+    }
+    out.measuredAt = d.measuredAt || d.measured_at || root.measuredAt || root.measured_at || "";
+    out.deviceId = d.deviceId || d.device_id || root.deviceId || root.device_id || "";
+    out.source = d.source || root.source || "device-bridge";
+    return out;
+  }
   const SCALE_TO_G = { g: 1, kg: 1e3, lb: 453.59237, oz: 28.349523125 };
   function parseScaleLine(buf, pref) {
     var s = String(buf || "").replace(/\s+/g, " ");
@@ -2967,6 +3053,7 @@ function GreenPOS() {
     return { grams: Math.round(num * (SCALE_TO_G[use] || 1) * 1e4) / 1e4, unit: u || (pref !== "auto" ? pref + " (set)" : "g (assumed)") };
   }
   const scaleStopRef = useRef({ stop: false });
+  const patientScaleStopRef = useRef({ stop: false });
   const connectScale = async function() {
     if (!("serial" in navigator)) {
       notify("\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C\u0E19\u0E35\u0E49\u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2014 \u0E43\u0E0A\u0E49 Chrome/Edge \u0E1A\u0E19\u0E04\u0E2D\u0E21 \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01\u0E40\u0E2D\u0E07", "error");
@@ -3022,6 +3109,70 @@ function GreenPOS() {
     setScaleConnected(false);
     setScaleReading(0);
     notify("Scale disconnected");
+  };
+  const applyPatientScaleReading = function(parsed, line) {
+    if (!parsed) return;
+    setVitalForm(function(prev) {
+      return Object.assign({}, prev, parsed.weightKg !== void 0 ? { weightKg: String(parsed.weightKg) } : {}, parsed.heightCm !== void 0 ? { heightCm: String(parsed.heightCm) } : {});
+    });
+    setVitalSources(function(prev) {
+      return Object.assign({}, prev, { weightHeight: "patient-scale/web-serial" });
+    });
+    setPatientScaleLastLine(String(line || "").trim().slice(-120));
+  };
+  const connectPatientScale = async function() {
+    if (!("serial" in navigator)) {
+      notify("\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E23\u0E2D\u0E07\u0E23\u0E31\u0E1A Web Serial \u2014 \u0E43\u0E0A\u0E49 Chrome/Edge \u0E1A\u0E19\u0E04\u0E2D\u0E21 \u0E2B\u0E23\u0E37\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E04\u0E48\u0E32\u0E40\u0E2D\u0E07", "error");
+      return;
+    }
+    try {
+      const port = await navigator.serial.requestPort();
+      await port.open({ baudRate: parseInt(patientScaleBaud) || 9600 });
+      patientScaleStopRef.current = { stop: false, port };
+      const dec = new TextDecoder();
+      let buf = "";
+      const reader = port.readable.getReader();
+      patientScaleStopRef.current.reader = reader;
+      setPatientScaleConnected(true);
+      notify("\u2696 \u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E32\u0E0A\u0E31\u0E48\u0E07\u0E04\u0E19\u0E44\u0E02\u0E49\u0E41\u0E25\u0E49\u0E27 / Patient scale connected");
+      (async function() {
+        try {
+          while (!patientScaleStopRef.current.stop) {
+            const r = await reader.read();
+            if (r.done) break;
+            buf += dec.decode(r.value);
+            var lines = buf.split(/[\r\n]+/);
+            buf = lines.pop() || "";
+            lines.forEach(function(line) {
+              applyPatientScaleReading(parsePatientScaleLine(line), line);
+            });
+            var live = parsePatientScaleLine(buf);
+            if (live) applyPatientScaleReading(live, buf);
+            if (buf.length > 300) buf = buf.slice(-120);
+          }
+        } catch (_e) {
+        }
+      })();
+    } catch (e) {
+      if (e.name !== "NotFoundError") notify("\u0E15\u0E48\u0E2D\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E27\u0E31\u0E14\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: " + (e.message || "serial unavailable"), "error");
+    }
+  };
+  const disconnectPatientScale = function() {
+    try {
+      patientScaleStopRef.current.stop = true;
+      if (patientScaleStopRef.current.reader) patientScaleStopRef.current.reader.cancel().catch(function() {
+      });
+      if (patientScaleStopRef.current.port) setTimeout(function() {
+        try {
+          patientScaleStopRef.current.port.close();
+        } catch (_e) {
+        }
+      }, 200);
+    } catch (_e) {
+    }
+    setPatientScaleConnected(false);
+    setPatientScaleLastLine("");
+    notify("\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E32\u0E0A\u0E31\u0E48\u0E07\u0E04\u0E19\u0E44\u0E02\u0E49\u0E41\u0E25\u0E49\u0E27");
   };
   const weighToCart = function(p) {
     var g = Math.round((+scaleReading || 0) * 1e4) / 1e4;
@@ -3854,6 +4005,39 @@ function GreenPOS() {
     }
   }, [scaleUnit]);
   const [scaleSrcUnit, setScaleSrcUnit] = useState("");
+  const [vitalForm, setVitalForm] = useState({ temperatureC: "", weightKg: "", heightCm: "", temperatureSite: "forehead", note: "" });
+  const [vitalSources, setVitalSources] = useState({ temperature: "manual", weightHeight: "manual" });
+  const [patientScaleConnected, setPatientScaleConnected] = useState(false);
+  const [patientScaleBaud, setPatientScaleBaud] = useState(function() {
+    try {
+      return localStorage.getItem("dank_patient_scale_baud") || "9600";
+    } catch (e) {
+      return "9600";
+    }
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_patient_scale_baud", patientScaleBaud);
+    } catch (e) {
+    }
+  }, [patientScaleBaud]);
+  const [patientScaleLastLine, setPatientScaleLastLine] = useState("");
+  const [deviceBridgeUrl, setDeviceBridgeUrl] = useState(function() {
+    try {
+      return localStorage.getItem("dank_device_bridge_url") || "http://127.0.0.1:17891";
+    } catch (e) {
+      return "http://127.0.0.1:17891";
+    }
+  });
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_device_bridge_url", deviceBridgeUrl);
+    } catch (e) {
+    }
+  }, [deviceBridgeUrl]);
+  const [deviceBridgeStatus, setDeviceBridgeStatus] = useState("idle");
+  const [deviceBridgeAuto, setDeviceBridgeAuto] = useState(false);
+  const [deviceBridgeLast, setDeviceBridgeLast] = useState("");
   const [printerConn, setPrinterConn] = useState("USB");
   const [scaleChecklist, setScaleChecklist] = useState([]);
   const [scaleInterval, setScaleInterval] = useState(null);
@@ -5620,6 +5804,112 @@ function GreenPOS() {
     setAuditLog(function(prev) {
       return [{ id: Date.now(), time: (/* @__PURE__ */ new Date()).toLocaleString(), action, detail, user: user || (currentStaff ? currentStaff.name : "System"), reason: reason || "" }, ...prev].slice(0, 500);
     });
+  };
+  const applyBridgeVitalReading = function(payload, silent) {
+    var v = normalizeVitalPayload(payload), patch = {}, has = false;
+    if (v.measuredAt) {
+      var age = Math.abs(Date.now() - new Date(v.measuredAt).getTime());
+      if (isFinite(age) && age > 5 * 60 * 1e3) {
+        if (!silent) notify("\u0E04\u0E48\u0E32\u0E08\u0E32\u0E01 Device Bridge \u0E40\u0E01\u0E48\u0E32\u0E01\u0E27\u0E48\u0E32 5 \u0E19\u0E32\u0E17\u0E35 \u2014 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E27\u0E31\u0E14\u0E43\u0E2B\u0E21\u0E48", "error");
+        return false;
+      }
+    }
+    if (v.temperatureC !== void 0 && validateVitalValue("temperatureC", v.temperatureC).ok) {
+      patch.temperatureC = String(v.temperatureC);
+      has = true;
+    }
+    if (v.weightKg !== void 0 && validateVitalValue("weightKg", v.weightKg).ok) {
+      patch.weightKg = String(v.weightKg);
+      has = true;
+    }
+    if (v.heightCm !== void 0 && validateVitalValue("heightCm", v.heightCm).ok) {
+      patch.heightCm = String(v.heightCm);
+      has = true;
+    }
+    if (!has) {
+      if (!silent) notify("Device Bridge \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49 / No valid reading", "error");
+      return false;
+    }
+    setVitalForm(function(prev) {
+      return Object.assign({}, prev, patch);
+    });
+    setVitalSources(function(prev) {
+      return Object.assign({}, prev, v.temperatureC !== void 0 ? { temperature: "device-bridge" } : {}, v.weightKg !== void 0 || v.heightCm !== void 0 ? { weightHeight: "device-bridge" } : {});
+    });
+    setDeviceBridgeLast(v.measuredAt || (/* @__PURE__ */ new Date()).toISOString());
+    setDeviceBridgeStatus("connected");
+    if (!silent) notify("\u0E23\u0E31\u0E1A\u0E04\u0E48\u0E32\u0E08\u0E32\u0E01 Device Bridge \u0E41\u0E25\u0E49\u0E27 \u2713");
+    return true;
+  };
+  const deviceBridgeBase = function() {
+    return String(deviceBridgeUrl || "").trim().replace(/\/+$/, "");
+  };
+  const testDeviceBridge = async function() {
+    var base = deviceBridgeBase();
+    if (!base) {
+      notify("\u0E01\u0E23\u0E2D\u0E01 Device Bridge URL \u0E01\u0E48\u0E2D\u0E19", "error");
+      return;
+    }
+    setDeviceBridgeStatus("connecting");
+    try {
+      var r = await fetch(base + "/health", { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      var j = await r.json();
+      setDeviceBridgeStatus("connected");
+      setDeviceBridgeLast(j.time || (/* @__PURE__ */ new Date()).toISOString());
+      notify("\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21 Device Bridge \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2713");
+    } catch (e) {
+      setDeviceBridgeStatus("error");
+      notify("\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21 Device Bridge \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49: " + (e.message || e) + " \u2014 \u0E15\u0E23\u0E27\u0E08\u0E27\u0E48\u0E32 Bridge \u0E40\u0E1B\u0E34\u0E14\u0E2D\u0E22\u0E39\u0E48\u0E41\u0E25\u0E30\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 CORS", "error");
+    }
+  };
+  const pullDeviceBridge = async function(silent) {
+    var base = deviceBridgeBase();
+    if (!base) return;
+    try {
+      var q = selCustomer && selCustomer.id ? "?patientId=" + encodeURIComponent(selCustomer.id) : "";
+      var r = await fetch(base + "/v1/vitals/latest" + q, { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      var j = await r.json();
+      applyBridgeVitalReading(j, !!silent);
+    } catch (e) {
+      setDeviceBridgeStatus("error");
+      if (!silent) notify("\u0E14\u0E36\u0E07\u0E04\u0E48\u0E32\u0E08\u0E32\u0E01 Device Bridge \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49: " + (e.message || e), "error");
+    }
+  };
+  useEffect(function() {
+    if (!deviceBridgeAuto) return;
+    var timer = setInterval(function() {
+      pullDeviceBridge(true);
+    }, 2e3);
+    return function() {
+      clearInterval(timer);
+    };
+  }, [deviceBridgeAuto, deviceBridgeUrl, selCustomer && selCustomer.id]);
+  const saveVitalSigns = function() {
+    if (!selCustomer) {
+      notify("\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E19\u0E44\u0E02\u0E49\u0E08\u0E32\u0E01 CRM/POS \u0E2B\u0E23\u0E37\u0E2D\u0E2A\u0E41\u0E01\u0E19 Member QR \u0E01\u0E48\u0E2D\u0E19", "error");
+      return;
+    }
+    var tc = validateVitalValue("temperatureC", vitalForm.temperatureC), wk = validateVitalValue("weightKg", vitalForm.weightKg), hc = validateVitalValue("heightCm", vitalForm.heightCm);
+    var bad = [];
+    if (!tc.ok) bad.push("\u0E2D\u0E38\u0E13\u0E2B\u0E20\u0E39\u0E21\u0E34 30\u201345\xB0C");
+    if (!wk.ok) bad.push("\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01 2\u2013350 kg");
+    if (!hc.ok) bad.push("\u0E2A\u0E48\u0E27\u0E19\u0E2A\u0E39\u0E07 30\u2013250 cm");
+    if (bad.length) {
+      notify("\u0E15\u0E23\u0E27\u0E08\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25: " + bad.join(" \xB7 "), "error");
+      return;
+    }
+    var bmi = calcVitalBMI(wk.value, hc.value), entry = { id: "VS-" + Date.now(), patientId: selCustomer.id, patientName: selCustomer.name, branch: _branchKey || currentStaff && currentStaff.branch || "", measuredAt: (/* @__PURE__ */ new Date()).toISOString(), temperatureC: vitalRound(tc.value, 1), temperatureSite: vitalForm.temperatureSite || "forehead", weightKg: vitalRound(wk.value, 2), heightCm: vitalRound(hc.value, 1), bmi, note: String(vitalForm.note || "").trim(), deviceSource: Object.assign({}, vitalSources), staffId: currentStaff && currentStaff.id || null, staffName: currentStaff && currentStaff.name || "Unknown", status: "verified" };
+    setVitalSigns(function(prev) {
+      return [entry].concat(prev).slice(0, 2e3);
+    });
+    addAudit("VITAL_SIGNS_RECORDED", entry.patientName + " \xB7 " + entry.temperatureC + "\xB0C \xB7 " + entry.weightKg + "kg \xB7 " + entry.heightCm + "cm \xB7 BMI " + entry.bmi, currentStaff && currentStaff.name);
+    notify("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 Vital Signs \u0E02\u0E2D\u0E07 " + entry.patientName + " \u0E41\u0E25\u0E49\u0E27 \u2713");
+  };
+  const clearVitalForm = function() {
+    setVitalForm({ temperatureC: "", weightKg: "", heightCm: "", temperatureSite: "forehead", note: "" });
+    setVitalSources({ temperature: "manual", weightHeight: "manual" });
   };
   const [editReason, setEditReason] = useState("");
   const [auditFilter, setAuditFilter] = useState("");
@@ -10519,7 +10809,68 @@ function GreenPOS() {
     return l.patientId === selCustomer.id;
   }).reduce(function(s, l) {
     return s + parseFloat(l.thcMg || 0);
-  }, 0).toFixed(1), "mg THC")))), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800 } }, "\u{1F4C5} \u0E27\u0E31\u0E19\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E2D \xB7 Appointments"), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.accent)), { fontSize: 9 }) }, appointments.filter(function(ap) {
+  }, 0).toFixed(1), "mg THC")))), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid rgba(56,189,248,0.35)" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 900 } }, "\u{1FA7A} Vital Signs \xB7 \u0E2A\u0E31\u0E0D\u0E0D\u0E32\u0E13\u0E0A\u0E35\u0E1E"), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge("rgba(56,189,248,0.18)", C.blue)), { fontSize: 8.5 }) }, "Temperature \xB7 Weight \xB7 Height \xB7 BMI"), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: 9, color: selCustomer ? C.green : C.gold, fontWeight: 700 } }, selCustomer ? "\u{1F464} " + selCustomer.name : "\u26A0 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E19\u0E44\u0E02\u0E49")), !selCustomer && /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 9, padding: "8px 10px", fontSize: 10, color: C.gold, marginBottom: 9 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E19\u0E44\u0E02\u0E49\u0E08\u0E32\u0E01 POS/CRM \u0E2B\u0E23\u0E37\u0E2D\u0E2A\u0E41\u0E01\u0E19 Member QR \u0E01\u0E48\u0E2D\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E2B\u0E49\u0E1C\u0E25\u0E27\u0E31\u0E14\u0E40\u0E02\u0E49\u0E32\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E04\u0E19\u0E44\u0E02\u0E49\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 11, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("input", { value: memberScanInput, onChange: function(e) {
+    setMemberScanInput(e.target.value);
+  }, onKeyDown: function(e) {
+    if (e.key === "Enter") {
+      if (applyMemberScan(memberScanInput, "vital-signs scanner")) setMemberScanInput("");
+    }
+  }, placeholder: "\u{1FAAA} \u0E2A\u0E41\u0E01\u0E19 Member QR / DK-... / \u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23", style: __spreadProps(__spreadValues({}, gs.input), { flex: "1 1 230px", padding: "7px 9px", fontSize: 10 }) }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    if (applyMemberScan(memberScanInput, "vital-signs scanner")) setMemberScanInput("");
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 10, padding: "7px 12px" }) }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E19\u0E44\u0E02\u0E49"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    setShowCustModal(true);
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10, padding: "7px 12px", border: "1px solid " + C.border }) }, "\u0E04\u0E49\u0E19\u0E2B\u0E32 CRM")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 9, marginBottom: 11 } }, /* @__PURE__ */ React.createElement("div", { style: { background: C.card2, border: "1px solid " + (patientScaleConnected ? C.green : C.border), borderRadius: 10, padding: "10px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 7, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("b", { style: { fontSize: 11 } }, "\u2696 \u0E15\u0E32\u0E0A\u0E31\u0E48\u0E07/\u0E27\u0E31\u0E14\u0E2A\u0E48\u0E27\u0E19\u0E2A\u0E39\u0E07 USB\u2013RS232"), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(patientScaleConnected ? C.green : C.card3, patientScaleConnected ? "#000" : C.muted)), { fontSize: 8 }) }, patientScaleConnected ? "\u25CF connected" : "not connected")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 86 } }, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Baud rate"), /* @__PURE__ */ React.createElement("select", { value: patientScaleBaud, onChange: function(e) {
+    setPatientScaleBaud(e.target.value);
+  }, style: __spreadProps(__spreadValues({}, gs.input), { padding: "6px 7px", fontSize: 10 }) }, ["9600", "19200", "38400", "115200"].map(function(b) {
+    return /* @__PURE__ */ React.createElement("option", { value: b, key: b }, b);
+  }))), !patientScaleConnected ? /* @__PURE__ */ React.createElement("button", { onClick: connectPatientScale, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, padding: "7px 11px" }) }, "\u{1F50C} Connect") : /* @__PURE__ */ React.createElement("button", { onClick: disconnectPatientScale, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { fontSize: 10, padding: "7px 11px" }) }, "Disconnect")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted, lineHeight: 1.55, marginTop: 7 } }, "\u0E23\u0E31\u0E1A\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E04\u0E48\u0E32\u0E17\u0E35\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E48\u0E27\u0E22 kg/lb \u0E41\u0E25\u0E30 cm/m/in \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E25\u0E14\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2A\u0E35\u0E48\u0E22\u0E07\u0E2D\u0E48\u0E32\u0E19\u0E1C\u0E34\u0E14 \u0E2B\u0E32\u0E01\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E23\u0E38\u0E48\u0E19 H151-5 \u0E2A\u0E48\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01 \u0E43\u0E2B\u0E49\u0E01\u0E23\u0E2D\u0E01\u0E2A\u0E48\u0E27\u0E19\u0E2A\u0E39\u0E07\u0E40\u0E2D\u0E07 \u0E41\u0E25\u0E30\u0E02\u0E2D RS-232 protocol \u0E08\u0E32\u0E01\u0E1C\u0E39\u0E49\u0E02\u0E32\u0E22\u0E01\u0E48\u0E2D\u0E19\u0E15\u0E34\u0E14\u0E15\u0E31\u0E49\u0E07"), patientScaleLastLine && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.green, fontFamily: "monospace", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "RX: ", patientScaleLastLine)), /* @__PURE__ */ React.createElement("div", { style: { background: C.card2, border: "1px solid " + (deviceBridgeStatus === "connected" ? C.green : deviceBridgeStatus === "error" ? C.red : C.border), borderRadius: 10, padding: "10px 11px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 7, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("b", { style: { fontSize: 11 } }, "\u{1F321} Clinic Device Bridge"), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(deviceBridgeStatus === "connected" ? C.green : deviceBridgeStatus === "error" ? C.red : C.card3, deviceBridgeStatus === "connected" ? "#000" : "#fff")), { fontSize: 8 }) }, deviceBridgeStatus)), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Local Bridge URL"), /* @__PURE__ */ React.createElement("input", { value: deviceBridgeUrl, onChange: function(e) {
+    setDeviceBridgeUrl(e.target.value);
+  }, style: __spreadProps(__spreadValues({}, gs.input), { padding: "6px 8px", fontSize: 9.5, marginBottom: 6 }), placeholder: "http://127.0.0.1:17891" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: testDeviceBridge, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 9, padding: "5px 9px" }) }, "Test"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    pullDeviceBridge(false);
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 9, padding: "5px 9px" }) }, "\u2B07 Read latest"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: C.muted, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: deviceBridgeAuto, onChange: function(e) {
+    setDeviceBridgeAuto(e.target.checked);
+  } }), " Auto 2 sec")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted, lineHeight: 1.55, marginTop: 7 } }, "\u0E43\u0E0A\u0E49\u0E23\u0E31\u0E1A\u0E2D\u0E38\u0E13\u0E2B\u0E20\u0E39\u0E21\u0E34\u0E08\u0E32\u0E01 iHealth/vendor SDK \u0E2B\u0E23\u0E37\u0E2D Bluetooth gateway \u0E41\u0E25\u0E30\u0E23\u0E31\u0E1A\u0E04\u0E48\u0E32\u0E08\u0E32\u0E01\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C\u0E2D\u0E37\u0E48\u0E19\u0E1C\u0E48\u0E32\u0E19 API \u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19 \u0E44\u0E21\u0E48\u0E40\u0E14\u0E32 BLE UUID \u0E02\u0E2D\u0E07\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E41\u0E1E\u0E17\u0E22\u0E4C"), deviceBridgeLast && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.green, marginTop: 4 } }, "\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14: ", new Date(deviceBridgeLast).toLocaleString("th-TH")))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 8, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u{1F321} \u0E2D\u0E38\u0E13\u0E2B\u0E20\u0E39\u0E21\u0E34 \xB0C"), /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.1", min: "30", max: "45", value: vitalForm.temperatureC, onChange: function(e) {
+    var v = e.target.value;
+    setVitalForm(function(p) {
+      return Object.assign({}, p, { temperatureC: v });
+    });
+    setVitalSources(function(p) {
+      return Object.assign({}, p, { temperature: "manual" });
+    });
+  }, style: __spreadProps(__spreadValues({}, gs.input), { fontSize: 13, fontWeight: 800 }), placeholder: "36.5" }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted, marginTop: 2 } }, vitalSources.temperature)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u2696 \u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01 kg"), /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.01", min: "2", max: "350", value: vitalForm.weightKg, onChange: function(e) {
+    var v = e.target.value;
+    setVitalForm(function(p) {
+      return Object.assign({}, p, { weightKg: v });
+    });
+    setVitalSources(function(p) {
+      return Object.assign({}, p, { weightHeight: "manual" });
+    });
+  }, style: __spreadProps(__spreadValues({}, gs.input), { fontSize: 13, fontWeight: 800 }), placeholder: "65.00" }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted, marginTop: 2 } }, vitalSources.weightHeight)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u{1F4CF} \u0E2A\u0E48\u0E27\u0E19\u0E2A\u0E39\u0E07 cm"), /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.1", min: "30", max: "250", value: vitalForm.heightCm, onChange: function(e) {
+    var v = e.target.value;
+    setVitalForm(function(p) {
+      return Object.assign({}, p, { heightCm: v });
+    });
+    setVitalSources(function(p) {
+      return Object.assign({}, p, { weightHeight: "manual" });
+    });
+  }, style: __spreadProps(__spreadValues({}, gs.input), { fontSize: 13, fontWeight: 800 }), placeholder: "170.0" })), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)", borderRadius: 9, padding: "8px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, "BMI (\u0E04\u0E33\u0E19\u0E27\u0E13\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34)"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 22, fontWeight: 900, color: C.blue } }, calcVitalBMI(vitalForm.weightKg, vitalForm.heightCm) || "\u2014"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "kg/m\xB2"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr" : "150px 1fr", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E27\u0E31\u0E14\u0E2D\u0E38\u0E13\u0E2B\u0E20\u0E39\u0E21\u0E34"), /* @__PURE__ */ React.createElement("select", { value: vitalForm.temperatureSite, onChange: function(e) {
+    var v = e.target.value;
+    setVitalForm(function(p) {
+      return Object.assign({}, p, { temperatureSite: v });
+    });
+  }, style: gs.input }, /* @__PURE__ */ React.createElement("option", { value: "forehead" }, "\u0E2B\u0E19\u0E49\u0E32\u0E1C\u0E32\u0E01 Forehead"), /* @__PURE__ */ React.createElement("option", { value: "ear" }, "\u0E2B\u0E39 Ear"), /* @__PURE__ */ React.createElement("option", { value: "oral" }, "\u0E0A\u0E48\u0E2D\u0E07\u0E1B\u0E32\u0E01 Oral"), /* @__PURE__ */ React.createElement("option", { value: "axillary" }, "\u0E23\u0E31\u0E01\u0E41\u0E23\u0E49 Axillary"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: gs.label }, "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 / Note"), /* @__PURE__ */ React.createElement("input", { value: vitalForm.note, onChange: function(e) {
+    var v = e.target.value;
+    setVitalForm(function(p) {
+      return Object.assign({}, p, { note: v });
+    });
+  }, style: gs.input, placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E27\u0E31\u0E14\u0E0B\u0E49\u0E33\u0E41\u0E25\u0E49\u0E27 / rechecked" }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: saveVitalSigns, disabled: !selCustomer, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11, padding: "8px 14px", opacity: selCustomer ? 1 : 0.5 }) }, "\u{1F4BE} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E04\u0E19\u0E44\u0E02\u0E49"), /* @__PURE__ */ React.createElement("button", { onClick: clearVitalForm, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { fontSize: 10, padding: "8px 12px" }) }, "\u0E25\u0E49\u0E32\u0E07\u0E04\u0E48\u0E32"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted, alignSelf: "center" } }, "\u0E23\u0E30\u0E1A\u0E1A\u0E15\u0E23\u0E27\u0E08\u0E0A\u0E48\u0E27\u0E07\u0E04\u0E48\u0E32: 30\u201345\xB0C \xB7 2\u2013350kg \xB7 30\u2013250cm \u0E41\u0E25\u0E30\u0E25\u0E07 Audit Log \u0E17\u0E38\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07")), selCustomer && (function() {
+    var hist = vitalSigns.filter(function(v) {
+      return String(v.patientId) === String(selCustomer.id);
+    }).slice(0, 5);
+    return /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid " + C.border, paddingTop: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, fontWeight: 800, marginBottom: 5 } }, "\u{1F4CB} \u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14\u0E02\u0E2D\u0E07 ", selCustomer.name, " (", hist.length ? Math.min(hist.length, 5) : 0, ")"), hist.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35 Vital Signs \u0E17\u0E35\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E27\u0E49") : hist.map(function(v) {
+      return /* @__PURE__ */ React.createElement("div", { key: v.id, style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 9.5, padding: "4px 0", borderBottom: "1px solid " + C.border } }, /* @__PURE__ */ React.createElement("span", null, new Date(v.measuredAt).toLocaleString("th-TH"), " \xB7 ", v.staffName), /* @__PURE__ */ React.createElement("b", { style: { color: C.blue } }, v.temperatureC, "\xB0C \xB7 ", v.weightKg, "kg \xB7 ", v.heightCm, "cm \xB7 BMI ", v.bmi));
+    }));
+  })()), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 800 } }, "\u{1F4C5} \u0E27\u0E31\u0E19\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E2D \xB7 Appointments"), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.accent)), { fontSize: 9 }) }, appointments.filter(function(ap) {
     return ap.date >= (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   }).length, " upcoming"), /* @__PURE__ */ React.createElement("div", { style: { marginLeft: "auto", display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("a", { href: CERT_DRIVE_URL, target: "_blank", rel: "noopener", style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10, border: "1px solid " + C.border, textDecoration: "none", display: "inline-block" }) }, "\u{1F4C1} \u0E43\u0E1A\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E41\u0E1E\u0E17\u0E22\u0E4C (Drive)"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setNewAppt({ custName: selCustomer ? selCustomer.name : "", date: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), time: "10:00", doctor: "", note: "", certLink: "" });

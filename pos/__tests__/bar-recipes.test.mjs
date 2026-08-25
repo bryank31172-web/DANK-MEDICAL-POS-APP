@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { chromium } from './_playwright.mjs';
 /* screenshots are test debris, not deliverables - keep them out of the repo root */
 const OUT=new URL('out/',import.meta.url).pathname;
 fs.mkdirSync(OUT,{recursive:true});
