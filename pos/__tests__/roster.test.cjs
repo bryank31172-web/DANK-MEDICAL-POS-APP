@@ -137,8 +137,34 @@ ok('it never lists somebody who was not trained for that shift', (() => {
     return (bySlot[e.slot] || []).some((n) => b.indexOf(n) === 0);
   }));
 })(), v.empty[0].blockers.join(' | '));
-ok('a slot nobody is cleared for says exactly that',
-   v.empty.some((e) => e.blockers.some((b) => /nobody is cleared/.test(b))));
+ok('a slot nobody is cleared for says exactly that', (() => {
+  /* Depends on who happens to be employed, so it is built rather than hoped
+   * for — with Steve cleared across every Phatthanakarn slot there is no
+   * longer a shift with an empty candidate list in the live seed. */
+  const none = M.STAFF.filter((p) => (p.slots || []).indexOf('NIGHT') < 0);
+  const rn = M.buildRoster(M.LOCS, none, 2026, 9);
+  const night = rn.validation.empty.filter((e) => e.slot === 'NIGHT');
+  return night.length > 0 && night.every((e) => e.blockers.some((b) => /nobody is cleared/.test(b)));
+})());
+
+/* One reliever can only be in one place, so the order slots are filled in
+ * decides which hole gets them. Filling in printed order gave Steve to
+ * 09:00-18:00 — which Honey can also cover — every single day, and left
+ * 17:00-02:00, which nobody else is cleared for, empty thirty days out of
+ * thirty. Scarcest slot first. */
+console.log('\nthe scarcest shift is filled before the well-covered one');
+{
+  const cover = (slot) => r.days.filter((d) => !!r.cells['ptk|' + d.date + '|' + slot]).length;
+  ok('17:00-02:00 is covered on nearly every day', cover('C1') >= 26, cover('C1') + '/30');
+  ok('…rather than being starved by a slot with more candidates',
+     cover('C1') > v.empty.filter((e) => e.slot === 'C1').length, cover('C1'));
+  const eligible = (slot) => M.STAFF.filter((p) => p.kind !== 'ceo'
+    && (p.locs || []).indexOf('ptk') >= 0 && (p.slots || []).indexOf(slot) >= 0).length;
+  ok('C1 really does have fewer people cleared for it than B1 has',
+     eligible('C1') <= eligible('B1'), eligible('C1') + ' vs ' + eligible('B1'));
+  ok('and the fill order changed nothing else: no doubles, none unauthorised',
+     v.doubles.length === 0 && v.unauthorised.length === 0);
+}
 
 console.log('\nan optional slot never starves a required one');
 ok('Mon is still held to his 26', by['Mon (ม่อน อาชา)'].shifts === 26, by['Mon (ม่อน อาชา)'].shifts);

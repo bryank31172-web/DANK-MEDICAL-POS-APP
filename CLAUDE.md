@@ -165,6 +165,9 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
     is reported instead
   · **required slots are filled before optional ones, across the whole month** — filling Sunday
     stock/admin in date order spent Mon's 26-shift cap and left a required night uncovered
+  · **the scarcest slot is filled first** — one reliever can only be in one place, and filling in
+    printed order gave Steve to 09:00-18:00 (which Honey also covers) every day while 17:00-02:00,
+    which nobody else is cleared for, sat empty 30 days out of 30
   · **relief never outranks the slot's regular** — ranking Mel by "first authorised slot" put her
     on Raizo's early shift and left Sathorn's day shift empty
   · a split night (`cell.extra[]`) lets two part-windows tile one slot: Keneth 17:00-21:00 hands
