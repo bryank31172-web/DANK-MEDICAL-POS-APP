@@ -134,9 +134,52 @@ await p.waitForTimeout(600);
 ok('the staff button opens the editor', !!(await click('ตั้งค่าคน + เงินเดือน')));
 await p.waitForTimeout(900);
 t = await body();
-ok('salary is editable', /เงินเดือน ฿/.test(t));
-ok('so are the authorised shops and shifts', /กะที่ทำได้/.test(t) && /สาขา/.test(t));
+ok('the shifts each person may work are togglable, not typed', /กะที่ขึ้นได้/.test(t));
+ok('shops are togglable too', /สาขา/.test(t));
+ok('pay is editable', /เงินเดือน|วันละ/.test(t));
 ok('and the target/max caps', /เป้ากะ/.test(t) && /สูงสุด/.test(t));
+ok('a new person can be added', /\+ เพิ่มพนักงาน/.test(t));
+
+/* The whole reason the grid exists: ticking one more shift for somebody has to
+ * close the hole the generator was reporting, without touching anything else. */
+const before = await p.evaluate(() => {
+  const b2 = JSON.parse(localStorage.getItem('dank_shift_roster') || '{}');
+  const k = Object.keys(b2)[0];
+  return k ? b2[k].validation.empty.length : -1;
+});
+const ticked = await p.evaluate(() => {
+  /* Amoe is cleared for A1 only; tick C1 as well */
+  const inp = [...document.querySelectorAll('input')].find((x) => x.value === 'Amoe');
+  if (!inp) return 'no name field';
+  /* walk out to the ancestor that holds both the name and the slot chips */
+  let card = inp, btn = null;
+  while (card && !btn) {
+    card = card.parentElement;
+    if (!card) break;
+    btn = [...card.querySelectorAll('button')].find((x) => x.innerText.trim().indexOf('C1') === 0);
+  }
+  if (!btn) return 'no C1 button';
+  btn.click();
+  return 'ticked';
+});
+ok('a shift can be ticked on for somebody', ticked === 'ticked', ticked);
+await p.waitForTimeout(500);
+ok('saving it takes', !!(await click('บันทึก + ลง Audit')));
+await p.waitForTimeout(900);
+ok('the roster is re-drafted rather than left stale', /ยังไม่มีตารางของ|สร้างร่าง/.test(await body()));
+ok('Generate runs again', !!(await click('สร้างร่าง')));
+await p.waitForTimeout(1600);
+const after = await p.evaluate(() => {
+  const t2 = document.body.innerText;
+  const m = /(\d+)\s*\n?\s*กะที่ยังว่าง/.exec(t2) || /กะที่ยังว่าง/.exec(t2);
+  return t2.indexOf('กะที่ยังว่าง') >= 0;
+});
+ok('the report still renders after the change', after);
+ok('and the widened clearance is on the person', await p.evaluate(() => {
+  const st = JSON.parse(localStorage.getItem('dank_shift_staff') || '[]');
+  const a = st.filter((x) => x.id === 'amoe')[0];
+  return !!a && (a.slots || []).indexOf('C1') >= 0;
+}));
 
 console.log('\nPAGE ERRORS: ' + (errs.length ? errs.join(' | ') : 'none'));
 console.log(`${fails.length || errs.length ? 'FAIL' : 'PASS'} — ${fails.length} failed, ${errs.length} page errors`);
