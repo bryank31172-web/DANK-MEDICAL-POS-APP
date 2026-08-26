@@ -305,11 +305,18 @@ function rosterPick(cands, slot, count, slotSpan) {
     if (p.relief) return 2;
     return (p.slots || [])[0] === slot.id ? 0 : 1;
   };
+  /* Borrowed Sathorn cover has an explicit order: Steve first, then Honey.
+   * This is slot-specific, so it does not reshuffle their work elsewhere. */
+  var reliefOrder = function (p) {
+    var bySlot = p.reliefPriority || {};
+    return bySlot[slot.id] == null ? 0 : +bySlot[slot.id];
+  };
   var deficit = function (p) { return (p.target || 26) - (count[p.id] || 0); };
   var rank = function (p) { return (p.kind === 'part' ? 1 : 0); };
   return cands.slice().sort(function (a, b) {
     if (startsFirst(a) !== startsFirst(b)) return startsFirst(a) - startsFirst(b);
     if (owns(a) !== owns(b)) return owns(a) - owns(b);
+    if (reliefOrder(a) !== reliefOrder(b)) return reliefOrder(a) - reliefOrder(b);
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
     if (deficit(a) !== deficit(b)) return deficit(b) - deficit(a);
     return String(a.name).localeCompare(String(b.name));
@@ -355,7 +362,12 @@ function rosterVisits(days, staff) {
  * normal month are already covered by the salary and are not paid twice. */
 function rosterPay(person, actualHours, slotHours, shifts) {
   var target = person.target || 26;
-  var normal = Math.round(target * (slotHours || 0) * 100) / 100;
+  /* A person who mixes an eight-hour weekday bar shift with a nine-hour
+   * weekend night cannot use the first slot as the divisor for the whole
+   * month. The contract may state the real monthly normal-hours total. */
+  var normal = person.normalHours != null
+    ? Math.round((+person.normalHours || 0) * 100) / 100
+    : Math.round(target * (slotHours || 0) * 100) / 100;
   var daily = +(person.dailyRate || 0);
   var isDaily = person.payType === 'daily' || (!person.salary && daily > 0);
 
@@ -614,7 +626,7 @@ function buildRoster(locations, staff, year, month1) {
    * month trains people to ignore the report. Only full-time is measured
    * against the band. */
   /* Riders and kitchen are full-time and stand no counter shift, so measuring
-   * them against a 24-shift band reports them short every single month and
+   * them against a 25-shift band reports them short every single month and
    * trains people to scroll past the one list that is supposed to be read. */
   var band = summary.filter(function (s) {
     var p = byId[s.id] || {};
@@ -624,7 +636,7 @@ function buildRoster(locations, staff, year, month1) {
     year: year, month: month1, days: days, cells: cells, summary: summary, visits: visits,
     validation: {
       empty: empty, doubles: doubles, unauthorised: unauthorised,
-      under: band.filter(function (s) { return s.shifts < 24; }).map(function (s) { return { name: s.name, shifts: s.shifts }; }),
+      under: band.filter(function (s) { return s.shifts < 25; }).map(function (s) { return { name: s.name, shifts: s.shifts }; }),
       over: summary.filter(function (s) { return s.shifts > s.max; }).map(function (s) { return { name: s.name, shifts: s.shifts, max: s.max }; }),
       hoursByLoc: hoursByLoc,
       ok: empty.length === 0 && doubles.length === 0 && unauthorised.length === 0,
@@ -764,7 +776,7 @@ function rosterAsk(question, res, staff, locations) {
     var out = [];
     v.over.forEach(function (o) { out.push('· เกินเพดาน: ' + o.name + ' ' + o.shifts + '/' + o.max); });
     v.under.forEach(function (u) { out.push('· ต่ำกว่า 24: ' + u.name + ' ' + u.shifts + ' กะ'); });
-    if (!out.length) out.push('ทุกคนอยู่ในช่วง 24–28 กะ ไม่มีใครเกินหรือขาด');
+    if (!out.length) out.push('ทุกคนอยู่ในช่วง 25–28 กะ ไม่มีใครเกินหรือขาด');
     var spare = res.summary.filter(function (s) {
       var p = byId[s.id]; return p && s.shifts < (p.max || 28) - 1;
     }).sort(function (a, b) { return (byId[b.id].max || 28) - b.shifts - ((byId[a.id].max || 28) - a.shifts); }).slice(0, 4);
@@ -796,6 +808,37 @@ function rosterAsk(question, res, staff, locations) {
   }
   return null;
 }
+
+/* A saved roster setup normally wins over the seed because managers may have
+ * changed clearances in the app. Staffing decisions that the owner explicitly
+ * changes still have to reach devices which already saved the old seed,
+ * though. Upgrade only the named rows once, then leave later manager edits
+ * alone behind the version marker. */
+var SHIFT_STAFF_SEED_VERSION = 3;
+function upgradeShiftStaffSeed(saved, version) {
+  var list = (Array.isArray(saved) && saved.length) ? saved : SHIFT_STAFF;
+  if ((+version || 0) >= SHIFT_STAFF_SEED_VERSION) return list;
+  return list.map(function (p) {
+    if (p.id === 'alex') return Object.assign({}, p, {
+      role: 'BAR TEAM LEADER', locs: ['bar'], slots: ['MONTHU', 'FSNIGHT'],
+      off: [5], target: 26, max: 28, normalHours: 216,
+    });
+    if (p.id === 'jack') return Object.assign({}, p, {
+      kind: 'part', locs: ['bar', 'ptk'], slots: ['FSNIGHT'], off: [],
+      only: { FSNIGHT: [5] }, target: 4, max: 4,
+    });
+    if (p.id === 'pond') return Object.assign({}, p, {
+      locs: ['ptk'], slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+    });
+    if (p.id === 'steve') return Object.assign({}, p, {
+      relief: true, reliefPriority: { EARLY: 1, DAY: 1, NIGHT: 1, PEAK: 1 },
+    });
+    if (p.id === 'honey') return Object.assign({}, p, {
+      relief: true, reliefPriority: { EARLY: 2, DAY: 2, NIGHT: 2, PEAK: 2 },
+    });
+    return p;
+  });
+}
 // ——— end of the roster assistant block ——————————————————————————————————
 
 /* The three shops, their shift slots and who is authorised where — read off the
@@ -811,6 +854,7 @@ var SHIFT_LOCATIONS = [
   { id: 'sat', name: 'DANK SATHORN RAMA 3', note: '3 EXACT BASE SHIFTS | 2 STAFF ONLY DURING 11:00-19:00 PEAK', slots: [
     { id: 'EARLY', label: '01:00-09:00' }, { id: 'DAY', label: '09:00-17:00' },
     { id: 'NIGHT', label: '17:00-01:00' }, { id: 'PEAK', label: '11:00-19:00' },
+    { id: 'ADMIN', name: 'MANAGER / ADMIN', label: '11:00-19:00', optional: true },
   ] },
   { id: 'bar', name: 'DANK 224 BAR', note: 'ONE BARTENDER PER SHIFT | NO BAR-SHIFT OVERLAP', slots: [
     { id: 'MONTHU', name: 'MON-THU PM', label: '17:00-01:00', days: [1, 2, 3, 4] },
@@ -834,9 +878,12 @@ var SHIFT_STAFF = [
    * Part-time budtenders are cleared for both shops, and Honey for all three
    * businesses, because the owner confirmed they move where they are needed. */
 
+  /* ── DANK 224 BAR LEAD ───────────────────────────────────────────────── */
+  { id: 'alex',  name: 'Alex',  role: 'BAR TEAM LEADER', kind: 'full', locs: ['bar'],
+    slots: ['MONTHU', 'FSNIGHT'], off: [5], target: 26, max: 28, normalHours: 216,
+    payType: 'monthly', salary: 19000 },
+
   /* ── DANK PHATTHANAKARN ──────────────────────────────────────────────── */
-  { id: 'alex',  name: 'Alex',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['B2'], off: [],
-    target: 26, max: 28, payType: 'monthly', salary: 19000 },
   { id: 'mon',   name: 'Mon (ม่อน อาชา)', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['C2', 'STOCK'], off: [],
     target: 26, max: 26, payType: 'monthly', salary: 18000 },
   { id: 'amoe',  name: 'Amoe',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A1'], off: [],
@@ -844,18 +891,21 @@ var SHIFT_STAFF = [
   { id: 'dylan', name: 'Dylan', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A2'], off: [],
     target: 26, max: 28, payType: 'daily', dailyRate: 600 },
 
-  /* part-time budtenders move between Phatthanakarn and Sathorn as needed */
+  /* Pond stays at Phatthanakarn. Cross-shop Sathorn cover is Steve first,
+   * then Honey, as set on Sathorn's four slot IDs. */
   { id: 'pond',  name: 'Pond (ศรัณญ์ สิทธิมงคล)', role: 'BUDTENDER', kind: 'part', relief: true,
-    locs: ['ptk', 'sat'], slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK'],
+    locs: ['ptk'], slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
     off: [], target: 26, max: 26, payType: 'daily', dailyRate: 600 },
   { id: 'steve', name: 'Steve', role: 'BUDTENDER', kind: 'full', relief: true,
     locs: ['ptk', 'sat'], slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK'],
+    reliefPriority: { EARLY: 1, DAY: 1, NIGHT: 1, PEAK: 1 },
     off: [], target: 26, max: 26, payType: 'daily', dailyRate: 650 },
 
   /* Honey works all three businesses, any shift */
-  { id: 'honey', name: 'Honey (มด)', role: 'BARTENDER', kind: 'part',
+  { id: 'honey', name: 'Honey (มด)', role: 'BARTENDER', kind: 'part', relief: true,
     locs: ['ptk', 'sat', 'bar'],
     slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK', 'MONTHU', 'FSDAY', 'FSNIGHT'],
+    reliefPriority: { EARLY: 2, DAY: 2, NIGHT: 2, PEAK: 2 },
     off: [], target: 26, max: 26, payType: 'daily', dailyRate: 800 },
 
   /* Riders: on payroll, no counter shift, nine-hour working day */
@@ -865,8 +915,8 @@ var SHIFT_STAFF = [
     payrollOnly: true, target: 26, dayHours: 9, payType: 'daily', dailyRate: 600 },
 
   /* ── DANK 224 BAR ────────────────────────────────────────────────────── */
-  { id: 'jack',  name: 'Jack',  role: 'BARTENDER', kind: 'full', locs: ['bar'], slots: ['MONTHU', 'FSNIGHT'], off: [],
-    target: 26, max: 28, payType: 'monthly', salary: 18000 },
+  { id: 'jack',  name: 'Jack',  role: 'BARTENDER', kind: 'part', locs: ['bar', 'ptk'], slots: ['FSNIGHT'], off: [],
+    only: { FSNIGHT: [5] }, target: 4, max: 4, payType: 'monthly', salary: 18000 },
 
   /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
   { id: 'raizo', name: 'Raizo', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['EARLY'], off: [],
@@ -878,7 +928,7 @@ var SHIFT_STAFF = [
   { id: 'pok',   name: 'Pok',   role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['NIGHT'], off: [],
     target: 26, max: 28, payType: 'daily', dailyRate: 650 },
   { id: 'mel',   name: 'Mel',   role: 'BUDTENDER', kind: 'full', relief: true, locs: ['sat'],
-    slots: ['EARLY', 'DAY', 'NIGHT', 'PEAK'], off: [], target: 26, max: 28, payType: 'monthly', salary: 18000 },
+    slots: ['EARLY', 'DAY', 'NIGHT', 'PEAK', 'ADMIN'], off: [], target: 26, max: 28, payType: 'monthly', salary: 18000 },
 
   /* ── CEOs. Once a week to look over the shop; no slot, and not payroll. ── */
   { id: 'bryan', name: 'Bryan (CEO)', role: 'CEO', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,
@@ -2221,10 +2271,22 @@ function GreenPOS() {
   const [shiftDraft,setShiftDraft]=useState(null);
   const [shiftEdit,setShiftEdit]=useState(null);
   const [shiftAi,setShiftAi]=useState(null);
-  const [shiftStaff,setShiftStaff]=useState(function(){try{var s=JSON.parse(localStorage.getItem("dank_shift_staff"));return (s&&s.length)?s:SHIFT_STAFF;}catch(e){return SHIFT_STAFF;}});
+  const [shiftReportOpen,setShiftReportOpen]=useState(false);
+  const [shiftReportPage,setShiftReportPage]=useState(0);
+  const [shiftPdfBusy,setShiftPdfBusy]=useState(false);
+  const [shiftStaff,setShiftStaff]=useState(function(){try{
+    var s=JSON.parse(localStorage.getItem("dank_shift_staff"));
+    var v=localStorage.getItem("dank_shift_staff_seed_version");
+    var next=upgradeShiftStaffSeed(s,v);
+    localStorage.setItem("dank_shift_staff_seed_version",String(SHIFT_STAFF_SEED_VERSION));
+    return next;
+  }catch(e){return SHIFT_STAFF;}});
   const [shiftLocs,setShiftLocs]=useState(function(){try{var s=JSON.parse(localStorage.getItem("dank_shift_locs"));return (s&&s.length)?s:SHIFT_LOCATIONS;}catch(e){return SHIFT_LOCATIONS;}});
   const [shiftBooks,setShiftBooks]=useState(function(){try{return JSON.parse(localStorage.getItem("dank_shift_roster"))||{};}catch(e){return {};}});
-  useEffect(function(){try{localStorage.setItem("dank_shift_staff",JSON.stringify(shiftStaff));}catch(e){}},[shiftStaff]);
+  useEffect(function(){try{
+    localStorage.setItem("dank_shift_staff",JSON.stringify(shiftStaff));
+    localStorage.setItem("dank_shift_staff_seed_version",String(SHIFT_STAFF_SEED_VERSION));
+  }catch(e){}},[shiftStaff]);
   useEffect(function(){try{localStorage.setItem("dank_shift_locs",JSON.stringify(shiftLocs));}catch(e){}},[shiftLocs]);
   useEffect(function(){try{localStorage.setItem("dank_shift_roster",JSON.stringify(shiftBooks));}catch(e){}},[shiftBooks]);
 
@@ -2241,96 +2303,162 @@ function GreenPOS() {
     a.click();
   };
 
-  const shiftPrint=function(locs,staffList,res,monthLabel){
+  /* The uploaded September workbook is six A3 landscape pages: one page per
+   * shop, then payroll, duties/validation, and payout. Keep that same reading
+   * order, but calculate every value from the live roster, Finance expenses,
+   * wage budget and attributed POS sales instead of copying a second sheet. */
+  const shiftReportBundle=function(locs,staffList,res,monthLabel,monthKey){
     var byId={}; (staffList||[]).forEach(function(p){byId[p.id]=p;});
-    var esc=function(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});};
-    /* the four colours the sheet is required to distinguish, on white */
-    var cls=function(p){
-      if(!p)return "";
-      if(p.kind==="manager")return "ceo";
-      if(p.relief)return "relief";
-      if(p.kind==="part")return "part";
-      return "";
+    var esc=function(s){return String(s==null?"":s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+    var money=function(n){return Math.round(+n||0).toLocaleString("en-US");};
+    var cls=function(p){if(!p)return "";if(p.kind==="manager"||p.kind==="ceo")return "ceo";if(p.relief)return "relief";if(p.kind==="part")return "part";return "";};
+    var weeks=(function(){var out=[],cur=[];(res.days||[]).forEach(function(d){cur.push(d);if(d.dow===0||cur.length===7){out.push(cur);cur=[];}});if(cur.length)out.push(cur);return out;})();
+    var dutyOn=function(id,date){var s=(res.summary||[]).filter(function(x){return x.id===id;})[0];return s?(s.duties.filter(function(d){return d.date===date;})[0]||null):null;};
+    var nameKey=function(s){return asstNorm(s).split(" ")[0]||"";};
+    var linkedMain=function(p){
+      var full=asstNorm(p.name),first=nameKey(p.name);
+      var exact=(staff||[]).filter(function(s){return asstNorm(s.name)===full;})[0];
+      if(exact)return exact;
+      var starts=(staff||[]).filter(function(s){return first&&nameKey(s.name)===first;});
+      return starts.length===1?starts[0]:null;
     };
-    var weeks=(function(){var out=[],cur=[];res.days.forEach(function(d){cur.push(d);if(d.dow===0||cur.length===7){out.push(cur);cur=[];}});if(cur.length)out.push(cur);return out;})();
-    var dutyOn=function(id,date){
-      var s=res.summary.filter(function(x){return x.id===id;})[0];
-      return s?(s.duties.filter(function(d){return d.date===date;})[0]||null):null;
+    var monthOf=function(t){
+      var raw=t.transactionTime||t.createdAt||t.date||"";
+      var d=new Date(raw);
+      if(!isNaN(d.getTime()))return new Date(d.getTime()+7*3600*1000).toISOString().slice(0,7);
+      var tm=String(t.id||"").match(/DCK-(\d{12,})/);
+      if(tm)return new Date(+tm[1]+7*3600*1000).toISOString().slice(0,7);
+      return String(raw).slice(0,7);
     };
-
-    var pages=locs.map(function(loc,li){
-      var tables=weeks.map(function(wk){
-        var head='<tr><th class="sl">SHIFT / POSITION</th>'+wk.map(function(d){
-          return '<th>'+SHIFT_DAY_NAMES[d.dow]+'<b>'+d.day+'</b></th>';}).join("")+'</tr>';
-        var body=loc.slots.map(function(slot){
-          return '<tr><td class="sl"><i>'+esc(slot.label)+'</i><b>'+esc(slot.name||slot.id)+'</b></td>'+wk.map(function(d){
-            var c=res.cells[loc.id+"|"+d.date+"|"+slot.id];
-            if(c&&c.closed)return '<td class="dash">&ndash;</td>';
-            if(!c)return '<td class="hole">EMPTY</td>';
-            var du=dutyOn(c.id,d.date);
-            return '<td class="'+cls(byId[c.id])+'">'+esc(c.name)
-              +(c.window?'<u>'+esc(c.window)+'</u>':"")
-              +(du?'<s>'+esc(du.label)+'</s>':"")+'</td>';
-          }).join("")+'</tr>';
-        }).join("");
-        var vis = (res.visits || []).filter(function (x) { return x.loc === loc.id; });
-        var visRow = vis.length ? ('<tr><td class="sl"><i>สัปดาห์ละครั้ง</i><b>CEO CHECK</b></td>' + wk.map(function (d) {
-          var here = vis.filter(function (x) { return x.date === d.date; });
-          if (!here.length) return '<td class="dash">&ndash;</td>';
-          return '<td class="ceo">' + here.map(function (x) {
-            return esc(x.name.replace(' (CEO)', '')) + (x.window ? '<u>' + esc(x.window) + '</u>' : ''); }).join('<br>') + '</td>';
-        }).join('') + '</tr>') : '';
-        return '<table>'+head+body+visRow+'</table>';
+    var salesByMain={},salesByName={},salesTxCount=0;
+    var addSale=function(id,nm,amt){
+      if(id!=null) salesByMain[String(id)]=(salesByMain[String(id)]||0)+(+amt||0);
+      if(nm) salesByName[asstNorm(nm)]=(salesByName[asstNorm(nm)]||0)+(+amt||0);
+    };
+    (transactions||[]).forEach(function(t){if(t.isVoid||monthOf(t)!==monthKey)return;salesTxCount++;addSale(t.staffId,t.staff,t.total);});
+    (Array.isArray(txHistory)?txHistory:[]).forEach(function(t){
+      if(/return|refund|void/i.test(String(t.transactionType||""))||monthOf(t)!==monthKey)return;
+      salesTxCount++;(staff||[]).forEach(function(s){if(s.shId&&String(s.shId)===String(t.employeeId||""))addSale(s.id,s.name,t.total);});
+    });
+    var monthExpenses=(expenses||[]).filter(function(e){return String(e.date||"").slice(0,7)===monthKey;});
+    var expensesByCat={};monthExpenses.forEach(function(e){expensesByCat[e.cat||"other"]=(expensesByCat[e.cat||"other"]||0)+(+e.amount||0);});
+    var actualExpense=monthExpenses.reduce(function(a,e){return a+(+e.amount||0);},0);
+    var actualWages=expensesByCat.wages||0;
+    var wagesBudget=(EXPENSE_TARGETS.byCategory&&EXPENSE_TARGETS.byCategory.wages&&EXPENSE_TARGETS.byCategory.wages.monthly)||0;
+    var payroll=rosterPayroll(res,staffList,wagesBudget);
+    var linkedCount=0,commissionTotal=0,staffServiceTotal=0;
+    var payout=(res.summary||[]).filter(function(s){return s.kind!=="ceo";}).map(function(s){
+      var p=byId[s.id]||{},ms=linkedMain(p),sales=0;
+      if(ms){
+        linkedCount++;
+        /* Every receipt is indexed by both staff id and name so records from
+         * either POS shape can be found. Prefer the id bucket and use the name
+         * bucket only as a fallback — adding both would double commission. */
+        sales=salesByMain[String(ms.id)]!=null?salesByMain[String(ms.id)]:(salesByName[asstNorm(ms.name)]||0);
+      }
+      var commission=Math.round(sales*2/100);
+      /* A bar service-charge staff share is included only when the POS record
+       * contains that explicit field. The current POS does not infer 7% from
+       * gross sales because that would turn shop sales into bartender pay. */
+      var staffService=0;
+      (transactions||[]).forEach(function(t){
+        if(t.isVoid||monthOf(t)!==monthKey)return;
+        var same=(ms&&String(t.staffId||"")===String(ms.id))||asstNorm(t.staff||"")===asstNorm(s.name);
+        if(same)staffService+=(+t.staffServiceCharge||+t.serviceChargeStaffShare||0);
+      });
+      commissionTotal+=commission;staffServiceTotal+=staffService;
+      var total=Math.round(s.pay.totalPay+commission+staffService);
+      var dayDiv=s.pay.paidDays||s.shifts||s.target||26;
+      return {s:s,p:p,main:ms,sales:Math.round(sales),commission:commission,staffService:Math.round(staffService),total:total,
+        perDay:dayDiv?Math.round(total/dayDiv):0,perWeek:Math.round(total*12/52)};
+    });
+    var plannedPayout=payroll.total+commissionTotal+staffServiceTotal;
+    var sourceRows=[
+      {name:"Auto Shift roster",detail:(res.summary||[]).length+" staff · "+Object.keys(res.cells||{}).length+" roster cells",ok:true},
+      {name:"Staff wages",detail:payout.filter(function(x){return x.s.pay.basePay>0;}).length+" wage records from dank_shift_staff",ok:payout.some(function(x){return x.s.pay.basePay>0;})},
+      {name:"Actual expenses",detail:monthExpenses.length?monthExpenses.length+" entries · ฿"+money(actualExpense):"No entries recorded for this month yet",ok:monthExpenses.length>0},
+      {name:"POS staff sales",detail:salesTxCount?(salesTxCount+" receipts found · "+linkedCount+" roster staff linked · 2% on attributed sales"):"No receipts found for this month yet",ok:salesTxCount>0},
+      {name:"Bar service charge",detail:staffServiceTotal?"Recorded staff share ฿"+money(staffServiceTotal):"Waiting for an explicit staff-share field; no estimate used",ok:staffServiceTotal>0},
+    ];
+    var pageTitle=function(kicker,title,sub,accent){return '<div class="mast" style="--accent:'+accent+'"><div><div class="kicker">DANK GROUP · AUTO SHIFT REPORT</div><h1>'+esc(title)+'</h1><p>'+esc(sub||"")+'</p></div><div class="period">'+esc(monthLabel)+'</div></div>';};
+    var footer=function(n,total){return '<footer><div>SIGNATURE: ____________________</div><div>APPROVED BY: ____________________</div><div>DATE: __________</div><div class="pg">DANK GROUP · PAGE '+n+' OF '+total+'</div></footer>';};
+    var locPages=(locs||[]).map(function(loc){
+      var tables=weeks.map(function(wk,wi){
+        var head='<tr><th class="sl">SHIFT / POSITION</th>'+wk.map(function(d){return '<th>'+SHIFT_DAY_NAMES[d.dow]+'<b>'+d.day+'</b></th>';}).join("")+'</tr>';
+        var body=(loc.slots||[]).map(function(slot){return '<tr><td class="sl"><i>'+esc(slot.label)+'</i><b>'+esc(slot.name||slot.id)+'</b></td>'+wk.map(function(d){
+          var c=res.cells[loc.id+"|"+d.date+"|"+slot.id];if(c&&c.closed)return '<td class="dash">&ndash;</td>';if(!c)return '<td class="hole">EMPTY</td>';
+          var people=[c].concat(c.extra||[]);return '<td>'+people.map(function(one){var du=dutyOn(one.id,d.date);return '<span class="person '+cls(byId[one.id])+'">'+esc(one.name)+(one.window?'<u>'+esc(one.window)+'</u>':"")+(du?'<s>'+esc(du.label)+'</s>':"")+'</span>';}).join("")+'</td>';
+        }).join("")+'</tr>';}).join("");
+        var vis=(res.visits||[]).filter(function(x){return x.loc===loc.id;});
+        var visRow=vis.length?('<tr><td class="sl"><i>สัปดาห์ละครั้ง</i><b>CEO CHECK</b></td>'+wk.map(function(d){var here=vis.filter(function(x){return x.date===d.date;});return here.length?('<td>'+here.map(function(x){return '<span class="person ceo">'+esc(x.name.replace(" (CEO)",""))+(x.window?'<u>'+esc(x.window)+'</u>':"")+'</span>';}).join("")+'</td>'):'<td class="dash">&ndash;</td>';}).join("")+'</tr>'):"";
+        return '<div class="week"><div class="week-label">WEEK '+(wi+1)+' · '+wk[0].date.slice(8)+'–'+wk[wk.length-1].date.slice(8)+'</div><table>'+head+body+visRow+'</table></div>';
       }).join("");
+      var mine=(res.summary||[]).filter(function(s){return s.locs.indexOf(loc.id)>=0&&(s.shifts>0||s.visits.length>0);});
+      var sum='<table class="sum"><tr><th>STAFF</th><th>ROLE / ASSIGNMENT</th><th>SHIFTS</th><th>HOURS</th></tr>'+mine.map(function(s){return '<tr><td><span class="person '+cls(byId[s.id])+'">'+esc(s.name)+'</span></td><td>'+esc((byId[s.id]||{}).role||s.assignment)+(s.duties.length?(' · '+s.duties.length+' '+esc(s.duties[0].label)):"")+'</td><td class="num">'+(s.kind==="ceo"?('CHECK '+s.visits.length+'×'):s.shifts)+'</td><td class="num">'+(s.kind==="ceo"?s.visitHours:s.hours)+'h</td></tr>';}).join("")+'</table>';
+      return '<section class="report-page">'+pageTitle("",loc.name,loc.note||"",loc.id==="bar"?"#c9a84c":loc.id==="sat"?"#2db9d6":"#70ad47")+'<div class="weeks">'+tables+'</div><h2>MONTHLY STAFF SUMMARY <em>THIS LOCATION ONLY</em></h2>'+sum+'<p class="legend"><span class="dot full"></span>Full-time <span class="dot relief"></span>Relief / part-time <span class="dot ceo"></span>CEO check <span class="dot mkt"></span>Special duty</p></section>';
+    });
+    var totalPages=locPages.length+3;
+    locPages=locPages.map(function(p,i){return p.replace('</section>',footer(i+1,totalPages)+'</section>');});
+    var payrollPage='<section class="report-page">'+pageTitle("","STAFF & PAYROLL SUMMARY","Roster wages, OT and POS-linked variable pay","#70ad47")
+      +'<div class="metrics"><div><b>฿'+money(payroll.base)+'</b><span>BASE WAGES</span></div><div><b>฿'+money(payroll.ot)+'</b><span>OT · '+payroll.otHours+' HOURS</span></div><div><b>฿'+money(commissionTotal+staffServiceTotal)+'</b><span>VARIABLE PAY</span></div><div><b>฿'+money(plannedPayout)+'</b><span>PLANNED PAYOUT</span></div></div>'
+      +'<table class="wide"><tr><th>STAFF</th><th>ROLE</th><th>LOCATION</th><th>CONTRACT</th><th>SHIFTS</th><th>HOURS</th><th>BASE</th><th>OT</th><th>POS SALES</th><th>COMMISSION</th><th>BAR SC</th><th>TOTAL</th></tr>'
+      +payout.map(function(x){return '<tr><td><b>'+esc(x.s.name)+'</b></td><td>'+esc(x.p.role||"")+'</td><td>'+esc(x.s.locs.join(", "))+'</td><td>'+esc(x.s.pay.payType==="daily"?('Daily ฿'+money(x.s.pay.dailyRate)):"Monthly")+'</td><td class="num">'+x.s.shifts+'</td><td class="num">'+x.s.hours+'</td><td class="num">฿'+money(x.s.pay.basePay)+'</td><td class="num">฿'+money(x.s.pay.otPay)+'</td><td class="num">฿'+money(x.sales)+'</td><td class="num">฿'+money(x.commission)+'</td><td class="num">'+(x.staffService?('฿'+money(x.staffService)):"—")+'</td><td class="num total">฿'+money(x.total)+'</td></tr>';}).join("")+'</table>'
+      +'<div class="reconcile"><div><span>Wages budget</span><b>฿'+money(wagesBudget)+'</b></div><div><span>Roster planned wages</span><b>฿'+money(payroll.total)+'</b></div><div><span>Actual wages booked in Finance</span><b>฿'+money(actualWages)+'</b></div><div><span>Roster vs actual</span><b class="'+(actualWages&&payroll.total!==actualWages?"warn":"")+'">'+(actualWages?((payroll.total-actualWages>=0?"+":"−")+'฿'+money(Math.abs(payroll.total-actualWages))):"WAITING FOR ENTRY")+'</b></div></div>'
+      +footer(locPages.length+1,totalPages)+'</section>';
+    var validationPage='<section class="report-page">'+pageTitle("","ACTUAL EXPENSE & VALIDATION","Finance reconciliation, data connections and approval checks","#2db9d6")
+      +'<div class="split"><div><h2>ACTUAL EXPENSES · '+esc(monthLabel)+'</h2><table class="wide"><tr><th>CATEGORY</th><th>ENTRIES</th><th>ACTUAL</th><th>MONTHLY BUDGET</th></tr>'
+      +Object.keys(expensesByCat).sort().map(function(cat){var rows=monthExpenses.filter(function(e){return (e.cat||"other")===cat;});var budget=(EXPENSE_TARGETS.byCategory&&EXPENSE_TARGETS.byCategory[cat]&&EXPENSE_TARGETS.byCategory[cat].monthly)||0;return '<tr><td><b>'+esc(cat.toUpperCase())+'</b></td><td class="num">'+rows.length+'</td><td class="num">฿'+money(expensesByCat[cat])+'</td><td class="num">'+(budget?('฿'+money(budget)):"—")+'</td></tr>';}).join("")
+      +(Object.keys(expensesByCat).length?"":'<tr><td colspan="4" class="empty-note">No actual expenses recorded for this month yet</td></tr>')
+      +'<tr class="grand"><td>TOTAL ACTUAL</td><td class="num">'+monthExpenses.length+'</td><td class="num">฿'+money(actualExpense)+'</td><td></td></tr></table></div>'
+      +'<div><h2>FINAL VALIDATION</h2><div class="checks"><div class="'+(res.validation.empty.length?"bad":"ok")+'"><b>'+res.validation.empty.length+'</b><span>EMPTY REQUIRED SHIFTS</span></div><div class="'+(res.validation.doubles.length?"bad":"ok")+'"><b>'+res.validation.doubles.length+'</b><span>DOUBLE SHIFTS</span></div><div class="'+(res.validation.unauthorised.length?"bad":"ok")+'"><b>'+res.validation.unauthorised.length+'</b><span>UNAUTHORISED</span></div><div class="'+(res.validation.over.length?"bad":"ok")+'"><b>'+res.validation.over.length+'</b><span>OVER MAXIMUM</span></div></div><h2>DATA CONNECTIONS</h2><div class="sources">'+sourceRows.map(function(s){return '<div><i class="'+(s.ok?"on":"wait")+'"></i><span><b>'+esc(s.name)+'</b><small>'+esc(s.detail)+'</small></span></div>';}).join("")+'</div></div></div>'
+      +'<div class="rules"><b>CALCULATION RULES</b><span>Overnight duty counts on its start date · Special duties do not add a second shift · Monthly staff receive salary + approved OT · Daily staff receive day rate × duties stood · Budtender commission is 2% of individually attributed POS sales · Bar service charge appears only when the POS stores an explicit staff-share value.</span></div>'
+      +footer(locPages.length+2,totalPages)+'</section>';
+    var payoutPage='<section class="report-page">'+pageTitle("","PAYOUT · DAY / WEEK / MONTH","Calculated from the approved roster and linked sales records","#c9a84c")
+      +'<table class="wide payout"><tr><th>STAFF</th><th>ROLE</th><th>PAID DAYS</th><th>DAY EQUIVALENT</th><th>WEEKLY AVG</th><th>BASE + OT</th><th>COMMISSION 2%</th><th>BAR SC</th><th>MONTH PAYOUT</th><th>STATUS</th></tr>'
+      +payout.map(function(x){return '<tr><td><b>'+esc(x.s.name)+'</b></td><td>'+esc(x.p.role||"")+'</td><td class="num">'+(x.s.pay.paidDays||x.s.shifts||0)+'</td><td class="num">฿'+money(x.perDay)+'</td><td class="num">฿'+money(x.perWeek)+'</td><td class="num">฿'+money(x.s.pay.totalPay)+'</td><td class="num">฿'+money(x.commission)+'</td><td class="num">'+(x.staffService?('฿'+money(x.staffService)):"—")+'</td><td class="num total">฿'+money(x.total)+'</td><td><span class="status '+(x.s.pay.basePay?"ready":"wait")+'">'+(x.s.pay.basePay?"READY":"WAGE MISSING")+'</span></td></tr>';}).join("")
+      +'<tr class="grand"><td colspan="5">GROUP TOTAL</td><td class="num">฿'+money(payroll.total)+'</td><td class="num">฿'+money(commissionTotal)+'</td><td class="num">฿'+money(staffServiceTotal)+'</td><td class="num">฿'+money(plannedPayout)+'</td><td></td></tr></table>'
+      +'<div class="notes"><h2>CALCULATION NOTES</h2><div><b>Monthly staff</b><span>Day equivalent = monthly payout ÷ contracted/paid duties. Salary is not reduced for a short calendar month.</span></div><div><b>Daily staff</b><span>Base wage = daily rate × actual rostered duties. Missing shift length means OT cannot be calculated.</span></div><div><b>Weekly average</b><span>Monthly payout × 12 ÷ 52. This is an average for planning, not an extra payment.</span></div><div><b>Variable pay</b><span>Commission and service charge are zero until an attributed sale or explicit service-charge staff share exists.</span></div></div>'
+      +footer(totalPages,totalPages)+'</section>';
+    var css='@page{size:A3 landscape;margin:0}.dank-report{background:#e9eeeb;color:#172019;font:11px/1.28 Arial,"Noto Sans Thai",Tahoma,sans-serif;letter-spacing:0}.dank-report *{box-sizing:border-box}'
+      +'.dank-report .report-page{position:relative;width:420mm;height:297mm;padding:10mm 11mm 12mm;background:#fff;overflow:hidden;page-break-after:always;break-after:page}.dank-report .report-page:last-child{page-break-after:auto;break-after:auto}'
+      +'.dank-report .mast{display:flex;justify-content:space-between;align-items:flex-start;border-top:5px solid var(--accent);border-bottom:1.5px solid #172019;padding:5mm 0 3mm;margin-bottom:4mm}.dank-report .kicker{font-size:8px;font-weight:800;letter-spacing:1.8px;color:var(--accent)}.dank-report h1{font-size:22px;line-height:1;margin:1.4mm 0 1mm;letter-spacing:.35px}.dank-report .mast p{margin:0;color:#5f6c62;font-size:9px;letter-spacing:.4px}.dank-report .period{font-size:14px;font-weight:900;color:var(--accent);padding-top:2mm}'
+      +'.dank-report .weeks{display:grid;grid-template-columns:1fr 1fr;gap:2.8mm 4mm;align-items:start}.dank-report .week-label{font-size:7px;font-weight:900;letter-spacing:1px;color:#667069;margin-bottom:1mm}.dank-report table{width:100%;border-collapse:collapse;table-layout:fixed}.dank-report th,.dank-report td{border:1px solid #ccd3cd;padding:1.2mm 1mm;text-align:center;vertical-align:middle;font-size:7.4px;height:7mm;overflow:hidden}.dank-report th{background:#eff3f0;color:#475049;font-size:6.8px;font-weight:900;letter-spacing:.35px}.dank-report th b{display:block;color:#172019;font-size:9px}.dank-report .sl{text-align:left;width:28mm}.dank-report .sl i{display:block;color:#6d756f;font-style:normal;font-size:6.5px}.dank-report .sl b{display:block;font-size:7.4px}.dank-report .person{display:block;font-weight:800}.dank-report .person+.person{border-top:1px dotted #c8cec9;margin-top:.7mm;padding-top:.7mm}.dank-report .person u{display:block;text-decoration:none;color:#8b6f13;font-size:6px;font-weight:700}.dank-report .person s{display:block;text-decoration:none;color:#7c3aed;font-size:5.8px}.dank-report .relief,.dank-report .part{color:#0b63a8}.dank-report .ceo{color:#927417}.dank-report .dash{color:#b4bbb5}.dank-report .hole{background:#ffeded;color:#b42318;font-weight:900}'
+      +'.dank-report h2{font-size:8px;letter-spacing:1px;margin:3.5mm 0 1.5mm}.dank-report h2 em{float:right;color:#768078;font-size:6px}.dank-report .sum th,.dank-report .sum td{height:6mm;text-align:left}.dank-report .sum .num,.dank-report .num{text-align:right;font-variant-numeric:tabular-nums}.dank-report .sum th:nth-child(3),.dank-report .sum th:nth-child(4){text-align:right}.dank-report .legend{font-size:6.5px;color:#687169;margin:2mm 0}.dank-report .dot{display:inline-block;width:2.2mm;height:2.2mm;border-radius:50%;background:#172019;margin:0 1mm 0 3mm;vertical-align:-.25mm}.dank-report .dot:first-child{margin-left:0}.dank-report .dot.relief{background:#0b63a8}.dank-report .dot.ceo{background:#927417}.dank-report .dot.mkt{background:#7c3aed}'
+      +'.dank-report footer{position:absolute;left:11mm;right:11mm;bottom:6mm;display:flex;gap:11mm;border-top:1px solid #172019;padding-top:2mm;font-size:7px;font-weight:800}.dank-report footer .pg{margin-left:auto;color:#687169;font-weight:600}'
+      +'.dank-report .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-bottom:4mm}.dank-report .metrics div{border:1px solid #d5dbd6;border-top:3px solid #70ad47;padding:3mm}.dank-report .metrics b{display:block;font-size:16px}.dank-report .metrics span{display:block;font-size:6.5px;color:#687169;font-weight:900;letter-spacing:.6px;margin-top:1mm}.dank-report .wide th,.dank-report .wide td{font-size:6.7px;height:7.5mm;padding:1mm}.dank-report .wide td{text-align:left}.dank-report .wide .num{text-align:right}.dank-report .wide .total{font-weight:900;color:#245d2d}.dank-report .reconcile{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin-top:4mm}.dank-report .reconcile div{background:#f2f5f2;border-left:3px solid #70ad47;padding:2.5mm}.dank-report .reconcile span,.dank-report .reconcile b{display:block}.dank-report .reconcile span{font-size:6.5px;color:#69726a}.dank-report .reconcile b{font-size:10px;margin-top:1mm}.dank-report .warn{color:#b42318}'
+      +'.dank-report .split{display:grid;grid-template-columns:1.08fr .92fr;gap:6mm}.dank-report .empty-note{height:36mm!important;color:#778079;text-align:center!important;font-style:italic}.dank-report .grand td{background:#172019!important;color:#fff!important;font-weight:900!important}.dank-report .checks{display:grid;grid-template-columns:1fr 1fr;gap:2mm}.dank-report .checks div{border:1px solid #d5dbd6;padding:3mm}.dank-report .checks b,.dank-report .checks span{display:block}.dank-report .checks b{font-size:16px}.dank-report .checks span{font-size:6px;font-weight:900;letter-spacing:.55px}.dank-report .checks .ok{border-top:3px solid #70ad47}.dank-report .checks .bad{border-top:3px solid #b42318;color:#b42318}.dank-report .sources>div{display:flex;gap:2mm;border-top:1px solid #d9ded9;padding:2mm 0}.dank-report .sources i{width:2.5mm;height:2.5mm;border-radius:50%;margin-top:.6mm}.dank-report .sources i.on{background:#70ad47}.dank-report .sources i.wait{background:#c9a84c}.dank-report .sources b,.dank-report .sources small{display:block}.dank-report .sources b{font-size:7.5px}.dank-report .sources small{color:#69726a;font-size:6.5px}.dank-report .rules{margin-top:5mm;border:1px solid #cfd6d0;background:#f4f7f4;padding:3mm}.dank-report .rules b,.dank-report .rules span{display:block}.dank-report .rules b{font-size:7px;letter-spacing:1px;margin-bottom:1mm}.dank-report .rules span{font-size:7.3px;color:#59635b}'
+      +'.dank-report .payout th,.dank-report .payout td{height:9mm}.dank-report .status{display:inline-block;border-radius:9px;padding:1mm 2mm;font-size:5.8px;font-weight:900}.dank-report .status.ready{background:#def3df;color:#245d2d}.dank-report .status.wait{background:#ffeded;color:#b42318}.dank-report .notes{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-top:5mm}.dank-report .notes h2{grid-column:1/-1;margin:0}.dank-report .notes div{border-top:3px solid #c9a84c;background:#f7f5ee;padding:3mm}.dank-report .notes b,.dank-report .notes span{display:block}.dank-report .notes b{font-size:8px;margin-bottom:1mm}.dank-report .notes span{font-size:6.7px;color:#5e645f}';
+    return {pages:locPages.concat([payrollPage,validationPage,payoutPage]),css:css,payroll:payroll,payout:payout,actualExpense:actualExpense,actualWages:actualWages,wagesBudget:wagesBudget,plannedPayout:plannedPayout,sources:sourceRows};
+  };
 
-      var mine=res.summary.filter(function(s){return s.locs.indexOf(loc.id)>=0&&s.shifts>0;});
-      var summary='<table class="sum"><tr><th>STAFF</th><th>ASSIGNMENT</th><th>SHIFTS</th><th>HOURS</th></tr>'
-        +mine.map(function(s){return '<tr><td class="'+cls(byId[s.id])+'">'+esc(s.name)+'</td><td>'+esc(s.assignment)
-          +(s.duties.length?(' + '+s.duties.length+' '+esc(s.duties[0].label)):"")
-          +(s.leave.length?(' | leave '+s.leave.length+'d'):"")+'</td><td class="n">'+s.shifts+'</td><td class="n">'+s.hours+'h</td></tr>';}).join("")
-        +'</table>';
+  const shiftPrint=function(report,monthLabel){
+    var w=window.open("","_blank");if(!w){notify("⚠ เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up ให้เว็บนี้ก่อน");return;}
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>DANK '+String(monthLabel).replace(/[<>]/g,"")+' — Auto Shift Report</title><style>body{margin:0;background:#e9eeeb}'+report.css+'</style></head><body><div class="dank-report">'+report.pages.join("")+'</div></body></html>');
+    w.document.close();setTimeout(function(){try{w.focus();w.print();}catch(e){}},500);
+  };
 
-      return '<section class="page">'
-        +'<header><h1>'+esc(loc.name)+'</h1><span>'+esc(monthLabel)+'</span></header>'
-        +'<p class="note">'+esc(loc.note||"")+'</p>'
-        +tables
-        +'<h2>MONTHLY STAFF SUMMARY <em>THIS LOCATION ONLY</em></h2>'+summary
-        +'<p class="legend"><span class="k"></span>Full-time &nbsp; <span class="k relief"></span>Relief / part-time &nbsp; '
-        +'<span class="k ceo"></span>Management / CEO cover &nbsp; <span class="k mkt"></span>Marketing &amp; special duty</p>'
-        +'<footer><div>SIGNATURE: ____________________</div><div>APPROVED BY: ____________________</div>'
-        +'<div>DATE: __________</div><div class="pg">DANK GROUP | PAGE '+(li+1)+' OF '+locs.length+'</div></footer>'
-        +'</section>';
-    }).join("");
-
-    var css='@page{size:A3 landscape;margin:10mm}'
-      +'*{box-sizing:border-box}body{margin:0;background:#fff;color:#111;font:12px/1.35 Arial,Helvetica,sans-serif}'
-      +'.page{page-break-after:always;padding:4mm 2mm}.page:last-child{page-break-after:auto}'
-      +'header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #111;padding-bottom:4px}'
-      +'h1{font-size:19px;margin:0;letter-spacing:.5px}header span{font-size:13px;font-weight:700}'
-      +'.note{margin:4px 0 9px;font-size:10px;letter-spacing:1px;color:#555}'
-      +'table{width:100%;border-collapse:collapse;margin-bottom:7px;table-layout:fixed}'
-      +'th,td{border:1px solid #c9c9c9;padding:3px 2px;text-align:center;font-size:10px;height:22px;overflow:hidden}'
-      +'th{background:#f2f2f2;font-size:8px;color:#444;font-weight:700}th b{display:block;font-size:11px;color:#111}'
-      +'td.sl,th.sl{text-align:left;width:118px}td.sl i{display:block;font-style:normal;font-size:8px;color:#666}'
-      +'td.sl b{font-size:10px}'
-      +'td u{display:block;text-decoration:none;font-size:7.5px;color:#8a6d00}'
-      +'td s{display:block;text-decoration:none;font-size:7.5px;color:#7c3aed;font-weight:700}'
-      +'td.dash{color:#bbb}td.hole{background:#ffe9e9;color:#c00;font-weight:700;font-size:8px}'
-      +'td.relief,td.part{color:#0b63a8;font-weight:700}td.ceo{color:#8a6d00;font-weight:800}'
-      +'h2{font-size:11px;margin:9px 0 4px;letter-spacing:1px}h2 em{float:right;font-style:normal;font-size:8px;color:#777}'
-      +'table.sum{table-layout:auto}table.sum th{font-size:8px}table.sum td{text-align:left;font-size:10px}'
-      +'table.sum td.n{text-align:right;width:52px;font-weight:700}'
-      +'.legend{font-size:8.5px;color:#555;margin:6px 0}'
-      +'.k{display:inline-block;width:9px;height:9px;border:1px solid #999;background:#111;vertical-align:-1px;margin-right:3px}'
-      +'.k.relief{background:#0b63a8}.k.ceo{background:#8a6d00}.k.mkt{background:#7c3aed}'
-      +'footer{display:flex;gap:22px;align-items:center;border-top:1px solid #111;margin-top:8px;padding-top:6px;font-size:10px;font-weight:700}'
-      +'footer .pg{margin-left:auto;color:#666;font-weight:400}';
-
-    var w=window.open("","_blank");
-    if(!w){notify("⚠ เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up ให้เว็บนี้ก่อน");return;}
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>DANK '+esc(monthLabel)+' — Working Shifts</title><style>'+css+'</style></head><body>'+pages+'</body></html>');
-    w.document.close();
-    setTimeout(function(){try{w.focus();w.print();}catch(e){}},350);
+  const shiftPdfAction=async function(report,monthLabel,share){
+    if(shiftPdfBusy)return;
+    if(typeof window.html2pdf!=="function"){notify("ตัวสร้าง PDF ยังโหลดไม่สำเร็จ — ใช้ปุ่ม Print / Save PDF ก่อน","error");return;}
+    setShiftPdfBusy(true);
+    var host=document.createElement("div"),style=document.createElement("style");
+    host.className="dank-report";host.style.position="fixed";host.style.left="-20000px";host.style.top="0";host.innerHTML=report.pages.join("");
+    style.textContent=report.css;document.head.appendChild(style);document.body.appendChild(host);
+    var fileName="DANK-Auto-Shift-"+String(monthLabel).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")+".pdf";
+    try{
+      await new Promise(function(resolve){requestAnimationFrame(function(){requestAnimationFrame(resolve);});});
+      var blob=await window.html2pdf().set({margin:0,filename:fileName,image:{type:"jpeg",quality:0.97},html2canvas:{scale:1.15,useCORS:true,backgroundColor:"#ffffff",logging:false},jsPDF:{unit:"mm",format:"a3",orientation:"landscape"},pagebreak:{mode:["css","legacy"]}}).from(host).outputPdf("blob");
+      var file=new File([blob],fileName,{type:"application/pdf"});
+      if(share&&navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+        await navigator.share({title:"DANK Auto Shift · "+monthLabel,text:"ตารางกะและสรุปค่าแรง "+monthLabel,files:[file]});
+        notify("แชร์ PDF แล้ว ✓");
+      }else{
+        var url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},2000);
+        notify(share?"อุปกรณ์นี้แชร์ไฟล์ตรง ๆ ไม่ได้ — ดาวน์โหลด PDF ให้แล้ว":"ดาวน์โหลด PDF แล้ว ✓");
+      }
+      addAudit(share?"SHIFT_REPORT_SHARED":"SHIFT_REPORT_DOWNLOADED",monthLabel+" · "+report.pages.length+" pages",currentStaff&&currentStaff.name);
+    }catch(e){if(e&&e.name!=="AbortError")notify("สร้าง PDF ไม่สำเร็จ: "+(e.message||"unknown error"),"error");}
+    finally{host.remove();style.remove();setShiftPdfBusy(false);}
   };
   const getCatRevenue = function() {
     const cats={};
@@ -5671,6 +5799,19 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       </div>
       <div style={{...gs.card,width:"100%",maxWidth:370,boxShadow:"0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(201,168,76,0.08)"}}>
         <div style={{fontSize:11,color:C.muted,textAlign:"center",marginBottom:14,letterSpacing:"0.08em",textTransform:"uppercase"}}>{t.login}</div>
+        <input
+          type="password"
+          name="pin"
+          inputMode="numeric"
+          autoComplete="current-password"
+          aria-label="PIN"
+          maxLength={6}
+          placeholder="PIN · 6 digits"
+          value={pinInput}
+          onChange={function(e){setPinInput(e.target.value.replace(/[^0-9]/g,"").slice(0,6));}}
+          onKeyDown={function(e){if(e.key==="Enter"&&pinInput.length===6)attemptLogin(pinInput);}}
+          style={{...gs.input,textAlign:"center",letterSpacing:5,marginBottom:12,fontSize:16}}
+        />
         <div style={{display:"flex",justifyContent:"center",gap:7,marginBottom:18}}>
           {[0,1,2,3,4,5].map(i=>(
             <div key={i} style={{width:mob?36:42,height:mob?36:42,borderRadius:9,background:C.card2,border:"2px solid "+(pinInput.length>i?C.accent:C.border),display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,boxShadow:pinInput.length>i?"0 0 12px rgba(201,168,76,0.4)":"none"}}>
@@ -5694,7 +5835,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             }} style={{...gs.btn(k==="⌫"?C.red:C.card3,"#fff"),padding:mob?"12px 8px":"14px 8px",fontSize:mob?16:18,opacity:k===""?0:1,pointerEvents:k===""?"none":"auto",border:`1px solid ${C.border}`}}>{k}</button>
       ))}
         </div>
-        <button onClick={()=>{attemptLogin(pinInput);}} style={{...gs.btnLg(C.green),marginBottom:11}}>🔓 Login</button>
+        <button type="button" aria-label="Login" onClick={()=>{attemptLogin(pinInput);}} style={{...gs.btnLg(C.green),marginBottom:11}}>🔓 Login</button>
         <div style={{textAlign:"center"}}>
           <span style={{color:C.muted,fontSize:11}}>New staff? </span>
           <button onClick={()=>setShowRegister(true)} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:11,fontWeight:700}}>{t.register}</button>
@@ -8323,6 +8464,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
         var v=shown?shown.validation:null;
         var locList=shiftLocs.filter(function(l){return shiftLoc==="all"||l.id===shiftLoc;});
         var staffById={}; shiftStaff.forEach(function(p){staffById[p.id]=p;});
+        var report=shown?shiftReportBundle(locList,shiftStaff,shown,monthLabel,shiftMonth):null;
 
         /* colour tells you at a glance who is not the usual person on that
          * shift — that is the whole reason a manager scans the sheet */
@@ -8367,7 +8509,10 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               <button onClick={generate} style={{...gs.btn(C.green,"#000"),fontSize:11,fontWeight:800}}>⚙ สร้างร่าง Generate</button>
               {isDraft&&<button onClick={approve} style={{...gs.btn(C.gold,"#000"),fontSize:11,fontWeight:800}}>✅ อนุมัติ Approve</button>}
-              {shown&&<button onClick={function(){shiftPrint(locList,shiftStaff,shown,monthLabel);}} style={{...gs.btn(C.blue,"#000"),fontSize:11}}>🖨 พิมพ์ / PDF</button>}
+              {shown&&<button onClick={function(){setShiftReportPage(0);setShiftReportOpen(true);}} style={{...gs.btn(C.blue,"#000"),fontSize:11}}>ดูรายงาน Report</button>}
+              {shown&&<button disabled={shiftPdfBusy} onClick={function(){shiftPdfAction(report,monthLabel,false);}} style={{...gs.btn(C.green,"#000"),fontSize:11,opacity:shiftPdfBusy?0.6:1}}>{shiftPdfBusy?"กำลังสร้าง…":"Download PDF"}</button>}
+              {shown&&<button disabled={shiftPdfBusy} onClick={function(){shiftPdfAction(report,monthLabel,true);}} style={{...gs.btn(C.gold,"#000"),fontSize:11,opacity:shiftPdfBusy?0.6:1}}>Share PDF</button>}
+              {shown&&<button onClick={function(){shiftPrint(report,monthLabel);}} style={{...gs.btn(C.card2,"#fff"),fontSize:11,border:"1px solid "+C.border}}>Print</button>}
               {shown&&<button onClick={function(){shiftCsv(shown,monthLabel);}} style={{...gs.btn(C.card2,"#fff"),fontSize:11,border:"1px solid "+C.border}}>⬇ CSV</button>}
               {shown&&<button onClick={function(){setShiftAi({q:"",a:null,busy:false});}} style={{...gs.btn("#7c3aed","#fff"),fontSize:11,fontWeight:800}}>🤖 ถาม AI</button>}
               <button onClick={function(){setShiftEdit({list:JSON.parse(JSON.stringify(shiftStaff))});}} style={{...gs.btn(C.card2,"#fff"),fontSize:11,border:"1px solid "+C.border}}>👤 ตั้งค่าคน + เงินเดือน</button>
@@ -8386,6 +8531,27 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             {isDraft&&<span style={{...gs.badge(C.gold,"#000"),marginLeft:6}}>ร่าง · ยังไม่อนุมัติ</span>}
             {!isDraft&&saved&&<span style={{...gs.badge(C.green,"#000"),marginLeft:6}}>อนุมัติแล้ว</span>}
           </div>
+
+          {shown&&report&&(
+            <div style={{...gs.card,marginBottom:12,border:"1px solid "+C.blue+"55",background:"linear-gradient(135deg,rgba(56,189,248,0.07),rgba(74,222,128,0.025))"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}>
+                <div>
+                  <div style={{fontSize:12.5,fontWeight:800}}>รายงานอัตโนมัติ · Live report connections</div>
+                  <div style={{fontSize:9.5,color:C.muted,marginTop:2}}>ตารางกะ + ค่าแรง + Actual Expense + POS commission ใช้ข้อมูลชุดเดียวกับหน้าอื่นในแอป</div>
+                </div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <button onClick={function(){setFinView("expenses");setActiveTab("finance");}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,border:"1px solid "+C.border}}>Actual Expense</button>
+                  <button onClick={function(){setShiftEdit({list:JSON.parse(JSON.stringify(shiftStaff))});}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,border:"1px solid "+C.border}}>Staff wages</button>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:7,marginTop:10}}>
+                <div style={{...gs.card2,padding:9}}><div style={{fontSize:8.5,color:C.muted}}>PLANNED PAYOUT</div><b style={{fontSize:15,color:C.green,...gs.num}}>฿{report.plannedPayout.toLocaleString()}</b></div>
+                <div style={{...gs.card2,padding:9}}><div style={{fontSize:8.5,color:C.muted}}>ACTUAL WAGES BOOKED</div><b style={{fontSize:15,color:report.actualWages?C.text:C.gold,...gs.num}}>{report.actualWages?("฿"+report.actualWages.toLocaleString()):"ยังไม่มีรายการ"}</b></div>
+                <div style={{...gs.card2,padding:9}}><div style={{fontSize:8.5,color:C.muted}}>WAGES BUDGET</div><b style={{fontSize:15,color:C.text,...gs.num}}>฿{report.wagesBudget.toLocaleString()}</b></div>
+                <div style={{...gs.card2,padding:9}}><div style={{fontSize:8.5,color:C.muted}}>REPORT PAGES</div><b style={{fontSize:15,color:C.blue,...gs.num}}>{report.pages.length} pages · A3</b></div>
+              </div>
+            </div>
+          )}
 
           {!shown&&(
             <div style={{...gs.card,textAlign:"center",padding:30}}>
@@ -8412,7 +8578,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   {n:"กะที่ยังว่าง",e:"empty shifts",v:v.empty.length,bad:v.empty.length>0},
                   {n:"ซ้ำวันเดียวกัน",e:"double shifts",v:v.doubles.length,bad:v.doubles.length>0},
                   {n:"ผิดสาขา/กะ",e:"unauthorised",v:v.unauthorised.length,bad:v.unauthorised.length>0},
-                  {n:"ต่ำกว่า 24",e:"under 24",v:v.under.length,bad:v.under.length>0,warn:true},
+                  {n:"ต่ำกว่า 25",e:"under 25",v:v.under.length,bad:v.under.length>0,warn:true},
                   {n:"เกินเพดาน",e:"over max",v:v.over.length,bad:v.over.length>0},
                 ].map(function(k,i){
                   return <div key={i} style={{...gs.card2,textAlign:"center",borderColor:k.bad?(k.warn?C.gold:C.red)+"66":C.border}}>
@@ -8571,7 +8737,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   <tbody>
                     {shown.summary.map(function(s){
                       var p=staffById[s.id];
-                      var band=s.kind==="full"&&(s.shifts<24||s.shifts>s.max);
+                      var band=s.kind==="full"&&(s.shifts<25||s.shifts>s.max);
                       return <tr key={s.id} style={{borderTop:"1px solid "+C.borderSoft}}>
                         <td style={{padding:"5px 6px",fontWeight:700,color:inkFor(p)}}>{s.name}</td>
                         <td style={{padding:"5px 6px",color:C.muted,fontSize:9.5}}>{s.locs.join(", ")}</td>
@@ -8604,6 +8770,41 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               </div>
             </div>
           </>)}
+
+          {shiftReportOpen&&shown&&report&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.82)",zIndex:140,display:"flex",alignItems:"center",justifyContent:"center",padding:mob?6:14}} onClick={function(e){if(e.target===e.currentTarget)setShiftReportOpen(false);}}>
+              <div style={{width:"100%",maxWidth:1180,height:"94vh",background:C.card,border:"1px solid "+C.border,borderRadius:18,boxShadow:"0 30px 90px rgba(0,0,0,0.6)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,padding:mob?10:14,borderBottom:"1px solid "+C.border,flexWrap:"wrap"}}>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:900}}>DANK Auto Shift Report · {monthLabel}</div>
+                    <div style={{fontSize:9.5,color:C.muted,marginTop:2}}>A3 landscape · {report.pages.length} pages · live data from roster, Finance and POS</div>
+                  </div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <button disabled={shiftPdfBusy} onClick={function(){shiftPdfAction(report,monthLabel,false);}} style={{...gs.btn(C.green,"#000"),fontSize:10,minHeight:38}}>{shiftPdfBusy?"กำลังสร้าง PDF…":"Download PDF"}</button>
+                    <button disabled={shiftPdfBusy} onClick={function(){shiftPdfAction(report,monthLabel,true);}} style={{...gs.btn(C.gold,"#000"),fontSize:10,minHeight:38}}>Share PDF</button>
+                    <button onClick={function(){shiftPrint(report,monthLabel);}} style={{...gs.btn(C.blue,"#000"),fontSize:10,minHeight:38}}>Print</button>
+                    <button onClick={function(){setShiftReportOpen(false);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,minHeight:38,border:"1px solid "+C.border}}>Close</button>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:5,padding:"8px 10px",borderBottom:"1px solid "+C.border,overflowX:"auto",flexShrink:0}}>
+                  {locList.map(function(l){return l.name.replace("DANK ","");}).concat(["Payroll summary","Expense & validation","Payout"]).map(function(label,i){
+                    return <button key={i} onClick={function(){setShiftReportPage(i);}} style={{...gs.btn(shiftReportPage===i?C.green:C.card2,shiftReportPage===i?"#000":"#fff"),fontSize:9.5,padding:"7px 11px",border:shiftReportPage===i?"none":"1px solid "+C.border,whiteSpace:"nowrap",minHeight:34}}>Page {i+1} · {label}</button>;
+                  })}
+                </div>
+                <div style={{flex:1,overflow:"auto",background:"#dfe5e0",padding:mob?6:14}}>
+                  <style dangerouslySetInnerHTML={{__html:report.css}} />
+                  <div style={{width:"420mm",margin:"0 auto",zoom:mob?0.22:0.5,boxShadow:"0 16px 50px rgba(0,0,0,0.28)"}}>
+                    <div className="dank-report" dangerouslySetInnerHTML={{__html:report.pages[Math.min(shiftReportPage,report.pages.length-1)]}} />
+                  </div>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"8px 12px",borderTop:"1px solid "+C.border,flexShrink:0}}>
+                  <button disabled={shiftReportPage===0} onClick={function(){setShiftReportPage(Math.max(0,shiftReportPage-1));}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,border:"1px solid "+C.border,opacity:shiftReportPage===0?0.45:1}}>Previous</button>
+                  <div style={{fontSize:10,color:C.muted}}>Page {shiftReportPage+1} of {report.pages.length}</div>
+                  <button disabled={shiftReportPage>=report.pages.length-1} onClick={function(){setShiftReportPage(Math.min(report.pages.length-1,shiftReportPage+1));}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,border:"1px solid "+C.border,opacity:shiftReportPage>=report.pages.length-1?0.45:1}}>Next</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── the roster assistant: answers off the grid, no key needed ── */}
           {shiftAi&&shown&&(

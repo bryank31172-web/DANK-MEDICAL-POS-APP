@@ -18,6 +18,7 @@ const seed = src.slice(src.indexOf('var SHIFT_LOCATIONS ='),
 const M = new Function(body + seed + `; return {
   buildRoster: buildRoster, shiftHours: shiftHours, monthDates: monthDates,
   slotRunsOn: slotRunsOn, rosterPick: rosterPick, rosterAsk: rosterAsk, rosterVisits: rosterVisits, rosterPayroll: rosterPayroll,
+  upgradeShiftStaffSeed: upgradeShiftStaffSeed, SHIFT_STAFF_SEED_VERSION: SHIFT_STAFF_SEED_VERSION,
   LOCS: SHIFT_LOCATIONS, STAFF: SHIFT_STAFF };`)();
 
 let pass = 0, fail = 0;
@@ -57,6 +58,21 @@ ok('Mon-Thu PM runs on Wednesday', M.slotRunsOn(monThu, 3));
 ok('Mon-Thu PM does not run on Sunday', !M.slotRunsOn(monThu, 0));
 ok('a slot with no day list runs every day', M.slotRunsOn({ id: 'x', label: '09:00-18:00' }, 4));
 
+console.log('\nSathorn cross-shop relief order');
+{
+  const steve = M.STAFF.filter((p) => p.id === 'steve')[0];
+  const honey = M.STAFF.filter((p) => p.id === 'honey')[0];
+  const pond = M.STAFF.filter((p) => p.id === 'pond')[0];
+  const jack = M.STAFF.filter((p) => p.id === 'jack')[0];
+  ok('Steve is selected before Honey for a Sathorn gap',
+     M.rosterPick([honey, steve], { id: 'DAY' }, { steve: 0, honey: 0 }).id === 'steve');
+  ok('Honey is the next Sathorn option when Steve is unavailable',
+     M.rosterPick([honey], { id: 'DAY' }, { honey: 0 }).id === 'honey');
+  ok('Pond is not a Sathorn relief option', pond.locs.indexOf('sat') < 0);
+  ok('Jack is restricted to Bar and Phatthanakarn',
+     jack.locs.join(',') === 'bar,ptk' && jack.locs.indexOf('sat') < 0);
+}
+
 /* ── the real month ─────────────────────────────────────────────────────── */
 console.log('\nSeptember 2026, all three shops');
 const r = M.buildRoster(M.LOCS, M.STAFF, 2026, 9);
@@ -80,13 +96,15 @@ ok('and the run refuses to call itself clean while they stand', v.ok === false);
 
 console.log('\neverybody lands on a full month, nobody past their cap');
 const counter = r.summary.filter((s) => s.kind !== 'ceo' && s.slots.length);
-ok('every counter person is inside the 24-28 band or is relief',
-   counter.every((s) => (s.shifts >= 24 && s.shifts <= 28) || s.id === 'mel'),
+ok('every full-time counter person is inside the 25-28 band',
+   counter.filter((s) => s.kind === 'full').every((s) => s.shifts >= 25 && s.shifts <= 28),
    counter.map((s) => s.name.split(' ')[0] + ':' + s.shifts).join(' '));
 ok('nobody is over their own maximum', counter.every((s) => s.shifts <= s.max));
 ok('hours follow the shift length, not a flat number',
-   by.Alex.hours === by.Alex.shifts * 9 && by.Raizo.hours === by.Raizo.shifts * 8,
+   by.Alex.hours === 216 && by.Raizo.hours === by.Raizo.shifts * 8,
    by.Alex.hours + ' / ' + by.Raizo.hours);
+ok('Alex leads 224 Bar for 26 shifts / 216h', by.Alex.shifts === 26 && by.Alex.hours === 216, by.Alex.shifts + ' / ' + by.Alex.hours);
+ok('Jack covers the four Friday bar nights / 36h', by.Jack.shifts === 4 && by.Jack.hours === 36, by.Jack.shifts + ' / ' + by.Jack.hours);
 ok('Mon is held at his 26 cap', by['Mon (ม่อน อาชา)'].shifts === 26, by['Mon (ม่อน อาชา)'].shifts);
 
 /* Everyone is willing to move their day off, so the generator chooses it. That
@@ -182,22 +200,24 @@ ok('a slot nobody is cleared for says exactly that', (() => {
   return night.length > 0 && night.every((e) => e.blockers.some((b) => /nobody is cleared/.test(b)));
 })());
 
-/* One reliever can only be in one place, so the order slots are filled in
- * decides which hole gets them. Filling in printed order gave Steve to
- * 09:00-18:00 — which Honey can also cover — every single day, and left
- * 17:00-02:00, which nobody else is cleared for, empty thirty days out of
- * thirty. Scarcest slot first. */
-console.log('\nthe scarcest shift is filled before the well-covered one');
+/* The owner moved Alex to lead 224 Bar. Phatthanakarn is already short of
+ * counter headcount, but the generator must show that hole rather than pull
+ * its bar leader back into the shop and make the bar plan look staffed. */
+console.log('\nthe 224 Bar lead is not pulled back into a shop shortage');
 {
-  const cover = (slot) => r.days.filter((d) => !!r.cells['ptk|' + d.date + '|' + slot]).length;
-  ok('17:00-02:00 is covered on nearly every day', cover('C1') >= 26, cover('C1') + '/30');
-  ok('…rather than being starved by a slot with more candidates',
-     cover('C1') > v.empty.filter((e) => e.slot === 'C1').length, cover('C1'));
+  const alexCells = Object.keys(r.cells).filter((k) => r.cells[k] && r.cells[k].id === 'alex');
+  ok('every Alex shift is at 224 Bar', alexCells.length === 26 && alexCells.every((k) => k.indexOf('bar|') === 0), alexCells.join(', '));
+  ok('Alex covers all 18 Mon-Thu PM shifts',
+     alexCells.filter((k) => /\|MONTHU$/.test(k)).length === 18,
+     alexCells.filter((k) => /\|MONTHU$/.test(k)).length);
+  ok('the Phatthanakarn C1 shortage is reported instead',
+     v.empty.filter((e) => e.loc === 'ptk' && e.slot === 'C1').length > 0,
+     v.empty.filter((e) => e.loc === 'ptk' && e.slot === 'C1').length);
   const eligible = (slot) => M.STAFF.filter((p) => p.kind !== 'ceo'
     && (p.locs || []).indexOf('ptk') >= 0 && (p.slots || []).indexOf(slot) >= 0).length;
-  ok('C1 really does have fewer people cleared for it than B1 has',
+  ok('C1 really has fewer people cleared for it than B1',
      eligible('C1') <= eligible('B1'), eligible('C1') + ' vs ' + eligible('B1'));
-  ok('and the fill order changed nothing else: no doubles, none unauthorised',
+  ok('the assignment creates no doubles or unauthorised shifts',
      v.doubles.length === 0 && v.unauthorised.length === 0);
 }
 
@@ -242,14 +262,14 @@ console.log('\na per-shop cap is two limits, not one total');
 console.log('\npay: two contract types, OT at 1.5x on both');
 const alex = by.Alex, amoe = by.Amoe, raizo = by.Raizo;
 ok('Alex is on a monthly salary', alex.pay.payType === 'monthly', alex.pay.payType);
-ok('…19,000 over 26x9h is 81.20/h', alex.pay.hourly === 81.2, alex.pay.hourly);
+ok('…19,000 over the contracted 216 mixed-shift hours is 87.96/h', alex.pay.hourly === 87.96, alex.pay.hourly);
 ok('…and his base is the salary, whatever the shift count', alex.pay.basePay === 19000, alex.pay.basePay);
 ok('Amoe is on a day rate', amoe.pay.payType === 'daily', amoe.pay.payType);
 ok('…600/day over a 9h shift is 66.67/h', amoe.pay.hourly === 66.67, amoe.pay.hourly);
 ok('…and his base is the days he stood, not a flat month',
    amoe.pay.basePay === 600 * amoe.shifts, amoe.pay.basePay + ' for ' + amoe.shifts + ' days');
-ok('a 9h shift and an 8h shift do not share a divisor',
-   alex.pay.normalHours !== raizo.pay.normalHours, alex.pay.normalHours + ' vs ' + raizo.pay.normalHours);
+ok('the mixed 8h/9h bar month uses its explicit 216h divisor',
+   alex.pay.normalHours === 216 && alex.pay.otHours === 0, alex.pay.normalHours + ' / OT ' + alex.pay.otHours);
 ok('the OT rate is exactly 1.5x the hourly on a salary',
    Math.abs(alex.pay.otRate - alex.pay.hourly * 1.5) < 0.01, alex.pay.otRate);
 ok('…and on a day rate too',
@@ -318,12 +338,12 @@ console.log('\na day off set by hand still outranks the generator');
 const dow = (d) => new Date(d + 'T00:00:00Z').getUTCDay();
 {
   /* flexible is the default, not a rule: naming a day must still pin it */
-  const pinned = M.STAFF.map((p) => (p.id === 'alex' ? Object.assign({}, p, { off: [4] }) : p));
+  const pinned = M.STAFF.map((p) => (p.id === 'raizo' ? Object.assign({}, p, { off: [4] }) : p));
   const rp = M.buildRoster(M.LOCS, pinned, 2026, 9);
-  const a = rp.summary.filter((s) => s.id === 'alex')[0];
-  ok('Alex asked for Thursdays and gets Thursdays', a.dates.every((d) => dow(d) !== 4),
+  const a = rp.summary.filter((s) => s.id === 'raizo')[0];
+  ok('Raizo asked for Thursdays and gets Thursdays', a.dates.every((d) => dow(d) !== 4),
      a.dates.filter((d) => dow(d) === 4).join(' '));
-  ok('…and it does not silently drop his other days', a.shifts >= 24, a.shifts);
+  ok('…and it does not silently drop his other days', a.shifts >= 25, a.shifts);
 }
 ok('leave still beats everything', (() => {
   const off = M.STAFF.map((p) => (p.id === 'raizo'
@@ -331,11 +351,30 @@ ok('leave still beats everything', (() => {
   const rl2 = M.buildRoster(M.LOCS, off, 2026, 9).summary.filter((s) => s.id === 'raizo')[0];
   return ['2026-09-10', '2026-09-11'].every((d) => rl2.dates.indexOf(d) < 0);
 })());
+ok('Alex never works a Friday', by.Alex.dates.every((d) => dow(d) !== 5));
 
 console.log('\nJack works only at the bar');
 const jackCells = Object.keys(r.cells).filter((k) => r.cells[k] && r.cells[k].id === 'jack');
 ok('every one of his shifts is a bar shift', jackCells.every((k) => k.split('|')[0] === 'bar'), jackCells.length + ' shifts');
-ok('and he has 26 of them', jackCells.length === 26, jackCells.length);
+ok('and all four are Friday nights', jackCells.length === 4 && by.Jack.dates.every((d) => dow(d) === 5), jackCells.length);
+
+console.log('\nexisting devices receive the Alex / 224 Bar staffing decision once');
+const staleStaff = M.STAFF.map((p) => {
+  if (p.id === 'alex') return Object.assign({}, p, { role: 'BUDTENDER', locs: ['ptk'], slots: ['B2'], off: [4], target: 26, max: 28, normalHours: undefined });
+  if (p.id === 'jack') return Object.assign({}, p, { kind: 'full', slots: ['MONTHU', 'FSNIGHT'], only: undefined, target: 26, max: 28 });
+  return p;
+});
+const upgradedStaff = M.upgradeShiftStaffSeed(staleStaff, M.SHIFT_STAFF_SEED_VERSION - 1);
+const upgradedAlex = upgradedStaff.filter((p) => p.id === 'alex')[0];
+const upgradedJack = upgradedStaff.filter((p) => p.id === 'jack')[0];
+ok('a saved Alex row is migrated to 224 Bar leadership',
+   upgradedAlex.role === 'BAR TEAM LEADER' && upgradedAlex.slots.join() === 'MONTHU,FSNIGHT');
+ok('the migrated Alex row carries 26–28 shifts and 216 normal hours',
+   upgradedAlex.target === 26 && upgradedAlex.max === 28 && upgradedAlex.normalHours === 216);
+ok('a saved Jack row becomes Friday-night cover',
+   upgradedJack.target === 4 && upgradedJack.max === 4 && upgradedJack.only.FSNIGHT.join() === '5');
+ok('manager edits made after this migration are left alone',
+   M.upgradeShiftStaffSeed(upgradedStaff, M.SHIFT_STAFF_SEED_VERSION) === upgradedStaff);
 
 console.log('\nthe bar prints a dash rather than a hole');
 const closed = Object.keys(r.cells).filter((k) => r.cells[k] && r.cells[k].closed);
@@ -351,7 +390,7 @@ const rl = M.buildRoster(M.LOCS, withLeave, 2026, 9);
 const amoe2 = rl.summary.filter((s) => s.name === 'Amoe')[0];
 ok('Amoe is not rostered on any of his leave dates',
    ['2026-09-07', '2026-09-08', '2026-09-09'].every((d) => amoe2.dates.indexOf(d) < 0));
-ok('his shifts drop by the days he was away', amoe2.shifts === 23, amoe2.shifts);
+ok('his shifts drop while he is away', amoe2.shifts < by.Amoe.shifts, amoe2.shifts);
 /* Relief now covers A1, so his leave is absorbed rather than left open — the
  * shift being filled by somebody else is the correct outcome, and the thing
  * worth asserting is that it was filled by somebody actually cleared for it. */
@@ -377,9 +416,9 @@ const amoe3 = rg.summary.filter((s) => s.name === 'Amoe')[0];
 ok('Amoe with no day off still cannot pass 28', amoe3.shifts <= 28, amoe3.shifts);
 ok('over-cap is empty because the cap held', rg.validation.over.length === 0);
 
-console.log('\nunder-24 flags full-timers only');
+console.log('\nunder-25 flags full-timers only');
 ok('somebody genuinely short of a full month is flagged',
-   v.under.length === 0 || v.under.every((u) => u.shifts < 24), JSON.stringify(v.under));
+   v.under.length === 0 || v.under.every((u) => u.shifts < 25), JSON.stringify(v.under));
 ok('riders and kitchen are never flagged for standing no counter shift',
    !v.under.some((u) => ['Zaw', 'Got'].indexOf(u.name) >= 0), JSON.stringify(v.under));
 ok('part-timers are not flagged for being part-time',

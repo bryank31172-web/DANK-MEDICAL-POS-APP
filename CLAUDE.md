@@ -200,6 +200,12 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   CEO row and in `result.visits`; hours land in `visitHours`, never in shift hours or the shop
   labour total. Modelling them as cover hid the fact that the Phatthanakarn night shift was
   three shifts short of staff cleared to stand it.
+- **Alex leads DANK 224 Bar:** 26 shifts / 216 normal hours, Friday off, covering every Mon–Thu
+  PM plus Sat/Sun night. Jack is Friday-night cover (4 shifts / 36h). Alex remains available as
+  an emergency cross-location option only through the manager's clearance grid; the automatic
+  seed does not pull him back into Phatthanakarn and hide that shop's real shortage. Existing
+  devices receive this staffing decision once through `dank_shift_staff_seed_version`, after
+  which later manager edits remain untouched.
 - An empty required shift carries `blockers[]` — the trained staff who were rejected and why
   ("Mon: at their maximum", "Pond: only covers C2 on MON"). Listing everyone at the shop instead
   buried that under four lines of "not authorised on C2" for people who were never candidates.
