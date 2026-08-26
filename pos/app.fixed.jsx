@@ -820,6 +820,25 @@ var SHIFT_LOCATIONS = [
 ];
 
 /* off/duty weekdays: 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat */
+/* The wording on the back pages of the sheet the shop already prints. It is
+ * policy, not computation — kept as text so it reads exactly as the owner
+ * wrote it rather than being reassembled from fields that do not know why. */
+var SHIFT_INCENTIVES = [
+  'BUDTENDER: 2% of individual eligible POS sales.',
+  'BARTENDER: customer pays 10% service charge.',
+  'Bartender receives 7%; shop retains 3%.',
+  'Jack/Honey: bar bills use 7%; shop bills use 2% — never both.',
+  'Refunds, voids, cancelled orders and delivery fees are excluded.',
+];
+var SHIFT_COVERAGE_RULES = [
+  'Phatthanakarn: 2 operational budtenders on every base shift.',
+  'Sathorn: 1 base employee; exactly 2 during 11:00-19:00 peak.',
+  '224 Bar: 1 bartender per operating shift; no unnecessary overlap.',
+  'Full-time roster target: 26 planned duties; expected actual: 24-26.',
+  'Reserve: up to 1 approved business-leave and 1 sick-leave shift.',
+  'Relief coverage must be recorded; no employee may work 2 shifts/day.',
+];
+
 var SHIFT_STAFF = [
   /* The shop's own wage sheet (พัฒนาการ / สาทร), confirmed name by name — it is
    * the authority on who works here, so anyone absent from it has left.
@@ -836,55 +855,55 @@ var SHIFT_STAFF = [
 
   /* ── DANK PHATTHANAKARN ──────────────────────────────────────────────── */
   { id: 'alex',  name: 'Alex',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['B2'], off: [],
-    target: 26, max: 28, payType: 'monthly', salary: 19000 },
+    target: 26, max: 28, payType: 'monthly', salary: 19000, variablePay: '2% individual shop sales' },
   { id: 'mon',   name: 'Mon (ม่อน อาชา)', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['C2', 'STOCK'], off: [],
-    target: 26, max: 26, payType: 'monthly', salary: 18000 },
+    target: 26, max: 26, payType: 'monthly', salary: 18000, variablePay: '2% individual shop sales' },
   { id: 'amoe',  name: 'Amoe',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A1'], off: [],
-    target: 26, max: 28, payType: 'daily', dailyRate: 600 },
+    target: 26, max: 28, payType: 'daily', dailyRate: 600, variablePay: '2% individual shop sales' },
   { id: 'dylan', name: 'Dylan', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A2'], off: [],
-    target: 26, max: 28, payType: 'daily', dailyRate: 600 },
+    target: 26, max: 28, payType: 'daily', dailyRate: 600, variablePay: '2% on shop sales' },
 
   /* part-time budtenders move between Phatthanakarn and Sathorn as needed */
   { id: 'pond',  name: 'Pond (ศรัณญ์ สิทธิมงคล)', role: 'BUDTENDER', kind: 'part', relief: true,
     locs: ['ptk', 'sat'], slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK'],
-    off: [], target: 26, max: 26, payType: 'daily', dailyRate: 600 },
+    off: [], target: 26, max: 26, payType: 'daily', dailyRate: 600, variablePay: '2% on shop sales' },
   { id: 'steve', name: 'Steve', role: 'BUDTENDER', kind: 'full', relief: true,
     locs: ['ptk', 'sat'], slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK'],
-    off: [], target: 26, max: 26, payType: 'daily', dailyRate: 650 },
+    off: [], target: 26, max: 26, payType: 'daily', dailyRate: 650, variablePay: '2% on shop sales' },
 
   /* Honey works all three businesses, any shift */
   { id: 'honey', name: 'Honey (มด)', role: 'BARTENDER', kind: 'part',
     locs: ['ptk', 'sat', 'bar'],
     slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK', 'MONTHU', 'FSDAY', 'FSNIGHT'],
-    off: [], target: 26, max: 26, payType: 'daily', dailyRate: 800 },
+    off: [], target: 26, max: 26, payType: 'daily', dailyRate: 800, variablePay: '7% bar / 2% shop' },
 
   /* Riders: on payroll, no counter shift, nine-hour working day */
   { id: 'zaw', name: 'Zaw', role: 'RIDER', kind: 'full', locs: ['ptk'], slots: [], off: [],
-    payrollOnly: true, target: 26, dayHours: 9, payType: 'daily', dailyRate: 600 },
+    payrollOnly: true, target: 26, dayHours: 9, payType: 'daily', dailyRate: 600, variablePay: 'Delivery run rate' },
   { id: 'got', name: 'Got', role: 'RIDER', kind: 'full', locs: ['ptk'], slots: [], off: [],
-    payrollOnly: true, target: 26, dayHours: 9, payType: 'daily', dailyRate: 600 },
+    payrollOnly: true, target: 26, dayHours: 9, payType: 'daily', dailyRate: 600, variablePay: 'Delivery run rate' },
 
   /* ── DANK 224 BAR ────────────────────────────────────────────────────── */
   { id: 'jack',  name: 'Jack',  role: 'BARTENDER', kind: 'full', locs: ['bar'], slots: ['MONTHU', 'FSNIGHT'], off: [],
-    target: 26, max: 28, payType: 'monthly', salary: 18000 },
+    target: 26, max: 28, payType: 'monthly', salary: 18000, variablePay: '7% bar / 2% shop' },
 
   /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
   { id: 'raizo', name: 'Raizo', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['EARLY'], off: [],
-    target: 26, max: 28, payType: 'monthly', salary: 17000 },
+    target: 26, max: 28, payType: 'monthly', salary: 17000, variablePay: '2% on shop sales' },
   { id: 'ploy',  name: 'Ploy (พลอย)', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['PEAK'], off: [],
-    target: 26, max: 28, duty: { dow: 6, label: 'MEDIA/CRM' }, payType: 'monthly', salary: 18000 },
+    target: 26, max: 28, duty: { dow: 6, label: 'MEDIA/CRM', variablePay: '2% on shop sales' }, payType: 'monthly', salary: 18000 },
   { id: 'meng',  name: 'Meng (เม้ง)', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['DAY'], off: [],
-    target: 26, max: 28, payType: 'monthly', salary: 19000 },
+    target: 26, max: 28, payType: 'monthly', salary: 19000, variablePay: '2% individual shop sales' },
   { id: 'pok',   name: 'Pok',   role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['NIGHT'], off: [],
-    target: 26, max: 28, payType: 'daily', dailyRate: 650 },
+    target: 26, max: 28, payType: 'daily', dailyRate: 650, variablePay: '2% on shop sales' },
   { id: 'mel',   name: 'Mel',   role: 'BUDTENDER', kind: 'full', relief: true, locs: ['sat'],
-    slots: ['EARLY', 'DAY', 'NIGHT', 'PEAK'], off: [], target: 26, max: 28, payType: 'monthly', salary: 18000 },
+    slots: ['EARLY', 'DAY', 'NIGHT', 'PEAK'], off: [], target: 26, max: 28, payType: 'monthly', salary: 18000, variablePay: '2% on shop sales' },
 
   /* ── CEOs. Once a week to look over the shop; no slot, and not payroll. ── */
   { id: 'bryan', name: 'Bryan (CEO)', role: 'CEO', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,
-    visit: { loc: 'ptk', dow: 5, window: '21:00-02:00', label: 'CEO \u0e15\u0e23\u0e27\u0e08\u0e07\u0e32\u0e19' } },
+    visit: { loc: 'ptk', dow: 5, window: '21:00-02:00', label: 'CEO \u0e15\u0e23\u0e27\u0e08\u0e07\u0e32\u0e19' }, variablePay: 'Management salary' },
   { id: 'keneth', name: 'Keneth (CEO)', role: 'CEO', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,
-    visit: { loc: 'ptk', dow: 5, window: '17:00-21:00', label: 'CEO \u0e15\u0e23\u0e27\u0e08\u0e07\u0e32\u0e19' } },
+    visit: { loc: 'ptk', dow: 5, window: '17:00-21:00', label: 'CEO \u0e15\u0e23\u0e27\u0e08\u0e07\u0e32\u0e19' }, variablePay: 'Management salary' },
 ];
 
 
@@ -2247,7 +2266,7 @@ function GreenPOS() {
     /* the four colours the sheet is required to distinguish, on white */
     var cls=function(p){
       if(!p)return "";
-      if(p.kind==="manager")return "ceo";
+      if(p.kind==="manager"||p.kind==="ceo")return "ceo";
       if(p.relief)return "relief";
       if(p.kind==="part")return "part";
       return "";
@@ -2298,9 +2317,140 @@ function GreenPOS() {
         +'<p class="legend"><span class="k"></span>Full-time &nbsp; <span class="k relief"></span>Relief / part-time &nbsp; '
         +'<span class="k ceo"></span>Management / CEO cover &nbsp; <span class="k mkt"></span>Marketing &amp; special duty</p>'
         +'<footer><div>SIGNATURE: ____________________</div><div>APPROVED BY: ____________________</div>'
-        +'<div>DATE: __________</div><div class="pg">DANK GROUP | PAGE '+(li+1)+' OF '+locs.length+'</div></footer>'
+        +'<div>DATE: __________</div><div class="pg">DANK GROUP | PAGE '+(li+1)+' OF '+(locs.length+2)+'</div></footer>'
         +'</section>';
     }).join("");
+
+    /* ── page N+1: the group payroll sheet ───────────────────────────────
+     * One row per person across every shop, because the question it answers
+     * — what does this month cost — is not a per-shop question. Base pay is
+     * computed; variable pay is a rule, not a number, so it is printed as the
+     * rule and never guessed at a figure the shop has not earned yet. */
+    var payType = function (p, s) {
+      if (p.kind === 'ceo') return 'CEO';
+      if (s.pay.payType === 'daily') return s.pay.dailyRate + '/day';
+      return 'Monthly';
+    };
+    var totalDuties = 0, totalHours = 0, totalBase = 0, anyTBC = false, anyContract = false;
+    var payRows = res.summary.map(function (s) {
+      var p = byId[s.id] || {};
+      var visits = (s.visits || []).length;
+      var duties = s.shifts + visits;
+      var hours = s.hours + (s.visitHours || 0);
+      /* Riders, kitchen and back-office stand no counter slot, so the grid has
+       * nothing to count for them — but they are paid, and rosterPay bills them
+       * at their contracted days. Printing 0 duties beside 15,600 THB reads as
+       * money paid for nothing, and it drops their days out of the control
+       * total. Show what they are actually costed at, and say it is contracted. */
+      var contracted = !!(p.payrollOnly && !duties && s.pay.paidDays);
+      if (contracted) {
+        duties = s.pay.paidDays;
+        hours = Math.round(duties * (p.dayHours || 0) * 10) / 10;
+        anyContract = true;
+      }
+      totalDuties += duties; totalHours += hours; totalBase += s.pay.basePay;
+      if (!s.pay.basePay) anyTBC = true;
+      return '<tr><td class="' + cls(p) + '">' + esc(s.name) + '</td>'
+        + '<td>' + esc(payType(p, s)) + '</td>'
+        + '<td>' + esc(s.assignment || (p.role || '')) + (s.duties.length ? (' + ' + s.duties.length + ' ' + esc(s.duties[0].label)) : '')
+        + (visits ? (' + ' + visits + ' check-in') : '')
+        + (contracted ? ' <u>contracted, no counter slot</u>' : '') + '</td>'
+        + '<td class="n' + (contracted ? ' ctr' : '') + '">' + duties + '</td>'
+        + '<td class="n' + (contracted ? ' ctr' : '') + '">' + Math.round(hours * 10) / 10 + 'h</td>'
+        + '<td class="n">' + (s.pay.basePay ? Math.round(s.pay.basePay).toLocaleString('en-US') : 'TBC') + '</td>'
+        + '<td>' + esc(p.variablePay || '—') + '</td></tr>';
+    }).join('');
+
+    var payPage = '<section class="page">'
+      + '<header><h1>DANK GROUP STAFF &amp; PAYROLL SUMMARY</h1><span>' + esc(monthLabel) + '</span></header>'
+      + '<p class="note">PLANNED SHIFTS, HOURS, BASE PAY AND VARIABLE-PAY RULES</p>'
+      + '<table class="sum wide"><tr><th>STAFF</th><th>TYPE</th><th>ASSIGNMENT</th>'
+      + '<th class="n">DUTIES</th><th class="n">HOURS</th><th class="n">BASE PAY</th><th>VARIABLE PAY</th></tr>'
+      + payRows + '</table>'
+      + '<div class="total"><b>PAYROLL CONTROL TOTAL</b>'
+      + '<div>' + totalDuties + ' duties &nbsp;|&nbsp; ' + (Math.round(totalHours * 10) / 10)
+      + ' scheduled hours &nbsp;|&nbsp; current calculable base payroll: '
+      + Math.round(totalBase).toLocaleString('en-US') + ' THB</div>'
+      + '<div class="fine">Base pay is the salary or the day rate times the days stood. Variable pay is a rule, '
+      + 'not a figure — it is settled against real sales at month end and is not in the total above.'
+      + (anyContract ? ' Figures in amber are contracted days, not rostered ones: that person is on payroll '
+          + 'but stands no counter slot.' : '')
+      + (anyTBC ? ' Rows marked TBC have no wage on file yet.' : '') + '</div></div>'
+      + '<footer><div>SIGNATURE: ____________________</div><div>APPROVED BY: ____________________</div>'
+      + '<div>DATE: __________</div><div class="pg">DANK GROUP | PAGE ' + (locs.length + 1) + ' OF ' + (locs.length + 2) + '</div></footer>'
+      + '</section>';
+
+    /* ── page N+2: duties that are not shop shifts, the rules, the check ── */
+    var projRows = res.summary.filter(function (s) { return s.duties.length; }).map(function (s) {
+      return '<tr><td>' + esc(s.name) + '</td><td class="dates">'
+        + s.duties.map(function (d) { return +d.date.slice(8); }).join(', ') + '</td>'
+        + '<td>' + esc(s.duties[0].label) + '</td></tr>';
+    }).join('');
+    var visitRows = res.summary.filter(function (s) { return (s.visits || []).length; }).map(function (s) {
+      return '<tr><td>' + esc(s.name) + '</td><td class="dates">'
+        + s.visits.map(function (d) { return +d.slice(8); }).join(', ') + '</td>'
+        + '<td>Weekly shop check-in</td></tr>';
+    }).join('');
+
+    var v = res.validation;
+    var checks = [
+      ['Empty required shifts', v.empty.length],
+      ['Double shifts', v.doubles.length],
+      ['Unauthorized assignments', v.unauthorised.length],
+      ['Staff below the shift band', v.under.length],
+      ['Staff above their maximum', v.over.length],
+      ['Shops covered', Object.keys(v.hoursByLoc).length],
+    ].map(function (c, i) {
+      var bad = i < 5 && c[1] > 0;
+      return '<div class="chk' + (bad ? ' bad' : '') + '"><span>' + c[0] + '</span><b>' + c[1] + '</b></div>';
+    }).join('');
+
+    var rulesPage = '<section class="page">'
+      + '<header><h1>DANK PROJECT DUTIES &amp; FINAL VALIDATION</h1><span>' + esc(monthLabel) + '</span></header>'
+      + '<p class="note">CONTENT, OPERATIONS, INCENTIVES AND COVERAGE CHECK</p>'
+      + '<div class="cols"><div>'
+      + '<h2>PROJECT / CONTENT DUTY CALENDAR</h2>'
+      + ((projRows + visitRows)
+          ? ('<table class="sum"><tr><th>STAFF</th><th>DATES THIS MONTH</th><th>DELIVERABLE</th></tr>' + projRows + visitRows + '</table>')
+          : '<p class="fine">No duties outside normal shop shifts this month.</p>')
+      + '<p class="fine">A duty here is done inside a normal shift. It is recorded, and it adds no shift '
+      + 'and no hours — counting it twice is what turns a 26-shift month into 31.</p>'
+      + '</div><div>'
+      + '<h2>COVERAGE &amp; ATTENDANCE RULES</h2><ul>'
+      + SHIFT_COVERAGE_RULES.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('')
+      + '</ul><h2>INCENTIVE RULES</h2><ul>'
+      + SHIFT_INCENTIVES.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('')
+      + '</ul></div></div>'
+      + '<h2>FINAL VALIDATION</h2><div class="checks">' + checks + '</div>'
+      /* A red 21 with nothing beside it is a number the owner cannot act on.
+       * The uncovered shifts are grouped by slot, with the dates and the reason
+       * the generator was given for rejecting everyone trained for it. */
+      + (v.empty.length ? (function () {
+          var g = {}, order = [];
+          v.empty.forEach(function (e) {
+            var k = e.loc + '|' + e.slot;
+            if (!g[k]) { g[k] = { name: e.locName, slot: e.slot, label: e.label, dates: [], why: e.blockers[0] || '' }; order.push(k); }
+            g[k].dates.push(+e.date.slice(8));
+          });
+          return '<h2>UNCOVERED SHIFTS <em>THE HOLES THIS MONTH, AND WHY</em></h2>'
+            + '<table class="sum"><tr><th>SHOP</th><th>SHIFT</th><th class="n">DAYS</th>'
+            + '<th>DATES</th><th>FIRST BLOCKER</th></tr>'
+            + order.map(function (k) {
+                var r = g[k];
+                return '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.slot) + ' <u>' + esc(r.label) + '</u></td>'
+                  + '<td class="n">' + r.dates.length + '</td>'
+                  + '<td class="dates">' + r.dates.join(', ') + '</td>'
+                  + '<td>' + esc(r.why) + '</td></tr>';
+              }).join('') + '</table>'
+            + '<p class="fine">Nobody is ever rostered outside the shop and shift they are cleared for, '
+            + 'so a hole is reported rather than filled by somebody untrained. Tick one more shift for '
+            + 'somebody in ตั้งค่าคน, or the shift needs a hire.</p>';
+        })() : '')
+      + '<footer><div>SIGNATURE: ____________________</div><div>APPROVED BY: ____________________</div>'
+      + '<div>DATE: __________</div><div class="pg">DANK GROUP | PAGE ' + (locs.length + 2) + ' OF ' + (locs.length + 2) + '</div></footer>'
+      + '</section>';
+
+    pages = pages + payPage + rulesPage;
 
     var css='@page{size:A3 landscape;margin:10mm}'
       +'*{box-sizing:border-box}body{margin:0;background:#fff;color:#111;font:12px/1.35 Arial,Helvetica,sans-serif}'
@@ -2324,7 +2474,19 @@ function GreenPOS() {
       +'.k{display:inline-block;width:9px;height:9px;border:1px solid #999;background:#111;vertical-align:-1px;margin-right:3px}'
       +'.k.relief{background:#0b63a8}.k.ceo{background:#8a6d00}.k.mkt{background:#7c3aed}'
       +'footer{display:flex;gap:22px;align-items:center;border-top:1px solid #111;margin-top:8px;padding-top:6px;font-size:10px;font-weight:700}'
-      +'footer .pg{margin-left:auto;color:#666;font-weight:400}';
+      +'footer .pg{margin-left:auto;color:#666;font-weight:400}'
+      +'table.sum.wide td{font-size:10.5px;padding:5px 4px}table.sum.wide th{font-size:8.5px}'
+      +'table.sum td.ctr{color:#8a6d00}table.sum td u{display:inline;text-decoration:none;font-size:8.5px;color:#8a6d00}'
+      +'table.sum td.dates{font-family:monospace;font-size:9.5px;white-space:normal}'
+      +'.total{border:1.5px solid #111;padding:8px 10px;margin-top:10px;font-size:11px}'
+      +'.total b{letter-spacing:1px;font-size:9.5px;display:block;margin-bottom:3px}'
+      +'.fine{font-size:9px;color:#666;margin-top:4px;line-height:1.4}'
+      +'.cols{display:flex;gap:16px;align-items:flex-start}.cols>div{flex:1;min-width:0}'
+      +'ul{margin:2px 0 10px;padding-left:15px}li{font-size:10px;line-height:1.6;color:#333}'
+      +'.checks{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px}'
+      +'.chk{border:1px solid #c9c9c9;padding:5px 8px;display:flex;justify-content:space-between;'
+      +'align-items:center;font-size:10px}.chk b{font-size:14px}'
+      +'.chk.bad{border-color:#c00;background:#ffe9e9}.chk.bad b{color:#c00}';
 
     var w=window.open("","_blank");
     if(!w){notify("⚠ เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up ให้เว็บนี้ก่อน");return;}
