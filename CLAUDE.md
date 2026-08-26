@@ -116,20 +116,15 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
    the owner's word on which are still in daily use before removing.
 11. Decide the customer site's menu source: the curated 53-item `products.json` (clean names +
    photos) vs the raw 395-item POS feed it serves today (`( Bar ) Tequila shot`).
-12. **Phatthanakarn cannot staff its own shift structure, and no clearance change fixes it.**
-   180 shifts a month against seven counter staff whose combined maximum is 174 — and that is
-   everyone at their ceiling with no days off. Measured: clearing *every* Phatthanakarn person
-   for *every* Phatthanakarn shift takes 74 uncovered down to 63; removing every day off and
-   raising every cap to 30 still leaves 20. So it is headcount or structure, not permissions.
-   Either the owner says how many staff each band actually needs now (if it is no longer 2 on
-   all three) and the slot list shrinks, or one more person is hired — the 09:00-18:00 band is
-   the one still short 25 days a month. Until then the roster fills what it can and reports the
-   rest with the blocking reason.
-13. Confirm Honey still covers the Phatthanakarn 09:00-18:00 shop shift on Wednesdays. She is
-   seeded that way from the September sheet; if she is bar-only now, untick `B1` in
-   `👤 ตั้งค่าคน` and the report will show the true size of that gap.
-14. Riders (Zaw, Got) have a day rate but no shift length, so they carry no hourly rate and no
-   OT can be computed for them. Set their working hours if OT should ever apply.
+12. **16 shifts a month still have nobody, and it is now a real headcount gap.** The owner's
+   flexibility answers (any staff will move their day off and their hours, part-timers move
+   between Phatthanakarn and Sathorn, Honey works all three) took uncovered shifts from 74 to
+   **16**. Demand is 343 shifts a month; thirteen counter staff at 26 each supply ~327. The
+   remaining 16 spread evenly across `ptk/B2`, `ptk/C1`, `bar/FSDAY` and `bar/FSNIGHT`.
+   **Mel is the nearest lever** — she is Sathorn-only relief sitting at 18 shifts with ~8 spare,
+   so clearing her for Phatthanakarn would absorb half of it. Otherwise it is one more hire.
+   Do not widen her without asking: she is full-time relief, not one of the part-timers the
+   owner cleared to move.
 
 ## Done and verified — do not re-litigate
 - **Customers who owe the shop is a finished feature, not a missing one**: on-account sales
@@ -185,6 +180,13 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
     is reported instead
   · **required slots are filled before optional ones, across the whole month** — filling Sunday
     stock/admin in date order spent Mon's 26-shift cap and left a required night uncovered
+  · **a flexible day off is still a day off, and a staggered one.** Everyone is willing to move
+    their day; with only a run limit the whole shop marched six days from the 1st and hit the
+    wall together on the 7th, 14th, 21st and 28th. Anyone with no `off` is dealt a weekday,
+    spread across the team in list order, and capped at `maxRun` (6) consecutive days.
+  · **scarcity is measured across the whole group, not per shop.** Filling shop by shop left the
+    bar last, so Honey — the only person cleared for its Fri-Sun day shift — was spent on
+    Phatthanakarn slots three others could stand, and 12 of 13 bar days sat empty.
   · **the scarcest slot is filled first** — one reliever can only be in one place, and filling in
     printed order gave Steve to 09:00-18:00 (which Honey also covers) every day while 17:00-02:00,
     which nobody else is cleared for, sat empty 30 days out of 30

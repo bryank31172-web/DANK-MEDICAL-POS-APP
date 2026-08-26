@@ -239,13 +239,35 @@ function rosterEligible(person, loc, slot, day, assignedToday, count, byLoc) {
   if ((person.slots || []).indexOf(slot.id) < 0) return 'not authorised on ' + slot.id;
   if ((person.leave || []).indexOf(day.date) >= 0) return 'on leave';
   if (person.onlyDates && person.onlyDates.length && person.onlyDates.indexOf(day.date) < 0) return 'not one of their dates';
-  if ((person.off || []).indexOf(day.dow) >= 0) return 'fixed day off';
+  /* A day the generator dealt out and a day the owner pinned are both "off",
+   * but only one of them is a decision anybody made — saying "fixed day off"
+   * for a rest day the generator chose sends the manager looking for a rule
+   * that does not exist. */
+  if ((person.off || []).indexOf(day.dow) >= 0) {
+    return person.flexibleOff
+      ? ('rest day ' + SHIFT_DAY_NAMES[day.dow] + ' (movable)')
+      : ('fixed day off ' + SHIFT_DAY_NAMES[day.dow]);
+  }
   /* "Honey covers the shop on Wednesdays" is a real constraint and the only
    * thing stopping her being pulled onto Friday day-shift and leaving the bar
    * with nobody on it. Authorised-for-a-slot and available-for-it-today are
    * two different questions. */
   var only = (person.only || {})[slot.id];
   if (only && only.indexOf(day.dow) < 0) return 'only covers ' + slot.id + ' on ' + only.map(function (d) { return SHIFT_DAY_NAMES[d]; }).join('/');
+  /* Everyone is willing to move their day off, which is not the same as
+   * working eleven days straight. With no fixed day off, the only thing left
+   * stopping a run is the monthly cap — and a cap alone would happily roster
+   * somebody 26 days in a row and give them the last four off. A person may
+   * work at most `maxRun` consecutive days; the generator picks WHICH days
+   * are off, the run limit decides that there are some along the way. */
+  var run = 0, probe = new Date(day.date + 'T00:00:00Z');
+  var worked = person.__dates || [];
+  while (run < 40) {
+    probe = new Date(probe.getTime() - 86400000);
+    if (worked.indexOf(probe.toISOString().slice(0, 10)) < 0) break;
+    run++;
+  }
+  if (run >= (person.maxRun || 6)) return 'has worked ' + run + ' days straight';
   if (assignedToday[person.id]) return 'already on a shift today';
   if (count[person.id] >= (person.max || 28)) return 'at their maximum';
   /* "Bank works four at Phatthanakarn and four at Sathorn" is two limits, not
@@ -369,6 +391,26 @@ function rosterPay(person, actualHours, slotHours, shifts) {
  * roster that ships broken. */
 function buildRoster(locations, staff, year, month1) {
   var days = monthDates(year, month1);
+
+  /* "Everyone is happy to move their day off" means the generator picks the
+   * day — not that there is no day. Left with only a run limit, every person
+   * marched six days from the 1st and the whole shop hit the wall together on
+   * the 7th, 14th, 21st and 28th: four days a month with almost nobody on, and
+   * a validation report full of holes that no amount of extra clearance could
+   * fill. Rest has to be staggered to be rest at all.
+   *
+   * So anyone flexible is dealt a weekday, spread across the team in the order
+   * they are listed. It is the same one-day-a-week the hand-built sheet gave
+   * them, chosen here instead of by the owner, and it is visible on the sheet
+   * so a swap is still a swap of something. */
+  var flexIdx = 0;
+  staff = (staff || []).map(function (p) {
+    if (p.kind === 'ceo' || p.payrollOnly || !(p.slots || []).length) return p;
+    if ((p.off || []).length) return p;
+    var restDow = flexIdx % 7;
+    flexIdx++;
+    return Object.assign({}, p, { off: [restDow], flexibleOff: true });
+  });
   var byId = {}; (staff || []).forEach(function (p) { byId[p.id] = p; });
   var count = {}, hours = {}, dates = {}, duties = {};
   (staff || []).forEach(function (p) { count[p.id] = 0; hours[p.id] = 0; dates[p.id] = []; duties[p.id] = []; });
@@ -399,22 +441,32 @@ function buildRoster(locations, staff, year, month1) {
     });
   });
 
-  [false, true].forEach(function (optionalPass) {
+  /* Scarcity is a property of the whole group, not of one shop. Filling shop
+   * by shop meant the bar came last and Honey — the only person cleared for
+   * its Friday-to-Sunday day shift — had already been spent on Phatthanakarn
+   * slots that three other people could have stood. Twelve of thirteen bar
+   * days sat empty because of the order the shops happen to be listed in.
+   * Every slot in the group competes for each day, scarcest first. */
+  var allSlots = [];
   (locations || []).forEach(function (loc) {
-    var ordered = (loc.slots || []).slice().sort(function (a, b) {
-      var ca = eligibleCount[loc.id + '|' + a.id], cb = eligibleCount[loc.id + '|' + b.id];
-      if (ca !== cb) return ca - cb;
-      return (loc.slots.indexOf(a) - loc.slots.indexOf(b));
+    (loc.slots || []).forEach(function (slot, i) {
+      allSlots.push({ loc: loc, slot: slot, n: eligibleCount[loc.id + '|' + slot.id], i: i });
     });
+  });
+  allSlots.sort(function (a, b) { return a.n !== b.n ? a.n - b.n : a.i - b.i; });
+
+  [false, true].forEach(function (optionalPass) {
     days.forEach(function (day) {
       assignedOn[day.date] = assignedOn[day.date] || {};
-      ordered.forEach(function (slot) {
+      allSlots.forEach(function (pair) {
+        var loc = pair.loc, slot = pair.slot;
         if (!!slot.optional !== optionalPass) return;
         var key = loc.id + '|' + day.date + '|' + slot.id;
         if (!slotRunsOn(slot, day.dow)) { cells[key] = { closed: true }; return; }
         if (cells[key] !== undefined) return;
 
         var cands = (staff || []).filter(function (p) {
+          p.__dates = dates[p.id] || [];
           return rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) === null;
         });
         var pick = rosterPick(cands, slot, count, shiftSpan(slot.label));
@@ -435,6 +487,7 @@ function buildRoster(locations, staff, year, month1) {
             (staff || []).forEach(function (p) {
               if (p.kind === 'ceo') return;
               if ((p.slots || []).indexOf(slot.id) < 0) return;
+              p.__dates = dates[p.id] || [];
               var r2 = rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc);
               if (r2) why.push(p.name + ': ' + r2);
             });
@@ -484,7 +537,6 @@ function buildRoster(locations, staff, year, month1) {
       });
     });
   });
-  });
 
   /* Step 6 of the process, done as a check rather than trusted: anything the
    * eligibility test should have stopped, said out loud if it got through. */
@@ -508,6 +560,10 @@ function buildRoster(locations, staff, year, month1) {
 
   /* the length of the shift this person normally stands, for the pay divisor */
   var slotLenOf = function (p) {
+    /* Kitchen and riders stand no slot, so their shift length has to be stated
+     * outright — without it they carry no hourly rate and no OT can ever be
+     * computed for them, which is how a rider quietly becomes unpayable. */
+    if (p.dayHours) return +p.dayHours;
     var want = (p.slots || [])[0];
     var found = 0;
     (locations || []).forEach(function (l) {
@@ -557,7 +613,13 @@ function buildRoster(locations, staff, year, month1) {
   /* Part-timers and CEO cover are not meant to reach 24; flagging them every
    * month trains people to ignore the report. Only full-time is measured
    * against the band. */
-  var band = summary.filter(function (s) { return s.kind === 'full'; });
+  /* Riders and kitchen are full-time and stand no counter shift, so measuring
+   * them against a 24-shift band reports them short every single month and
+   * trains people to scroll past the one list that is supposed to be read. */
+  var band = summary.filter(function (s) {
+    var p = byId[s.id] || {};
+    return s.kind === 'full' && !p.payrollOnly && (p.slots || []).length;
+  });
   return {
     year: year, month: month1, days: days, cells: cells, summary: summary, visits: visits,
     validation: {
@@ -760,55 +822,63 @@ var SHIFT_LOCATIONS = [
 /* off/duty weekdays: 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat */
 var SHIFT_STAFF = [
   /* The shop's own wage sheet (พัฒนาการ / สาทร), confirmed name by name — it is
-   * the authority on who works here, so anyone absent from it has left and is
-   * absent from here too. Two contract types live side by side: a monthly
-   * salary, and a วันละ day rate paid per shift stood.
+   * the authority on who works here, so anyone absent from it has left.
    *
-   * `slots` is what each person is cleared to work, and it is NOT on the wage
-   * sheet. Anyone new starts with none and is reported as on payroll but not
-   * yet rostered, rather than being guessed onto a shift — guessing wrong puts
-   * the wrong person on the 01:00 counter. */
+   * Nobody carries a fixed day off any more: the owner confirmed every member
+   * of staff is willing to move both their day off and their hours. So `off`
+   * is empty and the generator chooses which days each person is free, bounded
+   * by their monthly target and by `maxRun` — at most six days in a row, which
+   * is what keeps "flexible day off" from quietly meaning "twenty-six days
+   * straight and then four off".
+   *
+   * Part-time budtenders are cleared for both shops, and Honey for all three
+   * businesses, because the owner confirmed they move where they are needed. */
 
   /* ── DANK PHATTHANAKARN ──────────────────────────────────────────────── */
-  { id: 'alex',  name: 'Alex',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['B2'], off: [4],
-    payType: 'monthly', salary: 19000 },
-  { id: 'mon',   name: 'Mon (ม่อน อาชา)', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['C2', 'STOCK'], off: [], max: 26,
-    payType: 'monthly', salary: 18000 },
-  { id: 'amoe',  name: 'Amoe',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A1'], off: [6],
-    payType: 'daily', dailyRate: 600 },
-  { id: 'pond',  name: 'Pond (ศรัณญ์ สิทธิมงคล)', role: 'BUDTENDER', kind: 'part', relief: true, locs: ['ptk'], slots: ['A2', 'C2'], off: [], target: 9, max: 14,
-    only: { A2: [3], C2: [1] }, payType: 'daily', dailyRate: 600 },
-  { id: 'dylan', name: 'Dylan', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A2'], off: [3, 0],
-    payType: 'daily', dailyRate: 600 },
-  { id: 'jack',  name: 'Jack',  role: 'BARTENDER', kind: 'full', locs: ['bar'], slots: ['MONTHU', 'FSNIGHT'], off: [1],
-    payType: 'monthly', salary: 18000 },
-  { id: 'honey', name: 'Honey (มด)', role: 'BARTENDER', kind: 'part', locs: ['ptk', 'bar'], slots: ['MONTHU', 'FSDAY', 'B1'], off: [], target: 22, max: 24,
-    only: { B1: [3] }, payType: 'daily', dailyRate: 800 },
+  { id: 'alex',  name: 'Alex',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['B2'], off: [],
+    target: 26, max: 28, payType: 'monthly', salary: 19000 },
+  { id: 'mon',   name: 'Mon (ม่อน อาชา)', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['C2', 'STOCK'], off: [],
+    target: 26, max: 26, payType: 'monthly', salary: 18000 },
+  { id: 'amoe',  name: 'Amoe',  role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A1'], off: [],
+    target: 26, max: 28, payType: 'daily', dailyRate: 600 },
+  { id: 'dylan', name: 'Dylan', role: 'BUDTENDER', kind: 'full', locs: ['ptk'], slots: ['A2'], off: [],
+    target: 26, max: 28, payType: 'daily', dailyRate: 600 },
 
-  /* On the wage sheet, off the shift roster by design — riders do not stand
-   * counter shifts, but they are payroll and the expense line is wrong
-   * without them. */
-  { id: 'zaw',    name: 'Zaw',             role: 'RIDER',   kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 600 },
-  { id: 'got',    name: 'Got',             role: 'RIDER',   kind: 'full', locs: ['ptk'], slots: [], off: [], payrollOnly: true, target: 26, payType: 'daily', dailyRate: 600 },
-
-  /* Works both shops. Cleared for every counter shift at each, because the
-   * relief ranking already keeps him out of a slot its regular can stand —
-   * he only ever appears where somebody is off, at their cap, or missing. */
+  /* part-time budtenders move between Phatthanakarn and Sathorn as needed */
+  { id: 'pond',  name: 'Pond (ศรัณญ์ สิทธิมงคล)', role: 'BUDTENDER', kind: 'part', relief: true,
+    locs: ['ptk', 'sat'], slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK'],
+    off: [], target: 26, max: 26, payType: 'daily', dailyRate: 600 },
   { id: 'steve', name: 'Steve', role: 'BUDTENDER', kind: 'full', relief: true,
     locs: ['ptk', 'sat'], slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK'],
     off: [], target: 26, max: 26, payType: 'daily', dailyRate: 650 },
 
+  /* Honey works all three businesses, any shift */
+  { id: 'honey', name: 'Honey (มด)', role: 'BARTENDER', kind: 'part',
+    locs: ['ptk', 'sat', 'bar'],
+    slots: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'EARLY', 'DAY', 'NIGHT', 'PEAK', 'MONTHU', 'FSDAY', 'FSNIGHT'],
+    off: [], target: 26, max: 26, payType: 'daily', dailyRate: 800 },
+
+  /* Riders: on payroll, no counter shift, nine-hour working day */
+  { id: 'zaw', name: 'Zaw', role: 'RIDER', kind: 'full', locs: ['ptk'], slots: [], off: [],
+    payrollOnly: true, target: 26, dayHours: 9, payType: 'daily', dailyRate: 600 },
+  { id: 'got', name: 'Got', role: 'RIDER', kind: 'full', locs: ['ptk'], slots: [], off: [],
+    payrollOnly: true, target: 26, dayHours: 9, payType: 'daily', dailyRate: 600 },
+
+  /* ── DANK 224 BAR ────────────────────────────────────────────────────── */
+  { id: 'jack',  name: 'Jack',  role: 'BARTENDER', kind: 'full', locs: ['bar'], slots: ['MONTHU', 'FSNIGHT'], off: [],
+    target: 26, max: 28, payType: 'monthly', salary: 18000 },
+
   /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
-  { id: 'raizo', name: 'Raizo', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['EARLY'], off: [1],
-    payType: 'monthly', salary: 17000 },
-  { id: 'ploy',  name: 'Ploy (พลอย)', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['PEAK'], off: [1],
-    duty: { dow: 6, label: 'MEDIA/CRM' }, payType: 'monthly', salary: 18000 },
-  { id: 'meng',  name: 'Meng (เม้ง)', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['DAY'], off: [2],
-    payType: 'monthly', salary: 19000 },
-  { id: 'pok',   name: 'Pok',   role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['NIGHT'], off: [3, 5],
-    payType: 'daily', dailyRate: 650 },
-  { id: 'mel',   name: 'Mel',   role: 'BUDTENDER', kind: 'full', relief: true, locs: ['sat'], slots: ['EARLY', 'DAY', 'NIGHT', 'PEAK'], off: [],
-    payType: 'monthly', salary: 18000 },
+  { id: 'raizo', name: 'Raizo', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['EARLY'], off: [],
+    target: 26, max: 28, payType: 'monthly', salary: 17000 },
+  { id: 'ploy',  name: 'Ploy (พลอย)', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['PEAK'], off: [],
+    target: 26, max: 28, duty: { dow: 6, label: 'MEDIA/CRM' }, payType: 'monthly', salary: 18000 },
+  { id: 'meng',  name: 'Meng (เม้ง)', role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['DAY'], off: [],
+    target: 26, max: 28, payType: 'monthly', salary: 19000 },
+  { id: 'pok',   name: 'Pok',   role: 'BUDTENDER', kind: 'full', locs: ['sat'], slots: ['NIGHT'], off: [],
+    target: 26, max: 28, payType: 'daily', dailyRate: 650 },
+  { id: 'mel',   name: 'Mel',   role: 'BUDTENDER', kind: 'full', relief: true, locs: ['sat'],
+    slots: ['EARLY', 'DAY', 'NIGHT', 'PEAK'], off: [], target: 26, max: 28, payType: 'monthly', salary: 18000 },
 
   /* ── CEOs. Once a week to look over the shop; no slot, and not payroll. ── */
   { id: 'bryan', name: 'Bryan (CEO)', role: 'CEO', kind: 'ceo', locs: ['ptk'], slots: [], off: [], target: 0, max: 0,

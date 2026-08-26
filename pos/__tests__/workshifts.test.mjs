@@ -106,7 +106,12 @@ ok('…one per week each, so an even number for the two of them',
 ok('and no CEO is holding down a shop slot', ceo && ceo.inSlot === false);
 
 console.log('\nempty shifts say why they are empty');
-ok('the report names the blocker', /at their maximum|only covers/.test(t), t.slice(t.indexOf('ยังไม่มีคน'), t.indexOf('ยังไม่มีคน') + 220));
+ok('the report names the blocker',
+   /at their maximum|only covers|rest day|fixed day off|days straight|already on a shift|nobody is cleared/.test(t),
+   t.slice(t.indexOf('ยังไม่มีคน'), t.indexOf('ยังไม่มีคน') + 220));
+ok('…and a rest day the generator chose is not called a fixed one',
+   !/fixed day off/.test(t) || /\(movable\)/.test(t),
+   (/(fixed day off|rest day)[^·]*/.exec(t) || ['none'])[0]);
 
 console.log('\nthe assistant answers off the grid');
 ok('the AI button is there', !!(await click('ถาม AI')));

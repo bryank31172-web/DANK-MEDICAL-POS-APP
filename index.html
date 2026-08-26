@@ -238,11 +238,21 @@ function rosterEligible(person, loc, slot, day, assignedToday, count, byLoc) {
   if ((person.slots || []).indexOf(slot.id) < 0) return "not authorised on " + slot.id;
   if ((person.leave || []).indexOf(day.date) >= 0) return "on leave";
   if (person.onlyDates && person.onlyDates.length && person.onlyDates.indexOf(day.date) < 0) return "not one of their dates";
-  if ((person.off || []).indexOf(day.dow) >= 0) return "fixed day off";
+  if ((person.off || []).indexOf(day.dow) >= 0) {
+    return person.flexibleOff ? "rest day " + SHIFT_DAY_NAMES[day.dow] + " (movable)" : "fixed day off " + SHIFT_DAY_NAMES[day.dow];
+  }
   var only = (person.only || {})[slot.id];
   if (only && only.indexOf(day.dow) < 0) return "only covers " + slot.id + " on " + only.map(function(d) {
     return SHIFT_DAY_NAMES[d];
   }).join("/");
+  var run = 0, probe = /* @__PURE__ */ new Date(day.date + "T00:00:00Z");
+  var worked = person.__dates || [];
+  while (run < 40) {
+    probe = new Date(probe.getTime() - 864e5);
+    if (worked.indexOf(probe.toISOString().slice(0, 10)) < 0) break;
+    run++;
+  }
+  if (run >= (person.maxRun || 6)) return "has worked " + run + " days straight";
   if (assignedToday[person.id]) return "already on a shift today";
   if (count[person.id] >= (person.max || 28)) return "at their maximum";
   var lm = (person.locMax || {})[loc.id];
@@ -334,6 +344,14 @@ function rosterPay(person, actualHours, slotHours, shifts) {
 }
 function buildRoster(locations, staff, year, month1) {
   var days = monthDates(year, month1);
+  var flexIdx = 0;
+  staff = (staff || []).map(function(p) {
+    if (p.kind === "ceo" || p.payrollOnly || !(p.slots || []).length) return p;
+    if ((p.off || []).length) return p;
+    var restDow = flexIdx % 7;
+    flexIdx++;
+    return Object.assign({}, p, { off: [restDow], flexibleOff: true });
+  });
   var byId = {};
   (staff || []).forEach(function(p) {
     byId[p.id] = p;
@@ -357,78 +375,83 @@ function buildRoster(locations, staff, year, month1) {
       }).length;
     });
   });
+  var allSlots = [];
+  (locations || []).forEach(function(loc) {
+    (loc.slots || []).forEach(function(slot, i) {
+      allSlots.push({ loc, slot, n: eligibleCount[loc.id + "|" + slot.id], i });
+    });
+  });
+  allSlots.sort(function(a, b) {
+    return a.n !== b.n ? a.n - b.n : a.i - b.i;
+  });
   [false, true].forEach(function(optionalPass) {
-    (locations || []).forEach(function(loc) {
-      var ordered = (loc.slots || []).slice().sort(function(a, b) {
-        var ca = eligibleCount[loc.id + "|" + a.id], cb = eligibleCount[loc.id + "|" + b.id];
-        if (ca !== cb) return ca - cb;
-        return loc.slots.indexOf(a) - loc.slots.indexOf(b);
-      });
-      days.forEach(function(day) {
-        assignedOn[day.date] = assignedOn[day.date] || {};
-        ordered.forEach(function(slot) {
-          if (!!slot.optional !== optionalPass) return;
-          var key = loc.id + "|" + day.date + "|" + slot.id;
-          if (!slotRunsOn(slot, day.dow)) {
-            cells[key] = { closed: true };
-            return;
-          }
-          if (cells[key] !== void 0) return;
-          var cands = (staff || []).filter(function(p) {
-            return rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) === null;
-          });
-          var pick = rosterPick(cands, slot, count, shiftSpan(slot.label));
-          if (!pick) {
-            cells[key] = null;
-            if (!slot.optional) {
-              var why = [];
-              (staff || []).forEach(function(p) {
-                if (p.kind === "ceo") return;
-                if ((p.slots || []).indexOf(slot.id) < 0) return;
-                var r2 = rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc);
-                if (r2) why.push(p.name + ": " + r2);
-              });
-              if (!why.length) why.push("\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E04\u0E23\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E01\u0E30\u0E19\u0E35\u0E49\u0E17\u0E35\u0E48\u0E2A\u0E32\u0E02\u0E32\u0E19\u0E35\u0E49\u0E40\u0E25\u0E22 / nobody is cleared for this shift here");
-              empty.push({
-                loc: loc.id,
-                locName: loc.name,
-                date: day.date,
-                slot: slot.id,
-                label: slot.label,
-                blockers: why.slice(0, 5)
-              });
-            }
-            return;
-          }
-          var take = function(p) {
-            var w = p.window || (p.windows || {})[slot.id] || "";
-            var hh = shiftHours(w || slot.label);
-            assignedOn[day.date][p.id] = loc.id + "/" + slot.id;
-            count[p.id]++;
-            hours[p.id] += hh;
-            dates[p.id].push(day.date);
-            byLoc[p.id + "|" + loc.id] = (byLoc[p.id + "|" + loc.id] || 0) + 1;
-            if (p.duty && p.duty.dow === day.dow && (!p.duty.loc || p.duty.loc === loc.id)) {
-              duties[p.id].push({ date: day.date, label: p.duty.label });
-            }
-            return { id: p.id, name: p.name, window: w };
-          };
-          var head = take(pick);
-          cells[key] = { id: head.id, name: head.name, window: head.window, extra: [] };
-          var span = shiftSpan(slot.label);
-          var got = shiftSpan(head.window || slot.label);
-          while (span && got && got[1] < span[1]) {
-            var rest = (staff || []).filter(function(p) {
-              if (rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) !== null) return false;
-              var w = shiftSpan(p.window || (p.windows || {})[slot.id] || "");
-              return !!w && w[0] === got[1];
-            });
-            var next = rosterPick(rest, slot, count);
-            if (!next) break;
-            cells[key].extra.push(take(next));
-            got = shiftSpan(next.window || (next.windows || {})[slot.id] || "");
-          }
+    days.forEach(function(day) {
+      assignedOn[day.date] = assignedOn[day.date] || {};
+      allSlots.forEach(function(pair) {
+        var loc = pair.loc, slot = pair.slot;
+        if (!!slot.optional !== optionalPass) return;
+        var key = loc.id + "|" + day.date + "|" + slot.id;
+        if (!slotRunsOn(slot, day.dow)) {
+          cells[key] = { closed: true };
+          return;
+        }
+        if (cells[key] !== void 0) return;
+        var cands = (staff || []).filter(function(p) {
+          p.__dates = dates[p.id] || [];
+          return rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) === null;
         });
+        var pick = rosterPick(cands, slot, count, shiftSpan(slot.label));
+        if (!pick) {
+          cells[key] = null;
+          if (!slot.optional) {
+            var why = [];
+            (staff || []).forEach(function(p) {
+              if (p.kind === "ceo") return;
+              if ((p.slots || []).indexOf(slot.id) < 0) return;
+              p.__dates = dates[p.id] || [];
+              var r2 = rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc);
+              if (r2) why.push(p.name + ": " + r2);
+            });
+            if (!why.length) why.push("\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E04\u0E23\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E01\u0E30\u0E19\u0E35\u0E49\u0E17\u0E35\u0E48\u0E2A\u0E32\u0E02\u0E32\u0E19\u0E35\u0E49\u0E40\u0E25\u0E22 / nobody is cleared for this shift here");
+            empty.push({
+              loc: loc.id,
+              locName: loc.name,
+              date: day.date,
+              slot: slot.id,
+              label: slot.label,
+              blockers: why.slice(0, 5)
+            });
+          }
+          return;
+        }
+        var take = function(p) {
+          var w = p.window || (p.windows || {})[slot.id] || "";
+          var hh = shiftHours(w || slot.label);
+          assignedOn[day.date][p.id] = loc.id + "/" + slot.id;
+          count[p.id]++;
+          hours[p.id] += hh;
+          dates[p.id].push(day.date);
+          byLoc[p.id + "|" + loc.id] = (byLoc[p.id + "|" + loc.id] || 0) + 1;
+          if (p.duty && p.duty.dow === day.dow && (!p.duty.loc || p.duty.loc === loc.id)) {
+            duties[p.id].push({ date: day.date, label: p.duty.label });
+          }
+          return { id: p.id, name: p.name, window: w };
+        };
+        var head = take(pick);
+        cells[key] = { id: head.id, name: head.name, window: head.window, extra: [] };
+        var span = shiftSpan(slot.label);
+        var got = shiftSpan(head.window || slot.label);
+        while (span && got && got[1] < span[1]) {
+          var rest = (staff || []).filter(function(p) {
+            if (rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) !== null) return false;
+            var w = shiftSpan(p.window || (p.windows || {})[slot.id] || "");
+            return !!w && w[0] === got[1];
+          });
+          var next = rosterPick(rest, slot, count);
+          if (!next) break;
+          cells[key].extra.push(take(next));
+          got = shiftSpan(next.window || (next.windows || {})[slot.id] || "");
+        }
       });
     });
   });
@@ -453,6 +476,7 @@ function buildRoster(locations, staff, year, month1) {
     });
   });
   var slotLenOf = function(p) {
+    if (p.dayHours) return +p.dayHours;
     var want = (p.slots || [])[0];
     var found = 0;
     (locations || []).forEach(function(l) {
@@ -523,7 +547,8 @@ function buildRoster(locations, staff, year, month1) {
     });
   });
   var band = summary.filter(function(s) {
-    return s.kind === "full";
+    var p = byId[s.id] || {};
+    return s.kind === "full" && !p.payrollOnly && (p.slots || []).length;
   });
   return {
     year,
@@ -766,14 +791,17 @@ var SHIFT_LOCATIONS = [
 ];
 var SHIFT_STAFF = [
   /* The shop's own wage sheet (พัฒนาการ / สาทร), confirmed name by name — it is
-   * the authority on who works here, so anyone absent from it has left and is
-   * absent from here too. Two contract types live side by side: a monthly
-   * salary, and a วันละ day rate paid per shift stood.
+   * the authority on who works here, so anyone absent from it has left.
    *
-   * `slots` is what each person is cleared to work, and it is NOT on the wage
-   * sheet. Anyone new starts with none and is reported as on payroll but not
-   * yet rostered, rather than being guessed onto a shift — guessing wrong puts
-   * the wrong person on the 01:00 counter. */
+   * Nobody carries a fixed day off any more: the owner confirmed every member
+   * of staff is willing to move both their day off and their hours. So `off`
+   * is empty and the generator chooses which days each person is free, bounded
+   * by their monthly target and by `maxRun` — at most six days in a row, which
+   * is what keeps "flexible day off" from quietly meaning "twenty-six days
+   * straight and then four off".
+   *
+   * Part-time budtenders are cleared for both shops, and Honey for all three
+   * businesses, because the owner confirmed they move where they are needed. */
   /* ── DANK PHATTHANAKARN ──────────────────────────────────────────────── */
   {
     id: "alex",
@@ -782,7 +810,9 @@ var SHIFT_STAFF = [
     kind: "full",
     locs: ["ptk"],
     slots: ["B2"],
-    off: [4],
+    off: [],
+    target: 26,
+    max: 28,
     payType: "monthly",
     salary: 19e3
   },
@@ -794,6 +824,7 @@ var SHIFT_STAFF = [
     locs: ["ptk"],
     slots: ["C2", "STOCK"],
     off: [],
+    target: 26,
     max: 26,
     payType: "monthly",
     salary: 18e3
@@ -805,22 +836,9 @@ var SHIFT_STAFF = [
     kind: "full",
     locs: ["ptk"],
     slots: ["A1"],
-    off: [6],
-    payType: "daily",
-    dailyRate: 600
-  },
-  {
-    id: "pond",
-    name: "Pond (\u0E28\u0E23\u0E31\u0E13\u0E0D\u0E4C \u0E2A\u0E34\u0E17\u0E18\u0E34\u0E21\u0E07\u0E04\u0E25)",
-    role: "BUDTENDER",
-    kind: "part",
-    relief: true,
-    locs: ["ptk"],
-    slots: ["A2", "C2"],
     off: [],
-    target: 9,
-    max: 14,
-    only: { A2: [3], C2: [1] },
+    target: 26,
+    max: 28,
     payType: "daily",
     dailyRate: 600
   },
@@ -831,43 +849,27 @@ var SHIFT_STAFF = [
     kind: "full",
     locs: ["ptk"],
     slots: ["A2"],
-    off: [3, 0],
+    off: [],
+    target: 26,
+    max: 28,
     payType: "daily",
     dailyRate: 600
   },
+  /* part-time budtenders move between Phatthanakarn and Sathorn as needed */
   {
-    id: "jack",
-    name: "Jack",
-    role: "BARTENDER",
-    kind: "full",
-    locs: ["bar"],
-    slots: ["MONTHU", "FSNIGHT"],
-    off: [1],
-    payType: "monthly",
-    salary: 18e3
-  },
-  {
-    id: "honey",
-    name: "Honey (\u0E21\u0E14)",
-    role: "BARTENDER",
+    id: "pond",
+    name: "Pond (\u0E28\u0E23\u0E31\u0E13\u0E0D\u0E4C \u0E2A\u0E34\u0E17\u0E18\u0E34\u0E21\u0E07\u0E04\u0E25)",
+    role: "BUDTENDER",
     kind: "part",
-    locs: ["ptk", "bar"],
-    slots: ["MONTHU", "FSDAY", "B1"],
+    relief: true,
+    locs: ["ptk", "sat"],
+    slots: ["A1", "A2", "B1", "B2", "C1", "C2", "EARLY", "DAY", "NIGHT", "PEAK"],
     off: [],
-    target: 22,
-    max: 24,
-    only: { B1: [3] },
+    target: 26,
+    max: 26,
     payType: "daily",
-    dailyRate: 800
+    dailyRate: 600
   },
-  /* On the wage sheet, off the shift roster by design — riders do not stand
-   * counter shifts, but they are payroll and the expense line is wrong
-   * without them. */
-  { id: "zaw", name: "Zaw", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 600 },
-  { id: "got", name: "Got", role: "RIDER", kind: "full", locs: ["ptk"], slots: [], off: [], payrollOnly: true, target: 26, payType: "daily", dailyRate: 600 },
-  /* Works both shops. Cleared for every counter shift at each, because the
-   * relief ranking already keeps him out of a slot its regular can stand —
-   * he only ever appears where somebody is off, at their cap, or missing. */
   {
     id: "steve",
     name: "Steve",
@@ -882,6 +884,63 @@ var SHIFT_STAFF = [
     payType: "daily",
     dailyRate: 650
   },
+  /* Honey works all three businesses, any shift */
+  {
+    id: "honey",
+    name: "Honey (\u0E21\u0E14)",
+    role: "BARTENDER",
+    kind: "part",
+    locs: ["ptk", "sat", "bar"],
+    slots: ["A1", "A2", "B1", "B2", "C1", "C2", "EARLY", "DAY", "NIGHT", "PEAK", "MONTHU", "FSDAY", "FSNIGHT"],
+    off: [],
+    target: 26,
+    max: 26,
+    payType: "daily",
+    dailyRate: 800
+  },
+  /* Riders: on payroll, no counter shift, nine-hour working day */
+  {
+    id: "zaw",
+    name: "Zaw",
+    role: "RIDER",
+    kind: "full",
+    locs: ["ptk"],
+    slots: [],
+    off: [],
+    payrollOnly: true,
+    target: 26,
+    dayHours: 9,
+    payType: "daily",
+    dailyRate: 600
+  },
+  {
+    id: "got",
+    name: "Got",
+    role: "RIDER",
+    kind: "full",
+    locs: ["ptk"],
+    slots: [],
+    off: [],
+    payrollOnly: true,
+    target: 26,
+    dayHours: 9,
+    payType: "daily",
+    dailyRate: 600
+  },
+  /* ── DANK 224 BAR ────────────────────────────────────────────────────── */
+  {
+    id: "jack",
+    name: "Jack",
+    role: "BARTENDER",
+    kind: "full",
+    locs: ["bar"],
+    slots: ["MONTHU", "FSNIGHT"],
+    off: [],
+    target: 26,
+    max: 28,
+    payType: "monthly",
+    salary: 18e3
+  },
   /* ── DANK SATHORN RAMA 3 ─────────────────────────────────────────────── */
   {
     id: "raizo",
@@ -890,7 +949,9 @@ var SHIFT_STAFF = [
     kind: "full",
     locs: ["sat"],
     slots: ["EARLY"],
-    off: [1],
+    off: [],
+    target: 26,
+    max: 28,
     payType: "monthly",
     salary: 17e3
   },
@@ -901,7 +962,9 @@ var SHIFT_STAFF = [
     kind: "full",
     locs: ["sat"],
     slots: ["PEAK"],
-    off: [1],
+    off: [],
+    target: 26,
+    max: 28,
     duty: { dow: 6, label: "MEDIA/CRM" },
     payType: "monthly",
     salary: 18e3
@@ -913,7 +976,9 @@ var SHIFT_STAFF = [
     kind: "full",
     locs: ["sat"],
     slots: ["DAY"],
-    off: [2],
+    off: [],
+    target: 26,
+    max: 28,
     payType: "monthly",
     salary: 19e3
   },
@@ -924,7 +989,9 @@ var SHIFT_STAFF = [
     kind: "full",
     locs: ["sat"],
     slots: ["NIGHT"],
-    off: [3, 5],
+    off: [],
+    target: 26,
+    max: 28,
     payType: "daily",
     dailyRate: 650
   },
@@ -937,6 +1004,8 @@ var SHIFT_STAFF = [
     locs: ["sat"],
     slots: ["EARLY", "DAY", "NIGHT", "PEAK"],
     off: [],
+    target: 26,
+    max: 28,
     payType: "monthly",
     salary: 18e3
   },
