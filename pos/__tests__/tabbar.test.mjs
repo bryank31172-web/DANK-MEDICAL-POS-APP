@@ -52,6 +52,8 @@ ok('each slot is at least 44px tall', t && t.minHeight >= 44, t && t.minHeight);
 console.log('\nthe page, at 390px');
 const doc = await phone.evaluate(() => ({ w: document.documentElement.scrollWidth, vw: innerWidth }));
 ok('the document is no wider than the screen', doc.w === doc.vw, doc.w + ' vs ' + doc.vw);
+const syncButtons = await phone.locator('button[title="StoreHub Sync"], button[title="Sync with StoreHub"]').count();
+ok('there is one StoreHub sync button, not a dead duplicate', syncButtons === 1, syncButtons);
 
 console.log('\nnothing became unreachable');
 await phone.evaluate(() => { const m = [...document.querySelectorAll('button')].find((x) => x.innerText.indexOf('⋯') >= 0); m && m.click(); });

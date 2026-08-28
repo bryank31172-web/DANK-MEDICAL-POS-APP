@@ -58,6 +58,16 @@ ok('the monthly summary is rendered', /สรุปพนักงานรา�
 ok('the pay columns are there', /OT ฿/.test(t) && /รวมจ่าย/.test(t));
 ok('the labour bill is totalled', /เงินเดือนรวม/.test(t) && /×1\.5/.test(t));
 
+console.log('\nthe leave request flow is in the Working Shifts tab');
+ok('the Leave button opens', !!(await click('ขาด / ลา · Leave')));
+await p.waitForTimeout(400);
+t = await body();
+ok('staff can choose business or sick leave', /Business Leave/.test(t) && /Sick Leave/.test(t));
+ok('the cover order is visible before submission', /Steve → Honey → Bank/.test(t));
+ok('the final fallback is Keneth\/Bryan', /Keneth\/Bryan review/.test(t));
+ok('the leave modal closes', !!(await click('✕')));
+await p.waitForTimeout(250);
+
 const counts = await p.evaluate(() => {
   const txt = document.body.innerText;
   const g = (re) => { const m = re.exec(txt); return m ? +m[1] : null; };
@@ -148,6 +158,8 @@ ok('…so the control total counts more days than the grid alone',
    /(\d+) duties/.test(sheet) && +RegExp.$1 > 340, (/[\d]+ duties/.exec(sheet) || [''])[0]);
 
 ok('the rules page is there', /DANK PROJECT DUTIES &amp; FINAL VALIDATION/.test(sheet));
+ok('the printed coverage policy carries the approved cover order',
+   /Leave cover order: Steve, Honey, Bank/.test(sheet) && /Keneth\/Bryan \(CEO\)/.test(sheet));
 ok('…printing the coverage rules', /2 operational budtenders/.test(sheet));
 ok('…and the incentive rules', /2% of individual eligible POS sales/.test(sheet));
 ok('…and the six validation counters', (sheet.match(/class="chk/g) || []).length === 6,
