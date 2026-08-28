@@ -1061,6 +1061,7 @@ const catIcon=function(c){var s=String(c||"").toLowerCase();
   return "📦";};
 const CAT_CLR={"Flowers":"#4ade80","Pre-Roll":"#f59e0b","Vape":"#38bdf8","Edible":"#ec4899","Hash":"#c9a84c","Beverage":"#a78bfa","Accessories":"#f97316"};
 const TYPE_CLR={"Sativa":"#f59e0b","Indica":"#818cf8","Hybrid":"#4ade80","Accessory":"#64748b"};
+const SERVICE_CHARGE_RATE=0.10;
 const T={
   en:{welcome:"Welcome back",login:"Enter your PIN",register:"Register",pos:"POS",dashboard:"Dashboard",inventory:"Inventory",crm:"CRM",rewards:"Rewards",finance:"Finance",medical:"Medical",orders:"Orders",affiliate:"Affiliates",staff:"Staff",allCat:"All",searchProduct:"Search products...",selectCustomer:"Select customer",customer:"Customer",walkin:"Walk-in",usePoints:"Use points",checkout:"Checkout",cash:"Cash",card:"Card",qr:"QR Pay",time:"Time",min:"min"},
   th:{welcome:"ยินดีต้อนรับ",login:"กรอกรหัส PIN",register:"สมัครสมาชิก",pos:"ขาย",dashboard:"แดชบอร์ด",inventory:"สต็อก",crm:"ลูกค้า",rewards:"รางวัล",finance:"การเงิน",medical:"การแพทย์",orders:"ออเดอร์",affiliate:"พันธมิตร",staff:"พนักงาน",allCat:"ทั้งหมด",searchProduct:"ค้นหาสินค้า...",selectCustomer:"เลือกลูกค้า",customer:"ลูกค้า",walkin:"ลูกค้าทั่วไป",usePoints:"ใช้แต้ม",checkout:"ชำระเงิน",cash:"เงินสด",card:"บัตร",qr:"QR",time:"เวลา",min:"นาที"},
@@ -1286,6 +1287,22 @@ function webImgFor(name, map){
   return best;
 }
 
+// Event products are live StoreHub rows, so their ids are not stable here.
+// Limit overrides to SKUs explicitly tagged "Birthday" in their name.
+function birthdaySkuImg(name){
+  var s=String(name||"").toLowerCase();
+  if(s.indexOf("birthday")<0)return "";
+  if(/espresso\s*martini/.test(s))return "/assets/products/birthday-event/espresso-martini.png";
+  if(/hendrick/.test(s))return "/assets/products/birthday-event/hendricks.jpeg";
+  if(/pink\s*gin/.test(s))return "/assets/products/birthday-event/pink-gin.jpeg";
+  if(/regency/.test(s))return "/assets/products/birthday-event/regency.png";
+  if(/suntory/.test(s))return "/assets/products/birthday-event/suntory.jpeg";
+  if(/singha|beer/.test(s))return "/assets/products/birthday-event/singha.jpeg";
+  if(/soft\s*drink|coke|coca|sprite|soda/.test(s))return "/assets/products/birthday-event/soft-drinks.webp";
+  if(/wine|merlot|claret|beaujolais|c[oô]tes?\s+du\s+rh[oô]ne/.test(s))return "/assets/products/birthday-event/wine.jpeg";
+  return "";
+}
+
 // ── BAR ─────────────────────────────────────────────────────────────────────
 // Typed up from the bar's own laminated cost sheets. Costs are the shop's own
 // numbers, kept as-is so the sheet and the app agree; BAR_BOTTLES carries the
@@ -1497,6 +1514,7 @@ function CDSView(){
             <div style={{padding:"14px 26px 20px",borderTop:"1px solid "+C.border,background:C.card}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.muted,marginBottom:4}}><span>รวม / Subtotal</span><span>{money(st.sub)}</span></div>
               {(+st.disc||0)>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.green,marginBottom:4}}><span>ส่วนลด / Discount</span><span>-{money(st.disc)}</span></div>}
+              {(+st.serviceCharge||0)>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.muted,marginBottom:4}}><span>ค่าบริการ / Service charge 10%</span><span>{money(st.serviceCharge)}</span></div>}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:6}}>
                 <span style={{fontSize:20,fontWeight:800}}>ยอดชำระ / Total</span>
                 <span style={{fontSize:46,fontWeight:900,color:C.green,fontFamily:"monospace",letterSpacing:"-0.02em"}}>{money(st.total)}</span>
@@ -2167,6 +2185,7 @@ function GreenPOS() {
     L.push("--------------------------------");L.push("Subtotal:  ฿"+r.subtotal);
     if(r.discAmt>0)L.push("Discount: -฿"+r.discAmt);
     if(r.ptDisc>0)L.push("Points:   -฿"+r.ptDisc);
+    if((+r.serviceCharge||0)>0)L.push("Service 10%: ฿"+r.serviceCharge);
     L.push("TOTAL:     ฿"+r.total);L.push("Paid("+r.payment+"): ฿"+r.cashGiven);
     if(r.change>0)L.push("Change:    ฿"+r.change);
     L.push("--------------------------------");L.push("  Thank you! 🌿 20+ only");
@@ -4380,7 +4399,9 @@ function GreenPOS() {
   const discAmt=discType==="percent"?cartSub*(discVal/100):discType==="fixed"?Math.min(discVal,cartSub):0;
   const afterDisc=cartSub-discAmt;
   const ptDisc=Math.min(usePoints,afterDisc*0.1);
-  const finalTotal=afterDisc-ptDisc;
+  const serviceBase=Math.max(0,afterDisc-ptDisc);
+  const serviceCharge=Math.round(serviceBase*SERVICE_CHARGE_RATE*100)/100;
+  const finalTotal=serviceBase+serviceCharge;
   const earnedPts=Math.floor(finalTotal/100)*100;
 
   // Mirror the till onto any open customer display. Broadcast + localStorage
@@ -4405,7 +4426,7 @@ function GreenPOS() {
       branch:((stores.find(function(s){return s.id===activeBranch;})||{}).name)||"",
       pay:payMethod,
       items:cart.map(function(i){return {n:cleanName(i).short||i.name,q:i.qty,p:+(i.unitPrice!=null?i.unitPrice:i.price)||0,cp:!!i.custPrice};}),
-      sub:cartSub,disc:discAmt+ptDisc,total:finalTotal,
+      sub:cartSub,disc:discAmt+ptDisc,serviceCharge:serviceCharge,total:finalTotal,
       cust:selCustomer?{name:selCustomer.name,points:+selCustomer.points||0}:null
     });
   },[cart,selCustomer,screen,discType,discVal,usePoints,payMethod,activeBranch]);
@@ -4528,7 +4549,7 @@ function GreenPOS() {
       setCustomers(prev=>prev.map(c=>c.id===selCustomer.id?{...c,points:c.points-ptDisc+earnedPts,totalSpent:c.totalSpent+finalTotal,visits:c.visits+1,balance:payMethod==="wallet"?((+c.balance||0)-finalTotal):(+c.balance||0)}:c));
     }
     setStaff(prev=>prev.map(s=>s.id===currentStaff.id?{...s,sales:s.sales+finalTotal}:s));
-    const receipt={id:`DCK-${Date.now()}`,date:new Date().toLocaleString(),items:[...cart],customer:selCustomer?.name||t.walkin,customerId:selCustomer?.id||null,staff:currentStaff.name,staffId:currentStaff.id,subtotal:cartSub,discAmt,ptDisc,discType:discType,discVal:discVal,memberPricing:memberPricing,total:finalTotal,payment:payMethod,cashGiven:payMethod==="cash"?cash:finalTotal,
+    const receipt={id:`DCK-${Date.now()}`,date:new Date().toLocaleString(),items:[...cart],customer:selCustomer?.name||t.walkin,customerId:selCustomer?.id||null,staff:currentStaff.name,staffId:currentStaff.id,subtotal:cartSub,discAmt,ptDisc,serviceCharge,serviceChargeRate:SERVICE_CHARGE_RATE,discType:discType,discVal:discVal,memberPricing:memberPricing,total:finalTotal,payment:payMethod,cashGiven:payMethod==="cash"?cash:finalTotal,
         change:payMethod==="cash"?cash-finalTotal:0,earnedPts,usedPts:ptDisc,isMedical:isMedTx,tableId:selTable,isVoid:false,proofImage:paymentProof||null};
     if(selCustomer){
       setCustMemory(function(prev){
@@ -5247,6 +5268,8 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     }).catch(function(){});
   },[]);
   const imgFor=function(p){
+    var birthdayImg=birthdaySkuImg(p&&p.name);
+    if(birthdayImg)return birthdayImg;
     if(isDataImg(p.img))return p.img;                 // a photo already set here wins
     return webImgFor(p.name,webImgs)||p.img;          // else the site's, else the emoji
   };
@@ -6519,6 +6542,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:2}}><span>Subtotal</span><span>฿{cartSub.toLocaleString()}</span></div>
                 {discAmt>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.gold,marginBottom:2}}><span>Discount</span><span>-฿{discAmt.toFixed(0)}</span></div>}
                 {ptDisc>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.accent,marginBottom:2}}><span>Points Discount</span><span>-฿{ptDisc.toFixed(0)}</span></div>}
+                {cart.length>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:2}}><span>Service charge 10%</span><span>฿{serviceCharge.toFixed(2)}</span></div>}
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:mob?15:17,fontWeight:900,padding:"7px 0",borderTop:`1px solid ${C.border}`,marginBottom:7}}>
                   <span>{t.total}</span><span style={{color:C.green}}>฿{finalTotal.toFixed(0)}</span>
                 </div>
@@ -11118,6 +11142,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{display:"flex",justifyContent:"space-between"}}><span>Subtotal</span><span>฿{showReceipt.subtotal.toLocaleString()}</span></div>
               {showReceipt.discAmt>0&&<div style={{display:"flex",justifyContent:"space-between",color:C.gold}}><span>Discount</span><span>-฿{showReceipt.discAmt.toLocaleString()}</span></div>}
               {showReceipt.ptDisc>0&&<div style={{display:"flex",justifyContent:"space-between",color:C.accent}}><span>Points used</span><span>-฿{showReceipt.ptDisc.toLocaleString()}</span></div>}
+              {(+showReceipt.serviceCharge||0)>0&&<div style={{display:"flex",justifyContent:"space-between"}}><span>Service charge 10%</span><span>฿{showReceipt.serviceCharge.toLocaleString()}</span></div>}
               <div style={{display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:14,color:C.green}}><span>TOTAL</span><span>฿{showReceipt.total.toLocaleString()}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",color:C.muted}}><span>Paid ({showReceipt.payment})</span><span>฿{Number(showReceipt.cashGiven).toLocaleString()}</span></div>
               {showReceipt.change>0&&<div style={{display:"flex",justifyContent:"space-between"}}><span>Change</span><span>฿{showReceipt.change.toLocaleString()}</span></div>}
