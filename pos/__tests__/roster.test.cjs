@@ -17,7 +17,8 @@ const seed = src.slice(src.indexOf('var SHIFT_LOCATIONS ='),
                        src.indexOf('var SHIFT_STAFF =') + src.slice(src.indexOf('var SHIFT_STAFF =')).indexOf('\n];') + 3);
 const M = new Function(body + seed + `; return {
   buildRoster: buildRoster, shiftHours: shiftHours, monthDates: monthDates,
-  slotRunsOn: slotRunsOn, rosterPick: rosterPick, rosterAsk: rosterAsk, rosterVisits: rosterVisits, rosterPayroll: rosterPayroll,
+  slotRunsOn: slotRunsOn, rosterPick: rosterPick, contentDutyDates: contentDutyDates, leaveDatesBetween: leaveDatesBetween,
+  rosterAsk: rosterAsk, rosterVisits: rosterVisits, rosterPayroll: rosterPayroll,
   LOCS: SHIFT_LOCATIONS, STAFF: SHIFT_STAFF };`)();
 
 let pass = 0, fail = 0;
@@ -314,6 +315,26 @@ ok('…on Saturdays only', ploy.duties.every((d) => new Date(d.date + 'T00:00:00
 ok('…and adds no shifts beyond the ones she stood', ploy.shifts <= 26, ploy.shifts);
 ok('…and adds no hours: hours are exactly shifts × 8', ploy.hours === ploy.shifts * 8, ploy.hours);
 
+console.log('\nPok content duty is an extra paid shift every fourteen days');
+const oct = M.buildRoster(M.LOCS, M.STAFF, 2026, 10);
+const pokOct = oct.summary.filter((s) => s.id === 'pok')[0];
+const pokContent = pokOct.duties.filter((d) => d.countsShift);
+const pokShopCells = Object.keys(oct.cells).filter((k) => oct.cells[k] && oct.cells[k].id === 'pok');
+const slotHours = (key) => {
+  const [locId,,slotId] = key.split('|');
+  const loc = M.LOCS.find((l) => l.id === locId), slot = loc && loc.slots.find((s) => s.id === slotId);
+  return slot ? M.shiftHours(slot.label) : 0;
+};
+ok('the October dates are 10 and 24, exactly fourteen days apart',
+   pokContent.map((d) => d.date).join(',') === '2026-10-10,2026-10-24', pokContent.map((d) => d.date).join(','));
+ok('both duties count as shifts', pokOct.shifts === pokShopCells.length + 2, pokOct.shifts + ' vs ' + pokShopCells.length);
+ok('both duties add five hours each', pokOct.hours === pokShopCells.reduce((n, k) => n + slotHours(k), 0) + 10, pokOct.hours);
+ok('Pok is not double-booked into a shop shift on either content date',
+   pokShopCells.every((k) => ['2026-10-10','2026-10-24'].indexOf(k.split('|')[1]) < 0));
+ok('the next-month template keeps the fourteen-day recurrence',
+   M.buildRoster(M.LOCS, M.STAFF, 2026, 11).summary.find((s) => s.id === 'pok').duties
+     .filter((d) => d.countsShift).map((d) => d.date).join(',') === '2026-11-07,2026-11-21');
+
 console.log('\na day off set by hand still outranks the generator');
 const dow = (d) => new Date(d + 'T00:00:00Z').getUTCDay();
 {
@@ -356,12 +377,27 @@ ok('his shifts drop by the days he was away', amoe2.shifts === 23, amoe2.shifts)
  * shift being filled by somebody else is the correct outcome, and the thing
  * worth asserting is that it was filled by somebody actually cleared for it. */
 ok('the shift is covered by somebody cleared for it while he is away', (() => {
-  const cleared = M.STAFF.filter((p) => (p.slots || []).indexOf('A1') >= 0).map((p) => p.id);
+  const cleared = M.STAFF.filter((p) => (p.slots || []).indexOf('A1') >= 0 || (p.coverSlots || []).indexOf('A1') >= 0).map((p) => p.id);
   return ['2026-09-07', '2026-09-08', '2026-09-09'].every((d) => {
     const c = rl.cells['ptk|' + d + '|A1'];
     return !c || cleared.indexOf(c.id) >= 0;
   });
 })());
+ok('leave replacements are visibly marked as cover',
+   ['2026-09-07', '2026-09-08', '2026-09-09'].every((d) => rl.cells['ptk|' + d + '|A1'].cover === true));
+ok('cover priority is Steve, then Honey, then Bank', (() => {
+  const pref = ['steve','honey','bank'].map((id) => M.STAFF.find((p) => p.id === id));
+  return M.rosterPick(pref, {id:'A1'}, {}, null, true).id === 'steve'
+    && M.rosterPick(pref.slice(1), {id:'A1'}, {}, null, true).id === 'honey'
+    && M.rosterPick(pref.slice(2), {id:'A1'}, {}, null, true).id === 'bank';
+})());
+ok('cover chooses somebody below target before opening OT', (() => {
+  const pref = ['steve','honey','bank'].map((id) => M.STAFF.find((p) => p.id === id));
+  return M.rosterPick(pref, {id:'A1'}, {steve:26,honey:20,bank:8}, null, true).id === 'honey';
+})());
+ok('approved Bank cover passes the authorisation audit', rl.validation.unauthorised.every((x) => x.name !== 'Bank'));
+ok('a multi-day leave request expands to every calendar date',
+   M.leaveDatesBetween('2026-10-10','2026-10-12').join(',') === '2026-10-10,2026-10-11,2026-10-12');
 
 console.log('\nan unauthorised person is left out, and the hole is reported');
 const noCover = M.STAFF.filter((p) => ['steve', 'pond', 'mel', 'honey', 'bank'].indexOf(p.id) < 0);

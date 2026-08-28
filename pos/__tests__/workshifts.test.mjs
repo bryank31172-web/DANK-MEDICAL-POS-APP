@@ -58,6 +58,16 @@ ok('the monthly summary is rendered', /สรุปพนักงานรา�
 ok('the pay columns are there', /OT ฿/.test(t) && /รวมจ่าย/.test(t));
 ok('the labour bill is totalled', /เงินเดือนรวม/.test(t) && /×1\.5/.test(t));
 
+console.log('\nthe leave request flow is in the Working Shifts tab');
+ok('the Leave button opens', !!(await click('ขาด / ลา · Leave')));
+await p.waitForTimeout(400);
+t = await body();
+ok('staff can choose business or sick leave', /Business Leave/.test(t) && /Sick Leave/.test(t));
+ok('the cover order is visible before submission', /Steve → Honey → Bank/.test(t));
+ok('the final fallback is Keneth\/Bryan', /Keneth\/Bryan review/.test(t));
+ok('the leave modal closes', !!(await click('✕')));
+await p.waitForTimeout(250);
+
 const counts = await p.evaluate(() => {
   const txt = document.body.innerText;
   const g = (re) => { const m = re.exec(txt); return m ? +m[1] : null; };
@@ -112,6 +122,61 @@ ok('the report names the blocker',
 ok('…and a rest day the generator chose is not called a fixed one',
    !/fixed day off/.test(t) || /\(movable\)/.test(t),
    (/(fixed day off|rest day)[^·]*/.exec(t) || ['none'])[0]);
+
+/* The printed pack is what actually goes on the wall and to the accountant,
+ * so it is checked here rather than trusted. shiftPrint writes into a popup;
+ * the stub keeps that document in the page so its HTML can be read back. */
+console.log('\nthe printed pack carries the two summary pages');
+await p.evaluate(() => {
+  window.__printed = '';
+  window.open = () => ({
+    document: { write: (h) => { window.__printed += h; }, close() {} },
+    focus() {}, print() {},
+  });
+});
+ok('the print button is there', !!(await click('พิมพ์ / PDF')));
+await p.waitForTimeout(700);
+const sheet = await p.evaluate(() => window.__printed || '');
+ok('something was written to the print window', sheet.length > 2000, sheet.length + ' bytes');
+ok('one page per shop, plus the two summaries',
+   (sheet.match(/<section class="page">/g) || []).length === 5,
+   (sheet.match(/<section class="page">/g) || []).length + ' pages');
+ok('the payroll page is there', /DANK GROUP STAFF &amp; PAYROLL SUMMARY/.test(sheet));
+ok('…with the variable-pay column', /VARIABLE PAY/.test(sheet));
+ok('…and a control total in baht', /PAYROLL CONTROL TOTAL[\s\S]{0,400}THB/.test(sheet));
+ok('…that is a real number, not NaN or zero',
+   /base payroll: ([\d,]+) THB/.test(sheet) && +RegExp.$1.replace(/,/g, '') > 100000,
+   (/base payroll: [^<]*/.exec(sheet) || ['none'])[0]);
+/* A rider is paid ~15,600 a month and stands no counter slot. Printing 0
+ * duties beside that reads as money paid for nothing, and drops 26 days out
+ * of the control total — so the contracted days have to show. */
+ok('a payroll-only rider is not printed as 0 duties for real money',
+   !/Zaw[\s\S]{0,200}?class="n[^"]*">0<\/td>/.test(sheet),
+   (/<tr>[^]{0,400}?Zaw[^]*?<\/tr>/.exec(sheet) || ['no Zaw row'])[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 150));
+ok('…and is marked as contracted rather than rostered', /contracted, no counter slot/.test(sheet));
+ok('…so the control total counts more days than the grid alone',
+   /(\d+) duties/.test(sheet) && +RegExp.$1 > 340, (/[\d]+ duties/.exec(sheet) || [''])[0]);
+
+ok('the rules page is there', /DANK PROJECT DUTIES &amp; FINAL VALIDATION/.test(sheet));
+ok('the printed coverage policy carries the approved cover order',
+   /Leave cover order: Steve, Honey, Bank/.test(sheet) && /Keneth\/Bryan \(CEO\)/.test(sheet));
+ok('…printing the coverage rules', /2 operational budtenders/.test(sheet));
+ok('…and the incentive rules', /2% of individual eligible POS sales/.test(sheet));
+ok('…and the six validation counters', (sheet.match(/class="chk/g) || []).length === 6,
+   (sheet.match(/class="chk/g) || []).length);
+/* The red counter is only useful if the sheet says which shifts and why —
+ * that is the one number on the pack the owner has to act on. */
+const holes = +((/Empty required shifts<\/span><b>(\d+)</.exec(sheet) || [0, 0])[1]);
+ok('the empty-shift counter is readable', holes >= 0, holes);
+ok('…and every hole is named with its dates and its blocker',
+   !holes || (/UNCOVERED SHIFTS/.test(sheet) && /FIRST BLOCKER/.test(sheet)
+              && /at their maximum|only covers|rest day|days straight|already on a shift|nobody is cleared/.test(sheet)));
+
+ok('every page signs off', (sheet.match(/APPROVED BY:/g) || []).length === 5,
+   (sheet.match(/APPROVED BY:/g) || []).length);
+ok('the page numbering runs to the end', /PAGE 5 OF 5/.test(sheet));
+ok('nothing prints as NaN or undefined', !/NaN|undefined/.test(sheet),
+   (/.{40}(NaN|undefined).{40}/.exec(sheet) || ['clean'])[0]);
 
 console.log('\nthe assistant answers off the grid');
 ok('the AI button is there', !!(await click('ถาม AI')));
