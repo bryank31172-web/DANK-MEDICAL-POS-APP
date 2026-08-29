@@ -1287,6 +1287,34 @@ function webImgFor(name, map){
   return best;
 }
 
+// StoreHub does not provide reliable product photos. Give every unmatched SKU
+// its own deterministic visual instead of an empty circle/category emoji. The
+// same SKU always gets the same colour and card, including after another sync.
+function skuFallbackImg(p){
+  p=p||{};
+  var name=String(p.name||"Unnamed product").replace(/^\s*\([^)]*\)\s*/,"").trim();
+  var cat=String(p.cat||p.category||"Product");
+  var key=String(p.sku||p.id||name);
+  var hash=0;
+  for(var i=0;i<key.length;i++)hash=((hash<<5)-hash+key.charCodeAt(i))|0;
+  var hue=Math.abs(hash)%360;
+  var short=name.length>24?name.slice(0,23)+"…":name;
+  var initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w.charAt(0).toUpperCase();}).join("")||"SKU";
+  var esc=function(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");};
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420">'
+    +'<defs><radialGradient id="g" cx="50%" cy="38%" r="72%"><stop offset="0" stop-color="hsl('+hue+',58%,28%)"/><stop offset="1" stop-color="#07110b"/></radialGradient></defs>'
+    +'<rect width="640" height="420" fill="url(#g)"/>'
+    +'<circle cx="320" cy="165" r="94" fill="hsla('+hue+',70%,62%,.16)" stroke="hsla('+hue+',80%,72%,.55)" stroke-width="3"/>'
+    +'<circle cx="285" cy="145" r="42" fill="hsla('+((hue+38)%360)+',68%,60%,.30)"/>'
+    +'<circle cx="350" cy="140" r="47" fill="hsla('+((hue+78)%360)+',68%,60%,.28)"/>'
+    +'<circle cx="320" cy="195" r="52" fill="hsla('+hue+',76%,68%,.30)"/>'
+    +'<text x="320" y="181" text-anchor="middle" fill="#f4ffe9" font-family="Arial,sans-serif" font-size="54" font-weight="800">'+esc(initials)+'</text>'
+    +'<text x="320" y="310" text-anchor="middle" fill="#ffffff" font-family="Arial,sans-serif" font-size="31" font-weight="700">'+esc(short)+'</text>'
+    +'<text x="320" y="350" text-anchor="middle" fill="#b8c7ba" font-family="Arial,sans-serif" font-size="20">'+esc(cat)+' · '+esc(p.sku||"StoreHub SKU")+'</text>'
+    +'</svg>';
+  return "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
+}
+
 // Event products are live StoreHub rows, so their ids are not stable here.
 // Limit overrides to SKUs explicitly tagged "Birthday" in their name.
 function birthdaySkuImg(name){
@@ -1444,13 +1472,16 @@ function ProdTile(props){
   var src=props.src, h=props.h||96;
   var isPhoto=typeof src==="string"&&(src.slice(0,4)==="http"||src.slice(0,5)==="data:");
   var _s=useState(true), okImg=_s[0], setOkImg=_s[1];
-  var show=isPhoto&&okImg;
+  var fallbackPhoto=typeof props.fallback==="string"&&(props.fallback.slice(0,4)==="http"||props.fallback.slice(0,5)==="data:");
+  useEffect(function(){setOkImg(true);},[src]);
+  var shownSrc=isPhoto&&okImg?src:(fallbackPhoto?props.fallback:"");
+  var show=!!shownSrc;
   return (
     <div style={{position:"relative",width:"100%",height:h,borderRadius:props.r||0,overflow:"hidden",flexShrink:0,
       background:show?"#0b120d":("linear-gradient(145deg,"+softTint(props.tint)+",rgba(255,255,255,0.015))"),
       display:"flex",alignItems:"center",justifyContent:"center"}}>
       {show
-        ?<img src={src} alt={props.label||""} loading="lazy" decoding="async"
+        ?<img src={shownSrc} alt={props.label||""} loading="lazy" decoding="async"
            onError={function(){setOkImg(false);}}
            style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
         :<span aria-hidden="true" style={{fontSize:Math.round(h*0.42),lineHeight:1}}>{props.fallback||(isPhoto?"\ud83d\udce6":(src||"\ud83d\udce6"))}</span>}
@@ -5271,7 +5302,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     var birthdayImg=birthdaySkuImg(p&&p.name);
     if(birthdayImg)return birthdayImg;
     if(isDataImg(p.img))return p.img;                 // a photo already set here wins
-    return webImgFor(p.name,webImgs)||p.img;          // else the site's, else the emoji
+    return webImgFor(p.name,webImgs)||skuFallbackImg(p); // else a generated SKU visual
   };
   // SPENT and VISITS were only ever what this app itself recorded — the
   // StoreHub customer sync writes `totalSpent: existing.totalSpent||0`, so on a
@@ -6419,7 +6450,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                     {p.stock>0&&p.stock<=p.alert&&<div style={{...gs.badge(C.gold),position:"absolute",top:6,right:6,fontSize:7}}>LOW</div>}
                     {p.stock===0&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.72)",borderRadius:13,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:C.red,letterSpacing:"0.1em"}}>SOLD OUT{backQty(p.id)>0&&<span style={{fontSize:8,color:C.blue,marginTop:3,letterSpacing:0}}>🏬 หลังร้านมี {backQty(p.id)}{p.unit}</span>}</div>}
                     <div style={{margin:(mob?-10:-12)+"px "+(mob?-10:-12)+"px 7px",borderTopLeftRadius:13,borderTopRightRadius:13,overflow:"hidden"}}>
-                      <ProdTile src={imgFor(p)} fallback={isDataImg(p.img)?(CAT_ICONS[p.cat]||"\ud83d\udce6"):p.img} label={cleanName(p).short} h={mob?84:104}
+                      <ProdTile src={imgFor(p)} fallback={skuFallbackImg(p)} label={cleanName(p).short} h={mob?84:104}
                         tint={CAT_CLR[cleanName(p).tag]||CAT_CLR[p.cat]||"rgba(74,222,128,0.16)"}>
                         {(function(){var cn=cleanName(p);var tg=cn.tag||p.cat;return tg?<span style={{...gs.badge(CAT_CLR[tg]||CAT_CLR[p.cat]||"rgba(201,168,76,0.2)",(CAT_CLR[tg]||CAT_CLR[p.cat])?"#000":"#c9a84c"),fontSize:7,position:"absolute",top:6,left:6,maxWidth:"72%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",boxShadow:"0 1px 6px rgba(0,0,0,0.45)"}}>{tg}</span>:null;})()}
                       </ProdTile>
