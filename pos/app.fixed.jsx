@@ -1132,6 +1132,7 @@ const catIcon=function(c){var s=String(c||"").toLowerCase();
   return "📦";};
 const CAT_CLR={"Flowers":"#4ade80","Pre-Roll":"#f59e0b","Vape":"#38bdf8","Edible":"#ec4899","Hash":"#c9a84c","Beverage":"#a78bfa","Accessories":"#f97316"};
 const TYPE_CLR={"Sativa":"#f59e0b","Indica":"#818cf8","Hybrid":"#4ade80","Accessory":"#64748b"};
+const SERVICE_CHARGE_RATE=0.10;
 const T={
   en:{welcome:"Welcome back",login:"Enter your PIN",register:"Register",pos:"POS",dashboard:"Dashboard",inventory:"Inventory",crm:"CRM",rewards:"Rewards",finance:"Finance",medical:"Medical",orders:"Orders",affiliate:"Affiliates",staff:"Staff",allCat:"All",searchProduct:"Search products...",selectCustomer:"Select customer",customer:"Customer",walkin:"Walk-in",usePoints:"Use points",checkout:"Checkout",cash:"Cash",card:"Card",qr:"QR Pay",time:"Time",min:"min"},
   th:{welcome:"ยินดีต้อนรับ",login:"กรอกรหัส PIN",register:"สมัครสมาชิก",pos:"ขาย",dashboard:"แดชบอร์ด",inventory:"สต็อก",crm:"ลูกค้า",rewards:"รางวัล",finance:"การเงิน",medical:"การแพทย์",orders:"ออเดอร์",affiliate:"พันธมิตร",staff:"พนักงาน",allCat:"ทั้งหมด",searchProduct:"ค้นหาสินค้า...",selectCustomer:"เลือกลูกค้า",customer:"ลูกค้า",walkin:"ลูกค้าทั่วไป",usePoints:"ใช้แต้ม",checkout:"ชำระเงิน",cash:"เงินสด",card:"บัตร",qr:"QR",time:"เวลา",min:"นาที"},
@@ -1357,6 +1358,50 @@ function webImgFor(name, map){
   return best;
 }
 
+// StoreHub does not provide reliable product photos. Give every unmatched SKU
+// its own deterministic visual instead of an empty circle/category emoji. The
+// same SKU always gets the same colour and card, including after another sync.
+function skuFallbackImg(p){
+  p=p||{};
+  var name=String(p.name||"Unnamed product").replace(/^\s*\([^)]*\)\s*/,"").trim();
+  var cat=String(p.cat||p.category||"Product");
+  var key=String(p.sku||p.id||name);
+  var hash=0;
+  for(var i=0;i<key.length;i++)hash=((hash<<5)-hash+key.charCodeAt(i))|0;
+  var hue=Math.abs(hash)%360;
+  var short=name.length>24?name.slice(0,23)+"…":name;
+  var initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w.charAt(0).toUpperCase();}).join("")||"SKU";
+  var esc=function(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");};
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420">'
+    +'<defs><radialGradient id="g" cx="50%" cy="38%" r="72%"><stop offset="0" stop-color="hsl('+hue+',58%,28%)"/><stop offset="1" stop-color="#07110b"/></radialGradient></defs>'
+    +'<rect width="640" height="420" fill="url(#g)"/>'
+    +'<circle cx="320" cy="165" r="94" fill="hsla('+hue+',70%,62%,.16)" stroke="hsla('+hue+',80%,72%,.55)" stroke-width="3"/>'
+    +'<circle cx="285" cy="145" r="42" fill="hsla('+((hue+38)%360)+',68%,60%,.30)"/>'
+    +'<circle cx="350" cy="140" r="47" fill="hsla('+((hue+78)%360)+',68%,60%,.28)"/>'
+    +'<circle cx="320" cy="195" r="52" fill="hsla('+hue+',76%,68%,.30)"/>'
+    +'<text x="320" y="181" text-anchor="middle" fill="#f4ffe9" font-family="Arial,sans-serif" font-size="54" font-weight="800">'+esc(initials)+'</text>'
+    +'<text x="320" y="310" text-anchor="middle" fill="#ffffff" font-family="Arial,sans-serif" font-size="31" font-weight="700">'+esc(short)+'</text>'
+    +'<text x="320" y="350" text-anchor="middle" fill="#b8c7ba" font-family="Arial,sans-serif" font-size="20">'+esc(cat)+' · '+esc(p.sku||"StoreHub SKU")+'</text>'
+    +'</svg>';
+  return "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
+}
+
+// Event products are live StoreHub rows, so their ids are not stable here.
+// Limit overrides to SKUs explicitly tagged "Birthday" in their name.
+function birthdaySkuImg(name){
+  var s=String(name||"").toLowerCase();
+  if(s.indexOf("birthday")<0)return "";
+  if(/espresso\s*martini/.test(s))return "/assets/products/birthday-event/espresso-martini.png";
+  if(/hendrick/.test(s))return "/assets/products/birthday-event/hendricks.jpeg";
+  if(/pink\s*gin/.test(s))return "/assets/products/birthday-event/pink-gin.jpeg";
+  if(/regency/.test(s))return "/assets/products/birthday-event/regency.png";
+  if(/suntory/.test(s))return "/assets/products/birthday-event/suntory.jpeg";
+  if(/singha|beer/.test(s))return "/assets/products/birthday-event/singha.jpeg";
+  if(/soft\s*drink|coke|coca|sprite|soda/.test(s))return "/assets/products/birthday-event/soft-drinks.webp";
+  if(/wine|merlot|claret|beaujolais|c[oô]tes?\s+du\s+rh[oô]ne/.test(s))return "/assets/products/birthday-event/wine.jpeg";
+  return "";
+}
+
 // ── BAR ─────────────────────────────────────────────────────────────────────
 // Typed up from the bar's own laminated cost sheets. Costs are the shop's own
 // numbers, kept as-is so the sheet and the app agree; BAR_BOTTLES carries the
@@ -1498,13 +1543,16 @@ function ProdTile(props){
   var src=props.src, h=props.h||96;
   var isPhoto=typeof src==="string"&&(src.slice(0,4)==="http"||src.slice(0,5)==="data:");
   var _s=useState(true), okImg=_s[0], setOkImg=_s[1];
-  var show=isPhoto&&okImg;
+  var fallbackPhoto=typeof props.fallback==="string"&&(props.fallback.slice(0,4)==="http"||props.fallback.slice(0,5)==="data:");
+  useEffect(function(){setOkImg(true);},[src]);
+  var shownSrc=isPhoto&&okImg?src:(fallbackPhoto?props.fallback:"");
+  var show=!!shownSrc;
   return (
     <div style={{position:"relative",width:"100%",height:h,borderRadius:props.r||0,overflow:"hidden",flexShrink:0,
       background:show?"#0b120d":("linear-gradient(145deg,"+softTint(props.tint)+",rgba(255,255,255,0.015))"),
       display:"flex",alignItems:"center",justifyContent:"center"}}>
       {show
-        ?<img src={src} alt={props.label||""} loading="lazy" decoding="async"
+        ?<img src={shownSrc} alt={props.label||""} loading="lazy" decoding="async"
            onError={function(){setOkImg(false);}}
            style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
         :<span aria-hidden="true" style={{fontSize:Math.round(h*0.42),lineHeight:1}}>{props.fallback||(isPhoto?"\ud83d\udce6":(src||"\ud83d\udce6"))}</span>}
@@ -1568,6 +1616,7 @@ function CDSView(){
             <div style={{padding:"14px 26px 20px",borderTop:"1px solid "+C.border,background:C.card}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.muted,marginBottom:4}}><span>รวม / Subtotal</span><span>{money(st.sub)}</span></div>
               {(+st.disc||0)>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.green,marginBottom:4}}><span>ส่วนลด / Discount</span><span>-{money(st.disc)}</span></div>}
+              {(+st.serviceCharge||0)>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.muted,marginBottom:4}}><span>ค่าบริการ / Service charge 10%</span><span>{money(st.serviceCharge)}</span></div>}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:6}}>
                 <span style={{fontSize:20,fontWeight:800}}>ยอดชำระ / Total</span>
                 <span style={{fontSize:46,fontWeight:900,color:C.green,fontFamily:"monospace",letterSpacing:"-0.02em"}}>{money(st.total)}</span>
@@ -2238,6 +2287,7 @@ function GreenPOS() {
     L.push("--------------------------------");L.push("Subtotal:  ฿"+r.subtotal);
     if(r.discAmt>0)L.push("Discount: -฿"+r.discAmt);
     if(r.ptDisc>0)L.push("Points:   -฿"+r.ptDisc);
+    if((+r.serviceCharge||0)>0)L.push("Service 10%: ฿"+r.serviceCharge);
     L.push("TOTAL:     ฿"+r.total);L.push("Paid("+r.payment+"): ฿"+r.cashGiven);
     if(r.change>0)L.push("Change:    ฿"+r.change);
     L.push("--------------------------------");L.push("  Thank you! 🌿 20+ only");
@@ -4529,7 +4579,9 @@ function GreenPOS() {
   const discAmt=discType==="percent"?cartSub*(discVal/100):discType==="fixed"?Math.min(discVal,cartSub):0;
   const afterDisc=cartSub-discAmt;
   const ptDisc=Math.min(usePoints,afterDisc*0.1);
-  const finalTotal=afterDisc-ptDisc;
+  const serviceBase=Math.max(0,afterDisc-ptDisc);
+  const serviceCharge=Math.round(serviceBase*SERVICE_CHARGE_RATE*100)/100;
+  const finalTotal=serviceBase+serviceCharge;
   const earnedPts=Math.floor(finalTotal/100)*100;
 
   // Mirror the till onto any open customer display. Broadcast + localStorage
@@ -4554,7 +4606,7 @@ function GreenPOS() {
       branch:((stores.find(function(s){return s.id===activeBranch;})||{}).name)||"",
       pay:payMethod,
       items:cart.map(function(i){return {n:cleanName(i).short||i.name,q:i.qty,p:+(i.unitPrice!=null?i.unitPrice:i.price)||0,cp:!!i.custPrice};}),
-      sub:cartSub,disc:discAmt+ptDisc,total:finalTotal,
+      sub:cartSub,disc:discAmt+ptDisc,serviceCharge:serviceCharge,total:finalTotal,
       cust:selCustomer?{name:selCustomer.name,points:+selCustomer.points||0}:null
     });
   },[cart,selCustomer,screen,discType,discVal,usePoints,payMethod,activeBranch]);
@@ -4677,7 +4729,7 @@ function GreenPOS() {
       setCustomers(prev=>prev.map(c=>c.id===selCustomer.id?{...c,points:c.points-ptDisc+earnedPts,totalSpent:c.totalSpent+finalTotal,visits:c.visits+1,balance:payMethod==="wallet"?((+c.balance||0)-finalTotal):(+c.balance||0)}:c));
     }
     setStaff(prev=>prev.map(s=>s.id===currentStaff.id?{...s,sales:s.sales+finalTotal}:s));
-    const receipt={id:`DCK-${Date.now()}`,date:new Date().toLocaleString(),items:[...cart],customer:selCustomer?.name||t.walkin,customerId:selCustomer?.id||null,staff:currentStaff.name,staffId:currentStaff.id,subtotal:cartSub,discAmt,ptDisc,discType:discType,discVal:discVal,memberPricing:memberPricing,total:finalTotal,payment:payMethod,cashGiven:payMethod==="cash"?cash:finalTotal,
+    const receipt={id:`DCK-${Date.now()}`,date:new Date().toLocaleString(),items:[...cart],customer:selCustomer?.name||t.walkin,customerId:selCustomer?.id||null,staff:currentStaff.name,staffId:currentStaff.id,subtotal:cartSub,discAmt,ptDisc,serviceCharge,serviceChargeRate:SERVICE_CHARGE_RATE,discType:discType,discVal:discVal,memberPricing:memberPricing,total:finalTotal,payment:payMethod,cashGiven:payMethod==="cash"?cash:finalTotal,
         change:payMethod==="cash"?cash-finalTotal:0,earnedPts,usedPts:ptDisc,isMedical:isMedTx,tableId:selTable,isVoid:false,proofImage:paymentProof||null};
     if(selCustomer){
       setCustMemory(function(prev){
@@ -5396,8 +5448,10 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     }).catch(function(){});
   },[]);
   const imgFor=function(p){
+    var birthdayImg=birthdaySkuImg(p&&p.name);
+    if(birthdayImg)return birthdayImg;
     if(isDataImg(p.img))return p.img;                 // a photo already set here wins
-    return webImgFor(p.name,webImgs)||p.img;          // else the site's, else the emoji
+    return webImgFor(p.name,webImgs)||skuFallbackImg(p); // else a generated SKU visual
   };
   // SPENT and VISITS were only ever what this app itself recorded — the
   // StoreHub customer sync writes `totalSpent: existing.totalSpent||0`, so on a
@@ -6558,7 +6612,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                     {p.stock>0&&p.stock<=p.alert&&<div style={{...gs.badge(C.gold),position:"absolute",top:6,right:6,fontSize:7}}>LOW</div>}
                     {p.stock===0&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.72)",borderRadius:13,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:C.red,letterSpacing:"0.1em"}}>SOLD OUT{backQty(p.id)>0&&<span style={{fontSize:8,color:C.blue,marginTop:3,letterSpacing:0}}>🏬 หลังร้านมี {backQty(p.id)}{p.unit}</span>}</div>}
                     <div style={{margin:(mob?-10:-12)+"px "+(mob?-10:-12)+"px 7px",borderTopLeftRadius:13,borderTopRightRadius:13,overflow:"hidden"}}>
-                      <ProdTile src={imgFor(p)} fallback={isDataImg(p.img)?(CAT_ICONS[p.cat]||"\ud83d\udce6"):p.img} label={cleanName(p).short} h={mob?84:104}
+                      <ProdTile src={imgFor(p)} fallback={skuFallbackImg(p)} label={cleanName(p).short} h={mob?84:104}
                         tint={CAT_CLR[cleanName(p).tag]||CAT_CLR[p.cat]||"rgba(74,222,128,0.16)"}>
                         {(function(){var cn=cleanName(p);var tg=cn.tag||p.cat;return tg?<span style={{...gs.badge(CAT_CLR[tg]||CAT_CLR[p.cat]||"rgba(201,168,76,0.2)",(CAT_CLR[tg]||CAT_CLR[p.cat])?"#000":"#c9a84c"),fontSize:7,position:"absolute",top:6,left:6,maxWidth:"72%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",boxShadow:"0 1px 6px rgba(0,0,0,0.45)"}}>{tg}</span>:null;})()}
                       </ProdTile>
@@ -6681,6 +6735,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:2}}><span>Subtotal</span><span>฿{cartSub.toLocaleString()}</span></div>
                 {discAmt>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.gold,marginBottom:2}}><span>Discount</span><span>-฿{discAmt.toFixed(0)}</span></div>}
                 {ptDisc>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.accent,marginBottom:2}}><span>Points Discount</span><span>-฿{ptDisc.toFixed(0)}</span></div>}
+                {cart.length>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:2}}><span>Service charge 10%</span><span>฿{serviceCharge.toFixed(2)}</span></div>}
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:mob?15:17,fontWeight:900,padding:"7px 0",borderTop:`1px solid ${C.border}`,marginBottom:7}}>
                   <span>{t.total}</span><span style={{color:C.green}}>฿{finalTotal.toFixed(0)}</span>
                 </div>
@@ -11340,6 +11395,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{display:"flex",justifyContent:"space-between"}}><span>Subtotal</span><span>฿{showReceipt.subtotal.toLocaleString()}</span></div>
               {showReceipt.discAmt>0&&<div style={{display:"flex",justifyContent:"space-between",color:C.gold}}><span>Discount</span><span>-฿{showReceipt.discAmt.toLocaleString()}</span></div>}
               {showReceipt.ptDisc>0&&<div style={{display:"flex",justifyContent:"space-between",color:C.accent}}><span>Points used</span><span>-฿{showReceipt.ptDisc.toLocaleString()}</span></div>}
+              {(+showReceipt.serviceCharge||0)>0&&<div style={{display:"flex",justifyContent:"space-between"}}><span>Service charge 10%</span><span>฿{showReceipt.serviceCharge.toLocaleString()}</span></div>}
               <div style={{display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:14,color:C.green}}><span>TOTAL</span><span>฿{showReceipt.total.toLocaleString()}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",color:C.muted}}><span>Paid ({showReceipt.payment})</span><span>฿{Number(showReceipt.cashGiven).toLocaleString()}</span></div>
               {showReceipt.change>0&&<div style={{display:"flex",justifyContent:"space-between"}}><span>Change</span><span>฿{showReceipt.change.toLocaleString()}</span></div>}
