@@ -116,15 +116,12 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
    the owner's word on which are still in daily use before removing.
 11. Decide the customer site's menu source: the curated 53-item `products.json` (clean names +
    photos) vs the raw 395-item POS feed it serves today (`( Bar ) Tequila shot`).
-12. **16 shifts a month still have nobody, and it is now a real headcount gap.** The owner's
-   flexibility answers (any staff will move their day off and their hours, part-timers move
-   between Phatthanakarn and Sathorn, Honey works all three) took uncovered shifts from 74 to
-   **16**. Demand is 343 shifts a month; thirteen counter staff at 26 each supply ~327. The
-   remaining 16 spread evenly across `ptk/B2`, `ptk/C1`, `bar/FSDAY` and `bar/FSNIGHT`.
-   **Mel is the nearest lever** — she is Sathorn-only relief sitting at 18 shifts with ~8 spare,
-   so clearing her for Phatthanakarn would absorb half of it. Otherwise it is one more hire.
-   Do not widen her without asking: she is full-time relief, not one of the part-timers the
-   owner cleared to move.
+12. **20 September shifts still have nobody, and the report names each one.** The latest owner
+   decisions remove resigned Pond, restore Palm at ฿16,000/month, reduce Honey, increase Steve
+   and Pok, keep Alex and Jack bar-only, and cap full-time counter staff at 25–27 shifts. The
+   remaining gaps are `ptk/B2` (9), `ptk/C2` (4), `ptk/C1` (1) and `bar/FSDAY` (6). Do not widen
+   a person's shop/slot clearance just to make the red number disappear; the manager must
+   confirm who is trained and available for those slots.
 
 ## Done and verified — do not re-litigate
 - **Customers who owe the shop is a finished feature, not a missing one**: on-account sales
@@ -174,7 +171,7 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   and logs `SHIFT_ROSTER_APPROVED` to the audit log. The owner asked for that explicitly.
 - Rules that are load-bearing, each one a bug that was found by measuring:
   · overnight shift = one shift on the day it **starts**
-  · a duty inside a normal shift (Rena's Wed marketing) is recorded but adds **no** shift and
+  · a duty inside a normal shift (Rena's Fri marketing) is recorded but adds **no** shift and
     **no** hours — counting it twice turns a 26-shift month into 31
   · nobody is rostered outside their authorised shop/slot even if that leaves a hole; the hole
     is reported instead
@@ -200,8 +197,14 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   CEO row and in `result.visits`; hours land in `visitHours`, never in shift hours or the shop
   labour total. Modelling them as cover hid the fact that the Phatthanakarn night shift was
   three shifts short of staff cleared to stand it.
+- **Alex leads DANK 224 Bar:** 26 shifts / 216 normal hours, Friday off, covering every Mon–Thu
+  PM plus Sat/Sun night. Jack is bar-only Friday-night cover (4 shifts / 36h). Pond is removed;
+  Palm returns at ฿16,000/month; Honey drops to 16–18 shifts while Steve and Pok target 27;
+  Rena and Ploy each carry one weekly marketing/content duty inside their normal roster. Existing
+  devices receive this staffing decision once through `dank_shift_staff_seed_version`, after
+  which later manager edits remain untouched.
 - An empty required shift carries `blockers[]` — the trained staff who were rejected and why
-  ("Mon: at their maximum", "Pond: only covers C2 on MON"). Listing everyone at the shop instead
+  ("Mon: at their maximum", "Honey: already working today"). Listing everyone at the shop instead
   buried that under four lines of "not authorised on C2" for people who were never candidates.
 - **Two contract types, from the shop's own wage sheet.** `payType:"monthly"` is owed the salary
   for the month; `payType:"daily"` (วันละ) is owed `dailyRate × days actually stood`. Paying a
