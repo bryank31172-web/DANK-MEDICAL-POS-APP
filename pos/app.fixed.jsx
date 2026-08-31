@@ -798,6 +798,246 @@ function rosterAsk(question, res, staff, locations) {
 }
 // ——— end of the roster assistant block ——————————————————————————————————
 
+// ——— master stock report block ——————————————————————————————————————————
+// Every closed shift already counts every SKU and stores the result in
+// `closeCheck` — expected, measured, the reason given for a difference. What
+// nobody could do was read those counts across shifts. The day report only
+// carried totals, so "3.4g short today" never said which product, in whose
+// hands, or whether the same jar had been short all week.
+//
+// This rolls the shift counts up into one report for a day, a week or a month
+// and hands it to one named person to sign and submit.
+//
+// Three things it refuses to do, each because the alternative is what makes a
+// stock report worthless:
+//   · A shift that closed without a count is NOT silently dropped. It is
+//     listed by name and slot as missing. A report that quietly averages the
+//     shifts that did report reads clean while the hole it is hiding grows.
+//   · Short and over are both variances and are kept apart. Netting them
+//     hides a jar that is 5g short against another that is 5g over — that is
+//     two mistakes, not zero.
+//   · A difference with no reason written on it is counted separately from an
+//     explained one. "Unexplained" is the number a manager acts on.
+
+var STOCK_PERIODS = ['daily', 'weekly', 'monthly'];
+
+/* Bangkok day key for an ISO timestamp — the shop's day, not UTC's. */
+function stockDateKey(iso) {
+  if (!iso) return '';
+  var t = new Date(iso).getTime();
+  if (isNaN(t)) return '';
+  return new Date(t + 7 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/* Monday-start week. The shop's payroll and its roster both run Mon-Sun, so a
+ * Sunday-start week would put a week's stock against the wrong wage period. */
+function stockWeekStart(dateKey) {
+  var d = new Date(dateKey + 'T00:00:00Z');
+  var dow = d.getUTCDay();               /* 0 Sun … 6 Sat */
+  var back = dow === 0 ? 6 : dow - 1;
+  d.setUTCDate(d.getUTCDate() - back);
+  return d.toISOString().slice(0, 10);
+}
+
+function stockAddDays(dateKey, n) {
+  var d = new Date(dateKey + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/* The inclusive [from,to] a period covers, anchored on any date inside it. */
+function stockPeriodRange(period, anchorKey) {
+  if (period === 'weekly') {
+    var s = stockWeekStart(anchorKey);
+    return { from: s, to: stockAddDays(s, 6) };
+  }
+  if (period === 'monthly') {
+    var m = anchorKey.slice(0, 7);
+    var last = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).toISOString().slice(0, 10);
+    return { from: m + '-01', to: last };
+  }
+  return { from: anchorKey, to: anchorKey };
+}
+
+function stockPeriodLabel(period, range) {
+  if (period === 'daily') return range.from;
+  if (period === 'weekly') return range.from + ' → ' + range.to;
+  return range.from.slice(0, 7);
+}
+
+/* One shift's count rows, normalised. `over` and `short` are kept apart on
+ * purpose: netting them turns two errors into none. */
+function stockRowsOf(sh) {
+  var rows = (sh && sh.closeCheck) || [];
+  return rows.map(function (r) {
+    var expected = Math.round((+r.expected || 0) * 100) / 100;
+    var measured = r.measured === '' || r.measured == null ? null : Math.round((+r.measured || 0) * 100) / 100;
+    var diff = measured === null ? 0 : Math.round((measured - expected) * 100) / 100;
+    return {
+      id: r.id, name: r.name || '', cat: r.cat || '', unit: r.unit || 'pc',
+      expected: expected, measured: measured, diff: diff,
+      short: diff < -0.005 ? -diff : 0,
+      over: diff > 0.005 ? diff : 0,
+      cost: +r.cost || 0, price: +r.price || 0,
+      reason: String(r.reason || '').trim(), note: String(r.note || '').trim(),
+      counted: measured !== null,
+    };
+  });
+}
+
+/* The report. `shiftsAll` is every shift record; the caller filters nothing. */
+function masterStockReport(shiftsAll, period, anchorKey, branch) {
+  period = STOCK_PERIODS.indexOf(period) >= 0 ? period : 'daily';
+  var range = stockPeriodRange(period, anchorKey);
+  var wantBranch = branch == null || branch === '' || branch === 'all' ? null : branch;
+
+  var inRange = (shiftsAll || []).filter(function (sh) {
+    if (!sh || !sh.inAt) return false;
+    var k = stockDateKey(sh.inAt);
+    if (k < range.from || k > range.to) return false;
+    if (wantBranch && (sh.branch || '') !== wantBranch) return false;
+    return true;
+  });
+
+  var closed = inRange.filter(function (sh) { return !!sh.outAt; });
+  var openStill = inRange.filter(function (sh) { return !sh.outAt; });
+
+  /* A closed shift with no count is the thing this report exists to surface. */
+  var missing = [], counted = [];
+  closed.forEach(function (sh) {
+    var rows = stockRowsOf(sh);
+    var any = rows.some(function (r) { return r.counted; });
+    if (!any) {
+      missing.push({ shiftId: sh.id, date: stockDateKey(sh.inAt), staff: sh.staffName || '',
+                     slot: sh.slot || '', branch: sh.branch || '', why: rows.length ? 'closed without entering counts' : 'no SKU list on the shift' });
+    } else counted.push(sh);
+  });
+  openStill.forEach(function (sh) {
+    missing.push({ shiftId: sh.id, date: stockDateKey(sh.inAt), staff: sh.staffName || '',
+                   slot: sh.slot || '', branch: sh.branch || '', why: 'still open — never clocked out' });
+  });
+
+  /* per SKU, across every counted shift in the period */
+  var bySku = {}, order = [];
+  var byStaff = {}, staffOrder = [];
+  var byShift = [];
+
+  counted.forEach(function (sh) {
+    var rows = stockRowsOf(sh).filter(function (r) { return r.counted; });
+    var sShort = 0, sOver = 0, sCost = 0, sRetail = 0, sUnex = 0;
+    rows.forEach(function (r) {
+      var k = r.id != null ? String(r.id) : r.name;
+      if (!bySku[k]) {
+        bySku[k] = { id: r.id, name: r.name, cat: r.cat, unit: r.unit, cost: r.cost, price: r.price,
+                     counts: 0, short: 0, over: 0, shortCost: 0, shortRetail: 0,
+                     shiftsShort: 0, unexplained: 0, reasons: {}, worst: null };
+        order.push(k);
+      }
+      var s = bySku[k];
+      s.counts++;
+      s.short = Math.round((s.short + r.short) * 100) / 100;
+      s.over = Math.round((s.over + r.over) * 100) / 100;
+      if (r.short > 0) {
+        s.shiftsShort++;
+        s.shortCost = Math.round((s.shortCost + r.short * r.cost) * 100) / 100;
+        s.shortRetail = Math.round((s.shortRetail + r.short * r.price) * 100) / 100;
+        if (!r.reason) s.unexplained = Math.round((s.unexplained + r.short) * 100) / 100;
+        if (r.reason) s.reasons[r.reason] = Math.round(((s.reasons[r.reason] || 0) + r.short) * 100) / 100;
+        if (!s.worst || r.short > s.worst.qty) {
+          s.worst = { qty: r.short, date: stockDateKey(sh.inAt), staff: sh.staffName || '',
+                      slot: sh.slot || '', reason: r.reason };
+        }
+      }
+      sShort += r.short; sOver += r.over;
+      sCost += r.short * r.cost; sRetail += r.short * r.price;
+      if (r.short > 0 && !r.reason) sUnex += r.short;
+
+      var sk = sh.staffName || '(unnamed)';
+      if (!byStaff[sk]) { byStaff[sk] = { staff: sk, shifts: 0, short: 0, over: 0, shortCost: 0, unexplained: 0 }; staffOrder.push(sk); }
+    });
+
+    var st = byStaff[sh.staffName || '(unnamed)'];
+    if (st) {
+      st.shifts++;
+      st.short = Math.round((st.short + sShort) * 100) / 100;
+      st.over = Math.round((st.over + sOver) * 100) / 100;
+      st.shortCost = Math.round((st.shortCost + sCost) * 100) / 100;
+      st.unexplained = Math.round((st.unexplained + sUnex) * 100) / 100;
+    }
+
+    byShift.push({
+      shiftId: sh.id, date: stockDateKey(sh.inAt), staff: sh.staffName || '', slot: sh.slot || '',
+      branch: sh.branch || '', skus: rows.length,
+      short: Math.round(sShort * 100) / 100, over: Math.round(sOver * 100) / 100,
+      shortCost: Math.round(sCost), shortRetail: Math.round(sRetail),
+      unexplained: Math.round(sUnex * 100) / 100,
+      sales: Math.round(+sh.salesDelta || 0),
+      issues: (sh.report && sh.report.issues) || '',
+    });
+  });
+
+  var skus = order.map(function (k) { return bySku[k]; })
+    .sort(function (a, b) { return (b.shortCost - a.shortCost) || (b.short - a.short); });
+  var staffRows = staffOrder.map(function (k) { return byStaff[k]; })
+    .sort(function (a, b) { return b.shortCost - a.shortCost; });
+  byShift.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.slot < b.slot ? -1 : 1); });
+
+  var totals = {
+    shifts: closed.length,
+    counted: counted.length,
+    missing: missing.length,
+    skus: skus.length,
+    short: Math.round(skus.reduce(function (a, s) { return a + s.short; }, 0) * 100) / 100,
+    over: Math.round(skus.reduce(function (a, s) { return a + s.over; }, 0) * 100) / 100,
+    unexplained: Math.round(skus.reduce(function (a, s) { return a + s.unexplained; }, 0) * 100) / 100,
+    shortCost: Math.round(skus.reduce(function (a, s) { return a + s.shortCost; }, 0)),
+    shortRetail: Math.round(skus.reduce(function (a, s) { return a + s.shortRetail; }, 0)),
+    sales: Math.round(byShift.reduce(function (a, s) { return a + s.sales; }, 0)),
+  };
+  /* What share of the period actually reported. A stock report built on half
+   * the shifts is a different document from one built on all of them, and the
+   * person signing it has to be told which one they are signing. */
+  totals.coverage = closed.length ? Math.round((counted.length / closed.length) * 1000) / 10 : 0;
+
+  return {
+    id: period + '__' + range.from + '__' + (wantBranch || 'all'),
+    period: period, range: range, label: stockPeriodLabel(period, range),
+    branch: wantBranch || '', generatedAt: new Date().toISOString(),
+    skus: skus, byStaff: staffRows, byShift: byShift, missing: missing, totals: totals,
+  };
+}
+
+/* The lines a manager should read first. Returns [] when there is nothing to
+ * say — an empty list is a real answer, and beats inventing a concern. */
+function stockReportFlags(rep) {
+  if (!rep) return [];
+  var out = [], t = rep.totals;
+  if (t.missing) {
+    out.push({ level: 'bad', text: t.missing + ' shift(s) closed without a stock count — the totals below are '
+      + t.coverage + '% of the period, not all of it' });
+  }
+  if (t.unexplained > 0.05) {
+    out.push({ level: 'bad', text: t.unexplained + 'g short with no reason written on it' });
+  }
+  if (t.shortCost > 0) {
+    out.push({ level: t.shortCost >= 1000 ? 'bad' : 'warn',
+               text: 'stock short is worth ฿' + t.shortCost.toLocaleString('en-US') + ' at cost, ฿'
+                     + t.shortRetail.toLocaleString('en-US') + ' at retail' });
+  }
+  if (t.over > 0.05) {
+    out.push({ level: 'warn', text: t.over + 'g counted OVER — an over is a miscount somewhere, not a windfall' });
+  }
+  (rep.skus || []).slice(0, 3).forEach(function (s) {
+    if (s.shiftsShort >= 2) {
+      out.push({ level: 'warn', text: s.name + ' came up short on ' + s.shiftsShort
+        + ' separate shifts — that is a pattern, not an accident' });
+    }
+  });
+  if (!out.length && t.counted) out.push({ level: 'ok', text: 'every shift counted and every count matched' });
+  return out;
+}
+// ——— end of the master stock report block ————————————————————————————————
+
 /* The three shops, their shift slots and who is authorised where — read off the
  * September 2026 sheet the shop already prints. Editable in the app; this is
  * only what a fresh device starts with. */
@@ -1702,6 +1942,19 @@ function GreenPOS() {
   useEffect(function(){try{localStorage.setItem("dank_day_reports",JSON.stringify(dayReports));}catch(e){}},[dayReports]);
   const [dayReportDetail,setDayReportDetail]=useState(null);
   const [dayReportAI,setDayReportAI]=useState("");
+  /* The master stock report: what period is on screen, and the submissions
+   * that have been signed off. A submission is a record that someone read the
+   * period and took responsibility for it — it is not the report itself, which
+   * is always recomputed from the shifts so it can never drift from them. */
+  const [stockReports,setStockReports]=useState(function(){try{return JSON.parse(localStorage.getItem("dank_stock_reports")||"[]");}catch(e){return [];}});
+  useEffect(function(){try{localStorage.setItem("dank_stock_reports",JSON.stringify(stockReports));}catch(e){}},[stockReports]);
+  const [stockRepOwner,setStockRepOwner]=useState(function(){try{return localStorage.getItem("dank_stock_owner")||"Amoe";}catch(e){return "Amoe";}});
+  useEffect(function(){try{localStorage.setItem("dank_stock_owner",stockRepOwner);}catch(e){}},[stockRepOwner]);
+  const [stockRepPeriod,setStockRepPeriod]=useState("daily");
+  const [stockRepAnchor,setStockRepAnchor]=useState(function(){return new Date(Date.now()+7*3600*1000).toISOString().slice(0,10);});
+  const [stockRepBranch,setStockRepBranch]=useState("");
+  const [stockRepNote,setStockRepNote]=useState("");
+  const [stockRepOpen,setStockRepOpen]=useState(null);
   const [manualDayDate,setManualDayDate]=useState("");
   const [manualDayBranch,setManualDayBranch]=useState("");
   // ── LINE notifications — pushes key events to Bryan's LINE via the separate
@@ -1997,6 +2250,132 @@ function GreenPOS() {
     var totalCash=shiftsForDay.reduce(function(a,x){return a+(+((x.report&&x.report.cash))||0);},0);
     return {id:dateKey+"__"+(branchKey||"all"),date:dateKey,branch:branchKey||"",name:"Day_"+dateKey+(branchKey?(" · "+branchKey):""),generatedAt:new Date().toISOString(),shiftIds:shiftsForDay.map(function(x){return x.id;}),totals:{sales:Math.round(totalSales),hours:Math.round(totalHours*10)/10,missG:Math.round(totalMissG*100)/100,missCost:Math.round(totalMissCost),missRetail:Math.round(totalMissRetail),cash:Math.round(totalCash)}};
   };
+  /* The master stock report on paper. White A4 portrait — it is filed and
+   * signed, not pinned to a wall like the roster, so it is not A3 landscape.
+   * The shifts that did not report are printed BEFORE the totals: a signature
+   * under a number built from half the shifts has to be given knowingly. */
+  const stockReportPrint=function(rep,periodLabel){
+    var esc=function(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});};
+    var t=rep.totals;
+    var money=function(n){return Math.round(n||0).toLocaleString("en-US");};
+    var kpi=[["SHIFTS CLOSED",t.shifts,""],["COUNTS RECEIVED",t.counted+" / "+t.shifts,t.missing?"bad":"ok"],
+      ["COVERAGE",t.coverage+"%",t.coverage<100?"bad":"ok"],["SHORT",t.short+"g",t.short>0.05?"bad":"ok"],
+      ["OVER",t.over+"g",t.over>0.05?"warn":""],["SHORT AT COST","THB "+money(t.shortCost),t.shortCost>0?"bad":"ok"],
+      ["SHORT AT RETAIL","THB "+money(t.shortRetail),""],["UNEXPLAINED",t.unexplained+"g",t.unexplained>0.05?"bad":"ok"]]
+      .map(function(k){return '<div class="kpi '+k[2]+'"><span>'+k[0]+'</span><b>'+esc(k[1])+'</b></div>';}).join("");
+
+    var missBlock=rep.missing.length
+      ? '<h2 class="red">SHIFTS THAT DID NOT REPORT A COUNT — '+rep.missing.length+'</h2>'
+        +'<p class="fine">Every figure on this page is built from '+t.coverage+'% of the shifts in the period, not all of them. '
+        +'The rows below are the missing ones.</p>'
+        +'<table><tr><th class="nw">DATE</th><th>STAFF</th><th>SHIFT</th><th>BRANCH</th><th class="l">WHY</th></tr>'
+        +rep.missing.map(function(m){return '<tr><td class="nw">'+esc(m.date)+'</td><td>'+esc(m.staff||"—")+'</td><td>'+esc(m.slot)
+          +'</td><td>'+esc(m.branch||"-")+'</td><td class="red">'+esc(m.why)+'</td></tr>';}).join("")+'</table>'
+      : '<p class="okline">✔ Every shift closed in this period submitted a stock count.</p>';
+
+    var varied=rep.skus.filter(function(s){return s.short>0.005||s.over>0.005;});
+    var skuBlock=varied.length
+      ? '<table><tr><th class="l">PRODUCT</th><th class="nw">COUNTS</th><th class="nw">SHORT</th><th class="nw">OVER</th>'
+        +'<th class="nw">AT COST</th><th class="nw">AT RETAIL</th>'
+        +'<th class="nw">SHIFTS SHORT</th><th class="nw">UNEXPLAINED</th><th class="l">WORST / REASONS</th></tr>'
+        +varied.map(function(s){
+          var reasons=Object.keys(s.reasons||{}).map(function(k){return esc(k)+" "+s.reasons[k]+s.unit;}).join(", ");
+          var worst=s.worst?(s.worst.date+" "+s.worst.staff+" ("+s.worst.qty+s.unit+")"):"";
+          return '<tr><td class="l">'+esc(s.name)+'</td><td>'+s.counts+'</td>'
+            +'<td class="'+(s.short>0.005?"red":"")+'">'+(s.short>0.005?("−"+s.short+s.unit):"—")+'</td>'
+            +'<td class="'+(s.over>0.005?"amber":"")+'">'+(s.over>0.005?("+"+s.over+s.unit):"—")+'</td>'
+            +'<td>'+(s.shortCost?money(s.shortCost):"—")+'</td><td>'+(s.shortRetail?money(s.shortRetail):"—")+'</td>'
+            +'<td>'+(s.shiftsShort||"—")+'</td>'
+            +'<td class="'+(s.unexplained>0.005?"red":"")+'">'+(s.unexplained>0.005?(s.unexplained+s.unit):"—")+'</td>'
+            +'<td class="l fine">'+esc(worst)+(reasons?(" · "+reasons):"")+'</td></tr>';}).join("")+'</table>'
+      : '<p class="okline">✔ Every SKU counted matched the system — nothing short, nothing over.</p>';
+
+    var staffBlock=rep.byStaff.length
+      ? '<table><tr><th class="l">STAFF</th><th>SHIFTS</th><th>SHORT</th><th>OVER</th><th>AT COST</th><th>UNEXPLAINED</th></tr>'
+        +rep.byStaff.map(function(p){return '<tr><td class="l">'+esc(p.staff)+'</td><td>'+p.shifts+'</td>'
+          +'<td class="'+(p.short>0.05?"red":"")+'">'+p.short+'g</td><td>'+p.over+'g</td>'
+          +'<td>'+money(p.shortCost)+'</td><td class="'+(p.unexplained>0.05?"red":"")+'">'+p.unexplained+'g</td></tr>';}).join("")+'</table>'
+      : "";
+
+    var shiftBlock=rep.byShift.length
+      ? '<table><tr><th>DATE</th><th class="l">STAFF</th><th class="l">SHIFT</th><th>BRANCH</th><th>SKUs</th><th>SHORT</th><th>AT COST</th><th>SALES</th></tr>'
+        +rep.byShift.map(function(b){return '<tr><td class="nw">'+esc(b.date)+'</td><td class="l">'+esc(b.staff)+'</td><td class="l">'+esc(b.slot)
+          +'</td><td>'+esc(b.branch||"-")+'</td><td>'+b.skus+'</td>'
+          +'<td class="'+(b.short>0.05?"red":"")+'">'+b.short+'g</td><td>'+money(b.shortCost)+'</td><td>'+money(b.sales)+'</td></tr>';}).join("")+'</table>'
+      : "";
+
+    var css='@page{size:A4 portrait;margin:12mm}'
+      +'*{box-sizing:border-box}body{margin:0;background:#fff;color:#111;font:11px/1.4 Arial,Helvetica,sans-serif}'
+      +'header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #111;padding-bottom:5px}'
+      +'h1{font-size:17px;margin:0;letter-spacing:.5px}header span{font-size:12px;font-weight:700}'
+      +'.note{margin:4px 0 10px;font-size:9.5px;letter-spacing:.8px;color:#555}'
+      +'h2{font-size:11px;margin:13px 0 5px;letter-spacing:1px;border-bottom:1px solid #ccc;padding-bottom:3px}'
+      +'h2.red{color:#c00;border-color:#c00}'
+      +'table{width:100%;border-collapse:collapse;margin-bottom:6px}'
+      /* auto layout, so a header like UNEXPLAINED is not split mid-word — with
+         overflow-wrap only as the escape hatch for one very long reason string */
+      +'th,td{border:1px solid #c9c9c9;padding:3px 4px;text-align:center;font-size:9.5px;overflow-wrap:anywhere}'
+      +'td.nw,th.nw{white-space:nowrap}'
+      +'th{background:#f2f2f2;font-size:8px;color:#444}td.l,th.l{text-align:left}'
+      +'td.red{color:#c00;font-weight:700}td.amber{color:#8a6d00;font-weight:700}'
+      +'.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:8px 0 4px}'
+      +'.kpi{border:1px solid #c9c9c9;padding:5px 7px;display:flex;justify-content:space-between;align-items:center}'
+      +'.kpi span{font-size:8px;color:#555;letter-spacing:.4px}.kpi b{font-size:12px}'
+      +'.kpi.bad{border-color:#c00;background:#ffe9e9}.kpi.bad b{color:#c00}'
+      +'.kpi.warn{border-color:#8a6d00;background:#fff8e5}.kpi.warn b{color:#8a6d00}'
+      +'.fine{font-size:8.5px;color:#666;line-height:1.45}'
+      +'.okline{font-size:10px;color:#0a7a2f;font-weight:700;margin:4px 0 8px}'
+      +'footer{display:flex;gap:20px;align-items:flex-end;border-top:1px solid #111;margin-top:14px;padding-top:8px;font-size:10px;font-weight:700}'
+      +'footer .pg{margin-left:auto;color:#666;font-weight:400}';
+
+    var html='<section>'
+      +'<header><h1>DANK GROUP — MASTER STOCK REPORT</h1><span>'+esc(periodLabel||rep.period)+' · '+esc(rep.label)+'</span></header>'
+      +'<p class="note">'+(rep.branch?esc(rep.branch).toUpperCase():"ALL BRANCHES")
+      +' · CONSOLIDATED FROM EVERY SHIFT COUNT IN THE PERIOD · GENERATED '+new Date(rep.generatedAt).toLocaleString("en-GB")+'</p>'
+      +missBlock
+      +'<h2>TOTALS</h2><div class="kpis">'+kpi+'</div>'
+      +'<p class="fine">Short and over are reported separately and never netted against each other — a jar 5g short '
+      +'beside another 5g over is two counting errors, not zero. Unexplained is the part of the shortage that was '
+      +'closed without a reason written on it; that is the figure to act on.</p>'
+      +'<h2>BY PRODUCT</h2>'+skuBlock
+      +(staffBlock?'<h2>BY STAFF</h2>'+staffBlock:"")
+      +(shiftBlock?'<h2>BY SHIFT</h2>'+shiftBlock:"")
+      +'<footer><div>PREPARED BY: ____________________</div><div>CHECKED BY: ____________________</div>'
+      +'<div>DATE: __________</div><div class="pg">DANK GROUP · MASTER STOCK</div></footer>'
+      +'</section>';
+
+    var w=window.open("","_blank");
+    if(!w){notify("⚠ เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาต pop-up ให้เว็บนี้ก่อน");return;}
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>DANK Master Stock — '+esc(rep.label)+'</title><style>'+css+'</style></head><body>'+html+'</body></html>');
+    w.document.close();
+    setTimeout(function(){try{w.focus();w.print();}catch(e){}},350);
+  };
+
+  /* One row per SKU, plus the shifts that never reported — those belong in the
+   * export too, or a spreadsheet built from it silently reads as complete. */
+  const stockReportCsv=function(rep){
+    var rows=[["MASTER STOCK REPORT",rep.period,rep.label,rep.branch||"all branches"],
+      ["coverage %",rep.totals.coverage,"shifts closed",rep.totals.shifts,"counts received",rep.totals.counted],
+      [],["PRODUCT","unit","counts","short","over","short at cost","short at retail","shifts short","unexplained","worst date","worst staff","reasons"]];
+    rep.skus.forEach(function(s){
+      rows.push([s.name,s.unit,s.counts,s.short,s.over,s.shortCost,s.shortRetail,s.shiftsShort,s.unexplained,
+        s.worst?s.worst.date:"",s.worst?s.worst.staff:"",
+        Object.keys(s.reasons||{}).map(function(k){return k+" "+s.reasons[k];}).join(" | ")]);
+    });
+    rows.push([]);rows.push(["BY STAFF","shifts","short","over","short at cost","unexplained"]);
+    rep.byStaff.forEach(function(p){rows.push([p.staff,p.shifts,p.short,p.over,p.shortCost,p.unexplained]);});
+    rows.push([]);rows.push(["BY SHIFT","date","staff","shift","branch","SKUs","short","short at cost","sales"]);
+    rep.byShift.forEach(function(b){rows.push(["",b.date,b.staff,b.slot,b.branch,b.skus,b.short,b.shortCost,b.sales]);});
+    rows.push([]);rows.push(["SHIFTS WITH NO COUNT","date","staff","shift","branch","why"]);
+    rep.missing.forEach(function(m){rows.push(["",m.date,m.staff,m.slot,m.branch,m.why]);});
+    var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c==null?"":c).replace(/"/g,'""')+'"';}).join(",");}).join("\n");
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));
+    a.download="dank-master-stock-"+rep.period+"-"+rep.range.from+(rep.branch?("-"+rep.branch.toLowerCase()):"")+".csv";
+    a.click();
+    addAudit("STOCK_REPORT_EXPORT",rep.period+" "+rep.label+(rep.branch?(" · "+rep.branch):""),currentStaff&&currentStaff.name);
+  };
+
   const manualGenerateDayReport=function(dateStr,branchStr){
     if(!dateStr){notify("เลือกวันที่ก่อน / Pick a date first","error");return;}
     var allForDay=shifts.filter(function(x){return x.outAt&&_dateKeyOf(x.inAt)===dateStr&&(x.branch||"")===(branchStr||"");});
@@ -6205,7 +6584,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       {activeTab==="reports"&&(
         <div style={gs.sec}>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-            {[["reports","📑","Reports"],["notif","🔔","Alerts"],["aisum","🧠","AI Summary"],["dayrep","📅","Day Reports"]].map(function(sb){return (
+            {[["reports","📑","Reports"],["notif","🔔","Alerts"],["aisum","🧠","AI Summary"],["dayrep","📅","Day Reports"],["stockrep","📦","Master Stock"]].map(function(sb){return (
               <button key={sb[0]} onClick={function(){setActiveTab(sb[0]);}} style={{...gs.btn(activeTab===sb[0]?C.green:C.card2,activeTab===sb[0]?"#000":"#9ca3af"),fontSize:10.5,padding:"6px 12px",border:"1px solid "+C.border}}>{sb[1]} {sb[2]}</button>
             );})}
           </div>
@@ -6244,7 +6623,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       {activeTab==="dayrep"&&(
         <div style={gs.sec}>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-            {[["reports","📑","Reports"],["notif","🔔","Alerts"],["aisum","🧠","AI Summary"],["dayrep","📅","Day Reports"]].map(function(sb){return (
+            {[["reports","📑","Reports"],["notif","🔔","Alerts"],["aisum","🧠","AI Summary"],["dayrep","📅","Day Reports"],["stockrep","📦","Master Stock"]].map(function(sb){return (
               <button key={sb[0]} onClick={function(){setActiveTab(sb[0]);}} style={{...gs.btn(activeTab===sb[0]?C.green:C.card2,activeTab===sb[0]?"#000":"#9ca3af"),fontSize:10.5,padding:"6px 12px",border:"1px solid "+C.border}}>{sb[1]} {sb[2]}</button>
             );})}
           </div>
@@ -6282,6 +6661,211 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             </div>);})}
         </div>
       )}
+      {/* MASTER STOCK REPORT TAB */}
+      {activeTab==="stockrep"&&(function(){
+        var srep=masterStockReport(shifts,stockRepPeriod,stockRepAnchor,stockRepBranch);
+        var flags=stockReportFlags(srep);
+        var submitted=stockReports.filter(function(x){return x.id===srep.id;})[0]||null;
+        var t=srep.totals;
+        var pLabel={daily:"รายวัน Daily",weekly:"รายสัปดาห์ Weekly",monthly:"รายเดือน Monthly"};
+        var step=function(n){
+          var d=new Date(stockRepAnchor+"T00:00:00Z");
+          d.setUTCDate(d.getUTCDate()+n*(stockRepPeriod==="daily"?1:stockRepPeriod==="weekly"?7:0));
+          if(stockRepPeriod==="monthly")d.setUTCMonth(d.getUTCMonth()+n);
+          setStockRepAnchor(d.toISOString().slice(0,10));
+        };
+        var flagColor=function(l){return l==="bad"?C.red:l==="warn"?C.gold:C.green;};
+        return (
+        <div style={gs.sec}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+            {[["reports","📑","Reports"],["notif","🔔","Alerts"],["aisum","🧠","AI Summary"],["dayrep","📅","Day Reports"],["stockrep","📦","Master Stock"]].map(function(sb){return (
+              <button key={sb[0]} onClick={function(){setActiveTab(sb[0]);}} style={{...gs.btn(activeTab===sb[0]?C.green:C.card2,activeTab===sb[0]?"#000":"#9ca3af"),fontSize:10.5,padding:"6px 12px",border:"1px solid "+C.border}}>{sb[1]} {sb[2]}</button>
+            );})}
+          </div>
+
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4,flexWrap:"wrap",gap:6}}>
+            <div style={{fontSize:mob?15:17,fontWeight:900}}>📦 รายงานสต๊อกรวม · Master Stock Report</div>
+            <div style={{fontSize:9,color:C.muted}}>ผู้รับผิดชอบ · owner: <b style={{color:C.gold}}>{stockRepOwner}</b></div>
+          </div>
+          <div style={{fontSize:10,color:C.muted,marginBottom:11,lineHeight:1.6}}>
+            รวมผลนับสต๊อกจาก <b>ทุกกะ</b> ที่ปิดในช่วงนี้ — รายตัว SKU ว่าขาดเท่าไหร่ คิดเป็นเงินเท่าไหร่ ใครนับ และ
+            <b style={{color:C.gold}}> กะไหนยังไม่ส่งผลนับ</b> · {stockRepOwner} ตรวจแล้วกด “ส่งรายงาน” เพื่อลงชื่อรับผิดชอบช่วงนี้
+          </div>
+
+          {/* period picker */}
+          <div style={{...gs.card,marginBottom:10}}>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+              {["daily","weekly","monthly"].map(function(pv){return (
+                <button key={pv} onClick={function(){setStockRepPeriod(pv);}} style={{...gs.btn(stockRepPeriod===pv?C.green:C.card2,stockRepPeriod===pv?"#000":"#9ca3af"),fontSize:10.5,padding:"6px 11px",border:"1px solid "+C.border}}>{pLabel[pv]}</button>
+              );})}
+              <div style={{flex:1}}/>
+              <button onClick={function(){step(-1);}} style={{...gs.btn(C.card2,"#fff"),fontSize:12,padding:"5px 11px",border:"1px solid "+C.border}}>◀</button>
+              <div style={{fontSize:12,fontWeight:900,minWidth:mob?110:170,textAlign:"center"}}>{srep.label}</div>
+              <button onClick={function(){step(1);}} style={{...gs.btn(C.card2,"#fff"),fontSize:12,padding:"5px 11px",border:"1px solid "+C.border}}>▶</button>
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
+              <input type="date" value={stockRepAnchor} onChange={function(e){setStockRepAnchor(e.target.value);}} style={{...gs.input,flex:"1 1 140px",fontSize:11}}/>
+              <select value={stockRepBranch} onChange={function(e){setStockRepBranch(e.target.value);}} style={{...gs.input,flex:"1 1 140px",fontSize:11}}>
+                <option value="">ทุกสาขา · All branches</option>
+                {["Pattanakarn","Sathorn","Petchaboon","Phuket","Bars"].map(function(bn){return <option key={bn} value={bn}>{bn}</option>;})}
+              </select>
+            </div>
+          </div>
+
+          {/* what a manager should read first */}
+          {flags.length>0&&<div style={{...gs.card,marginBottom:10,padding:10}}>
+            {flags.map(function(f,i){return (
+              <div key={i} style={{fontSize:11,color:flagColor(f.level),fontWeight:f.level==="bad"?800:600,marginBottom:i<flags.length-1?5:0,lineHeight:1.5}}>
+                {f.level==="bad"?"🔴":f.level==="warn"?"🟡":"🟢"} {f.text}
+              </div>);})}
+          </div>}
+
+          {/* the numbers */}
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:10}}>
+            {[["กะที่ปิด · shifts",t.shifts,C.text],
+              ["ส่งผลนับแล้ว · counted",t.counted+" / "+t.shifts+"  ("+t.coverage+"%)",t.missing?C.red:C.green],
+              ["ของขาด · short",t.short+"g",t.short>0.05?C.gold:C.green],
+              ["ของเกิน · over",t.over+"g",t.over>0.05?C.gold:C.muted],
+              ["มูลค่าที่ขาด (ทุน)","฿"+t.shortCost.toLocaleString(),t.shortCost>0?C.red:C.green],
+              ["ถ้าขายได้ (ราคาขาย)","฿"+t.shortRetail.toLocaleString(),C.muted],
+              ["ขาดโดยไม่มีเหตุผล","​"+t.unexplained+"g",t.unexplained>0.05?C.red:C.green],
+              ["ยอดขายช่วงนี้","฿"+t.sales.toLocaleString(),C.green]].map(function(k,i){return (
+              <div key={i} style={{...gs.card2,padding:9}}>
+                <div style={{fontSize:8.5,color:C.muted,marginBottom:3,lineHeight:1.3}}>{k[0]}</div>
+                <div style={{fontSize:mob?13:15,fontWeight:900,color:k[2]}}>{k[1]}</div>
+              </div>);})}
+          </div>
+
+          {/* the shifts that did not report — the reason this screen exists */}
+          {srep.missing.length>0&&<div style={{...gs.card,marginBottom:10,borderLeft:"3px solid "+C.red}}>
+            <div style={{fontSize:11.5,fontWeight:900,color:C.red,marginBottom:6}}>⚠ ยังไม่ส่งผลนับ · {srep.missing.length} กะ</div>
+            <div style={{fontSize:9.5,color:C.muted,marginBottom:7,lineHeight:1.5}}>ตัวเลขข้างบนคิดจาก {t.coverage}% ของกะทั้งหมดในช่วงนี้เท่านั้น — ต้องตามให้ครบก่อนส่งรายงาน</div>
+            {srep.missing.map(function(m,i){return (
+              <div key={i} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",borderTop:i?"1px solid "+C.border:"none",fontSize:10.5}}>
+                <span style={{fontWeight:800,minWidth:74}}>{m.date}</span>
+                <span style={{fontWeight:700,flex:1,minWidth:0}}>{m.staff||"—"}</span>
+                <span style={{color:C.muted,flex:1,minWidth:0}}>{m.slot} · {m.branch||"-"}</span>
+                <span style={{color:C.red,fontSize:9.5}}>{m.why}</span>
+              </div>);})}
+          </div>}
+
+          {/* per SKU */}
+          <div style={{...gs.card,marginBottom:10}}>
+            <div style={{fontSize:11.5,fontWeight:900,marginBottom:7}}>📦 รายตัวสินค้า · by SKU <span style={{fontSize:9,color:C.muted,fontWeight:500}}>(เรียงตามมูลค่าที่หายมากสุด)</span></div>
+            {srep.skus.length===0&&<div style={{fontSize:10.5,color:C.muted,padding:"10px 0"}}>ยังไม่มีผลนับในช่วงนี้</div>}
+            {srep.skus.filter(function(s){return s.short>0.005||s.over>0.005;}).length===0&&srep.skus.length>0&&
+              <div style={{fontSize:10.5,color:C.green,padding:"8px 0"}}>✅ ทุกตัวนับตรงกับระบบ — ไม่มีขาด ไม่มีเกิน ({srep.skus.length} SKU)</div>}
+            {srep.skus.filter(function(s){return s.short>0.005||s.over>0.005;}).map(function(s,i){return (
+              <div key={i} style={{padding:"7px 0",borderTop:i?"1px solid "+C.border:"none"}}>
+                <div style={{display:"flex",gap:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                  <span style={{fontSize:11.5,fontWeight:800,flex:"1 1 150px",minWidth:0}}>{s.name}</span>
+                  {s.short>0.005&&<span style={{fontSize:11,fontWeight:900,color:C.red}}>−{s.short}{s.unit}</span>}
+                  {s.over>0.005&&<span style={{fontSize:11,fontWeight:900,color:C.gold}}>+{s.over}{s.unit}</span>}
+                  {s.shortCost>0&&<span style={{fontSize:10.5,fontWeight:800}}>฿{s.shortCost.toLocaleString()}</span>}
+                </div>
+                <div style={{fontSize:9,color:C.muted,marginTop:2,lineHeight:1.5}}>
+                  นับ {s.counts} ครั้ง{s.shiftsShort>0?(" · ขาด "+s.shiftsShort+" กะ"):""}
+                  {s.unexplained>0.005&&<span style={{color:C.red}}> · ไม่มีเหตุผล {s.unexplained}{s.unit}</span>}
+                  {s.worst&&<span> · หนักสุด {s.worst.date} {s.worst.staff} ({s.worst.qty}{s.unit})</span>}
+                  {Object.keys(s.reasons||{}).length>0&&<span> · เหตุผล: {Object.keys(s.reasons).map(function(k){return k+" "+s.reasons[k]+s.unit;}).join(", ")}</span>}
+                </div>
+              </div>);})}
+          </div>
+
+          {/* per person */}
+          {srep.byStaff.length>0&&<div style={{...gs.card,marginBottom:10}}>
+            <div style={{fontSize:11.5,fontWeight:900,marginBottom:7}}>👤 รายคน · by staff</div>
+            {srep.byStaff.map(function(p,i){return (
+              <div key={i} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",borderTop:i?"1px solid "+C.border:"none",fontSize:10.5}}>
+                <span style={{fontWeight:800,flex:"1 1 100px",minWidth:0}}>{p.staff}</span>
+                <span style={{color:C.muted,minWidth:52}}>{p.shifts} กะ</span>
+                <span style={{color:p.short>0.05?C.red:C.green,minWidth:64,textAlign:"right",fontWeight:800}}>−{p.short}g</span>
+                <span style={{color:p.over>0.05?C.gold:C.muted,minWidth:56,textAlign:"right"}}>+{p.over}g</span>
+                <span style={{fontWeight:800,minWidth:70,textAlign:"right"}}>฿{p.shortCost.toLocaleString()}</span>
+              </div>);})}
+          </div>}
+
+          {/* per shift, so a number can be traced back to the count that made it */}
+          {srep.byShift.length>0&&<div style={{...gs.card,marginBottom:10}}>
+            <div style={{fontSize:11.5,fontWeight:900,marginBottom:7}}>🕐 รายกะ · by shift</div>
+            {srep.byShift.map(function(b,i){return (
+              <div key={i} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",borderTop:i?"1px solid "+C.border:"none",fontSize:10.5,flexWrap:"wrap"}}>
+                <span style={{fontWeight:800,minWidth:74}}>{b.date}</span>
+                <span style={{fontWeight:700,flex:"1 1 90px",minWidth:0}}>{b.staff}</span>
+                <span style={{color:C.muted,flex:"1 1 110px",minWidth:0,fontSize:9.5}}>{b.slot} · {b.branch||"-"}</span>
+                <span style={{color:C.muted,fontSize:9.5,minWidth:52}}>{b.skus} SKU</span>
+                <span style={{color:b.short>0.05?C.red:C.green,fontWeight:800,minWidth:62,textAlign:"right"}}>−{b.short}g</span>
+                <span style={{minWidth:66,textAlign:"right",fontWeight:800}}>฿{b.shortCost.toLocaleString()}</span>
+              </div>);})}
+          </div>}
+
+          {/* submit */}
+          <div style={{...gs.card,borderLeft:"3px solid "+(submitted?C.green:C.gold)}}>
+            {submitted
+              ? <div>
+                  <div style={{fontSize:11.5,fontWeight:900,color:C.green,marginBottom:4}}>✅ ส่งรายงานแล้ว · submitted</div>
+                  <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>
+                    โดย <b style={{color:C.text}}>{submitted.submittedBy}</b> · {new Date(submitted.submittedAt).toLocaleString("th-TH")}<br/>
+                    ตอนส่ง: ขาด {submitted.snapshot.short}g · ฿{(submitted.snapshot.shortCost||0).toLocaleString()} · ครบ {submitted.snapshot.coverage}% ของกะ
+                    {submitted.note?<span><br/>บันทึก: {submitted.note}</span>:null}
+                  </div>
+                  <button onClick={function(){
+                    setStockReports(function(p){return p.filter(function(x){return x.id!==srep.id;});});
+                    addAudit("STOCK_REPORT_UNSUBMIT",srep.label+(srep.branch?(" · "+srep.branch):""),currentStaff&&currentStaff.name);
+                    notify("ยกเลิกการส่งแล้ว — แก้แล้วส่งใหม่ได้");
+                  }} style={{...gs.btn(C.card2,"#fff"),fontSize:10,marginTop:8,border:"1px solid "+C.border}}>↩ ยกเลิกการส่ง</button>
+                </div>
+              : <div>
+                  <div style={{fontSize:11.5,fontWeight:900,marginBottom:6}}>📤 ส่งรายงานช่วงนี้ · submit</div>
+                  {t.missing>0&&<div style={{fontSize:10,color:C.gold,marginBottom:7,lineHeight:1.5}}>
+                    ⚠ ยังขาดผลนับ {t.missing} กะ — ส่งได้ แต่รายงานจะถูกบันทึกว่าครบแค่ {t.coverage}% และแนบรายชื่อกะที่ยังไม่ส่งไปด้วย
+                  </div>}
+                  <input value={stockRepNote} onChange={function(e){setStockRepNote(e.target.value);}}
+                    placeholder="บันทึกถึงผู้จัดการ (ถ้ามี) — เช่น ของขาดเพราะแบ่งตัวอย่าง"
+                    style={{...gs.input,fontSize:11,width:"100%",marginBottom:8}}/>
+                  <button onClick={function(){
+                    if(!t.shifts){notify("ช่วงนี้ยังไม่มีกะที่ปิด — ไม่มีอะไรให้ส่ง","error");return;}
+                    var rec={id:srep.id,period:srep.period,label:srep.label,range:srep.range,branch:srep.branch,
+                      submittedBy:(currentStaff&&currentStaff.name)||stockRepOwner,submittedAt:new Date().toISOString(),
+                      note:stockRepNote,snapshot:{short:t.short,over:t.over,shortCost:t.shortCost,shortRetail:t.shortRetail,
+                        unexplained:t.unexplained,coverage:t.coverage,shifts:t.shifts,counted:t.counted,missing:t.missing},
+                      missing:srep.missing.map(function(m){return {date:m.date,staff:m.staff,slot:m.slot,why:m.why};}),
+                      top:srep.skus.slice(0,10).map(function(s){return {name:s.name,short:s.short,over:s.over,cost:s.shortCost};})};
+                    setStockReports(function(p){return [rec].concat(p.filter(function(x){return x.id!==rec.id;}));});
+                    addAudit("STOCK_REPORT_SUBMIT",pLabel[srep.period]+" "+srep.label+(srep.branch?(" · "+srep.branch):"")
+                      +" — ขาด "+t.short+"g ฿"+t.shortCost+" · ครบ "+t.coverage+"% ("+t.counted+"/"+t.shifts+" กะ)",
+                      (currentStaff&&currentStaff.name)||stockRepOwner);
+                    setStockRepNote("");
+                    notify("📤 ส่งรายงาน "+srep.label+" แล้ว");
+                    if(lineNotifyToggles.dayReport)sendLineNotify("📦 รายงานสต๊อกรวม "+pLabel[srep.period]+" · "+srep.label
+                      +(srep.branch?(" · "+srep.branch):"")+"\nส่งโดย "+((currentStaff&&currentStaff.name)||stockRepOwner)
+                      +"\nของขาด "+t.short+"g (ทุน ฿"+t.shortCost.toLocaleString()+")"
+                      +(t.unexplained>0.05?("\n⚠ ไม่มีเหตุผล "+t.unexplained+"g"):"")
+                      +(t.missing?("\n⚠ ยังไม่ส่งผลนับ "+t.missing+" กะ (ครบ "+t.coverage+"%)"):"\n✅ ครบทุกกะ"),"day_report");
+                  }} style={{...gs.btn(C.green,"#000"),fontSize:12,fontWeight:900,width:"100%"}}>📤 ส่งรายงาน · Submit {pLabel[stockRepPeriod]}</button>
+                </div>}
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:9,alignItems:"center"}}>
+              <button onClick={function(){stockReportPrint(srep,pLabel[srep.period]);}} style={{...gs.btn(C.blue,"#000"),fontSize:10.5}}>🖨 พิมพ์ / PDF</button>
+              <button onClick={function(){stockReportCsv(srep);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10.5,border:"1px solid "+C.border}}>⬇ CSV</button>
+              <label style={{fontSize:9.5,color:C.muted,marginLeft:"auto"}}>ผู้รับผิดชอบ
+                <input value={stockRepOwner} onChange={function(e){setStockRepOwner(e.target.value);}} style={{...gs.input,width:96,fontSize:10.5,marginLeft:5,padding:"4px 7px"}}/>
+              </label>
+            </div>
+          </div>
+
+          {/* what has been submitted before */}
+          {stockReports.length>0&&<div style={{...gs.card,marginTop:10}}>
+            <div style={{fontSize:11.5,fontWeight:900,marginBottom:7}}>🗂 ที่ส่งไปแล้ว · submitted history</div>
+            {stockReports.slice(0,20).map(function(r,i){return (
+              <div key={r.id} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",borderTop:i?"1px solid "+C.border:"none",fontSize:10.5,flexWrap:"wrap"}}>
+                <span style={{fontWeight:800,minWidth:120}}>{pLabel[r.period]||r.period}</span>
+                <span style={{flex:"1 1 120px",minWidth:0}}>{r.label}{r.branch?(" · "+r.branch):""}</span>
+                <span style={{color:C.muted,fontSize:9.5,flex:"1 1 90px",minWidth:0}}>{r.submittedBy}</span>
+                <span style={{color:(r.snapshot&&r.snapshot.shortCost)>0?C.red:C.green,fontWeight:800,minWidth:66,textAlign:"right"}}>฿{((r.snapshot&&r.snapshot.shortCost)||0).toLocaleString()}</span>
+                <span style={{color:(r.snapshot&&r.snapshot.coverage)<100?C.gold:C.green,fontSize:9.5,minWidth:44,textAlign:"right"}}>{(r.snapshot&&r.snapshot.coverage)||0}%</span>
+              </div>);})}
+          </div>}
+        </div>);})()}
       {/* KITCHEN TAB */}
       {activeTab==="kitchen"&&(
         <div style={gs.sec}>
@@ -6334,7 +6918,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       {activeTab==="notif"&&(
         <div style={gs.sec}>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-            {[["reports","📑","Reports"],["notif","🔔","Alerts"],["aisum","🧠","AI Summary"],["dayrep","📅","Day Reports"]].map(function(sb){return (
+            {[["reports","📑","Reports"],["notif","🔔","Alerts"],["aisum","🧠","AI Summary"],["dayrep","📅","Day Reports"],["stockrep","📦","Master Stock"]].map(function(sb){return (
               <button key={sb[0]} onClick={function(){setActiveTab(sb[0]);}} style={{...gs.btn(activeTab===sb[0]?C.green:C.card2,activeTab===sb[0]?"#000":"#9ca3af"),fontSize:10.5,padding:"6px 12px",border:"1px solid "+C.border}}>{sb[1]} {sb[2]}</button>
             );})}
           </div>
@@ -6374,7 +6958,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       {activeTab==="aisum"&&(
         <div style={gs.sec}>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-            {[["reports","📑","Reports"],["notif","🔔","Alerts"],["aisum","🧠","AI Summary"],["dayrep","📅","Day Reports"]].map(function(sb){return (
+            {[["reports","📑","Reports"],["notif","🔔","Alerts"],["aisum","🧠","AI Summary"],["dayrep","📅","Day Reports"],["stockrep","📦","Master Stock"]].map(function(sb){return (
               <button key={sb[0]} onClick={function(){setActiveTab(sb[0]);}} style={{...gs.btn(activeTab===sb[0]?C.green:C.card2,activeTab===sb[0]?"#000":"#9ca3af"),fontSize:10.5,padding:"6px 12px",border:"1px solid "+C.border}}>{sb[1]} {sb[2]}</button>
             );})}
           </div>

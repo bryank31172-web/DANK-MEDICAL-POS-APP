@@ -237,6 +237,34 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
 - Tests: `pos/__tests__/roster.test.cjs` (132) + `pos/__tests__/workshifts.test.mjs` (browser —
   it stubs `window.open` and reads the printed HTML back, so the pack is checked, not trusted).
 
+## Master Stock Report (รายงานสต๊อกรวม · Reports → 📦 Master Stock)
+- Amoe's daily/weekly/monthly submission. Every closed shift already counts every SKU into
+  `closeCheck`; the day report only kept totals, so "3.4g short today" never said which
+  product, in whose hands, or whether the same jar had been short all week. `masterStockReport
+  (shifts, period, anchorDate, branch)` rolls those counts up by SKU, by person and by shift.
+- **A week starts Monday** — payroll and the roster both run Mon–Sun, so a Sunday-start week
+  would put a week's stock against the wrong wage period.
+- Rules that are load-bearing, each the reason the report is worth signing:
+  · **a shift that closed without counting is named, never dropped.** It is listed with the
+    person, the slot and which failure it was ("closed without entering counts" vs "still open
+    — never clocked out"). Averaging the shifts that did report reads clean while the hole grows.
+  · **`coverage` travels with every submission.** A report built on 2 of 3 shifts is a different
+    document from one built on 3, and whoever signs it has to be told which they signed.
+  · **short and over are never netted.** A jar 5g short beside another 5g over is two counting
+    errors, not zero.
+  · **unexplained is separated from explained.** A difference closed with no reason written on
+    it is the number a manager acts on; one with `reason` filled in is not.
+- Submitting stores `dank_stock_reports` + `STOCK_REPORT_SUBMIT` in the audit log and LINE, and
+  carries a snapshot (short/over/cost/coverage/missing) plus the missing-shift list. The report
+  itself is always recomputed from `shifts`, so it can never drift from them; the submission is
+  only the signature. It can be withdrawn (`↩ ยกเลิกการส่ง`) to fix and resend.
+- 🖨 prints white A4 portrait, and **the shifts that did not report print BEFORE the totals** —
+  a signature under a partial number has to be given knowingly. `⬇ CSV` includes the missing
+  shifts too, or a spreadsheet built from it silently reads as complete.
+- The owner's name is a field (`dank_stock_owner`, default Amoe), not a hardcoded id.
+- Tests: `pos/__tests__/master-stock.test.cjs` (49) + `master-stock-tab.test.mjs` (browser — it
+  stubs `window.open` and reads the printed sheet back).
+
 ## Conventions
 - Reply to owner in Thai (he writes Thai/English mix), keep technical terms in English.
 - Ship = rebuild (`bash pos/build.sh`) + Playwright zero-error sweep on pos/testrun/test2.html + commit `index.html`.
