@@ -221,21 +221,12 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   the labour bill, OT, who is over/under, one person by name. Returns null rather than guessing.
 - 🖨 prints white A3-landscape sheets — one page per shop, signature block on every page, colours
   for management/relief/marketing. Save-as-PDF in that window is the combined PDF.
-- **The printed pack is `locs.length + 2` pages**, matching the shop's own September sheet:
-  · one timetable per shop · **DANK GROUP STAFF & PAYROLL SUMMARY** — every person across every
-  shop, with type, assignment, duties, hours, base pay, variable-pay rule and a control total
-  · **DANK PROJECT DUTIES & FINAL VALIDATION** — the project/content duty calendar, the coverage
-  and incentive rules (`SHIFT_COVERAGE_RULES` / `SHIFT_INCENTIVES`), six validation counters and
-  the uncovered-shift table.
-  Two things it deliberately does not do: **variable pay is printed as the rule, never as a
-  figure** (it settles against real sales at month end, so a guessed number would be read as
-  owed), and **payroll-only staff print their contracted days in amber, not 0**. A rider costs
-  ~15,600/month and stands no counter slot; `0 duties` beside that money reads as pay for
-  nothing and drops 52 days out of the control total.
-  A red "21 empty shifts" with nothing beside it is a number nobody can act on, so the pack
-  lists every hole grouped by slot with its dates and the first blocker.
-- Tests: `pos/__tests__/roster.test.cjs` (132) + `pos/__tests__/workshifts.test.mjs` (browser —
-  it stubs `window.open` and reads the printed HTML back, so the pack is checked, not trusted).
+- **The printed pack is `locPages.length + 3` pages** — one timetable per shop, then the payroll
+  summary, the duty/validation page and the auto shift report. `pos/vendor/html2pdf.bundle.min.js`
+  is vendored INTO the build (see `pos/build.sh`) so Download/Share PDF works without a CDN at the
+  moment a manager needs the signed report — `auto-shift-report.test.cjs` asserts both.
+- Tests: `pos/__tests__/roster.test.cjs` (149) + `pos/__tests__/workshifts.test.mjs` (browser) +
+  `auto-shift-report.test.cjs`.
 
 ## Master Stock Report (รายงานสต๊อกรวม · Reports → 📦 Master Stock)
 - Amoe's daily/weekly/monthly submission. Every closed shift already counts every SKU into

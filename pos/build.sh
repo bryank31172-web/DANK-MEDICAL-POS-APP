@@ -7,8 +7,11 @@ cd "$(dirname "$0")"
 # build works on a machine that has never installed it
 if command -v esbuild >/dev/null 2>&1; then ESBUILD=(esbuild); else ESBUILD=(npx --yes esbuild); fi
 "${ESBUILD[@]}" app.fixed.jsx --jsx=transform --target=es2017 --charset=ascii --outfile=app.compiled.js
-cat head23.txt app.compiled.js foot.txt > index.html
-cat testrun/head17.txt app.compiled.js testrun/foot.txt > testrun/test2.html
+# html2pdf is vendored into the committed app so the roster can create a real
+# A3 PDF Blob for Download and mobile Share without relying on another CDN at
+# the moment the manager needs the signed report.
+cat head23.txt vendor/html2pdf.bundle.min.js app.compiled.js foot.txt > index.html
+cat testrun/head17.txt vendor/html2pdf.bundle.min.js app.compiled.js testrun/foot.txt > testrun/test2.html
 # The script cd's into pos/, so the bundle above lands at pos/index.html — and
 # that file is gitignored build output. The one Vercel serves is the ROOT
 # index.html, and it is committed. Leaving the copy to whoever ran the build

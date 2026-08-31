@@ -1,0 +1,10 @@
+import { artworkKey, artworkPrompt, isWeedProduct, parseResearch } from "../_artwork.js";
+let pass=0,fail=0; const ok=(n,c)=>{console.log(`${c?"✓":"✗"} ${n}`);c?pass++:fail++;};
+ok("flower qualifies",isWeedProduct({name:"Gelato 41",category:"Flowers"}));
+ok("accessory is rejected",!isWeedProduct({name:"OG glass bong",category:"Accessories"}));
+ok("stable safe key",artworkKey({id:"SH / 123"})==="sh-123");
+const m=parseResearch(JSON.stringify({type:"indica",thc:27,flavors:["berry"],effects:["relaxed"],description:"Verified.",character:"berry pilot",sources:["https://www.leafly.com/strains/test","https://evil.example/x"]}),"Test");
+ok("research needs and keeps approved source",m&&m.sources.length===1&&m.sources[0].includes("leafly.com"));
+ok("prompt uses details",artworkPrompt(m).includes("berry pilot")&&artworkPrompt(m).includes("NO text"));
+ok("unverified research is rejected",parseResearch('{"type":"Hybrid","sources":[]}',"X")===null);
+console.log(`${fail?"FAIL":"PASS"} — ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

@@ -20,5 +20,8 @@
   "devDependencies": {
     "marked": "^18.0.9",
     "pptxgenjs": "^4.0.1"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.0"
   }
 }
