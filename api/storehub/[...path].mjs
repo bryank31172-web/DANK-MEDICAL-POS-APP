@@ -17,6 +17,37 @@ async function shFetch(path, auth) {
 
 const BKK = 7 * 3600 * 1000;
 const bkkDay = (t) => new Date(new Date(t).getTime() + BKK).toISOString().slice(0, 10);
+const DAY = 24 * 3600 * 1000;
+
+// StoreHub rejects/struggles with long transaction ranges. The dashboard asks
+// for 90 days so it can render day/month/quarter views; proxy that request as
+// inclusive chunks and merge them here instead of making the browser know an
+// upstream limitation. De-duplicate defensively because some upstream range
+// implementations include the boundary on both sides.
+async function fetchTransactions(auth, from, to) {
+  const d0 = new Date(from + "T00:00:00Z").getTime();
+  const d1 = new Date(to + "T00:00:00Z").getTime();
+  if (!Number.isFinite(d0) || !Number.isFinite(d1) || d1 < d0) {
+    throw new Error("Invalid transaction date range");
+  }
+  const rows = [];
+  for (let start = d0; start <= d1; start += 30 * DAY) {
+    const end = Math.min(start + 29 * DAY, d1);
+    const f = new Date(start).toISOString().slice(0, 10);
+    const t = new Date(end).toISOString().slice(0, 10);
+    const part = await shFetch("transactions?from=" + f + "&to=" + t, auth);
+    if (Array.isArray(part)) rows.push(...part);
+  }
+  const seen = new Set();
+  return rows.filter((tx) => {
+    const id = tx && (tx.id || tx.transactionId || tx.refId);
+    if (!id) return true;
+    const key = String(id);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 async function stockTotals(stores, auth) {
   const totals = {}; let tracked = false;
@@ -159,7 +190,6 @@ async function buildSold(auth, from, to, q, productId) {
   const byId = {};
   (Array.isArray(products) ? products : []).forEach(p => { byId[p.id] = { name: p.name || p.id, sku: p.sku || "", unit: p.unit || "" }; });
   // pull transactions day-by-day so very large ranges never blow a single upstream call
-  const DAY = 24 * 3600 * 1000;
   const d0 = new Date(from + "T00:00:00Z").getTime(), d1 = new Date(to + "T00:00:00Z").getTime();
   const spanDays = Math.max(1, Math.round((d1 - d0) / DAY));
   let tx = [];
@@ -262,6 +292,19 @@ export default async function handler(req, res) {
       res.status(200).json(j);
     } catch (e) {
       res.status(502).json({ error: "Sold error: " + String(e && e.message) });
+    }
+    return;
+  }
+  if (clean === "transactions" && u.searchParams.get("from") && u.searchParams.get("to")) {
+    try {
+      const rows = await fetchTransactions(
+        auth,
+        u.searchParams.get("from").slice(0, 10),
+        u.searchParams.get("to").slice(0, 10)
+      );
+      res.status(200).json(rows);
+    } catch (e) {
+      res.status(502).json({ error: "Transactions error: " + String(e && e.message) });
     }
     return;
   }

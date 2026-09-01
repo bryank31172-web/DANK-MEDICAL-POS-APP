@@ -3896,7 +3896,7 @@ function GreenPOS() {
   const salesData = (function() {
     var m = {};
     _txScoped.forEach(function(t2) {
-      var d = String(t2.transactionTime || "").slice(0, 10);
+      var d = _dateKeyOf(t2.transactionTime || 0);
       if (!d) return;
       if (!m[d]) m[d] = { date: d, bills: 0, sales: 0 };
       m[d].bills += 1;
@@ -4538,14 +4538,20 @@ function GreenPOS() {
         });
         return Array.from(prevMap.values());
       });
-      const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-      const _toD = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-      const _fromD = new Date(Date.now() - 90 * 24 * 3600 * 1e3).toISOString().slice(0, 10);
+      const _toD = new Date(Date.now() + 7 * 3600 * 1e3).toISOString().slice(0, 10);
+      const _fromD = new Date(Date.now() + 7 * 3600 * 1e3 - 89 * 24 * 3600 * 1e3).toISOString().slice(0, 10);
       const txRes = await fetch(base + "/transactions?from=" + _fromD + "&to=" + _toD);
-      const shTxAll = txRes.ok ? await txRes.json() : [];
+      if (!txRes.ok) {
+        var txErr = await txRes.json().catch(function() {
+          return {};
+        });
+        throw new Error(txErr.error || "Transactions API: " + txRes.status);
+      }
+      const shTxAll = await txRes.json();
+      if (!Array.isArray(shTxAll)) throw new Error("Transactions API returned invalid data");
       if (Array.isArray(shTxAll)) setTxHistory(shTxAll);
-      const shTx = (Array.isArray(shTxAll) ? shTxAll : []).filter(function(t2) {
-        return String(t2.transactionTime || "").slice(0, 10) === _toD;
+      const shTx = shTxAll.filter(function(t2) {
+        return _dateKeyOf(t2.transactionTime || 0) === _toD;
       });
       try {
         const stRes = await fetch(base + "/stores");
@@ -5487,7 +5493,7 @@ function GreenPOS() {
   var _netProfit = 0, _unitsSold = 0, _itemRev = 0, _cogsTotal = 0;
   var _aspByCatMap = {};
   _txScoped.forEach(function(t2) {
-    var _dstr = String(t2.transactionTime || "").slice(0, 10);
+    var _dstr = _dateKeyOf(t2.transactionTime || 0);
     if (!_dstr || !_inDashPeriod(_dstr)) return;
     (t2.items || []).forEach(function(it) {
       var q = +it.quantity || 0, tt = +it.total || 0;
@@ -5551,7 +5557,7 @@ function GreenPOS() {
     ["Pattanakarn", "Sathorn", "Petchaboon", "Phuket", "Bars"].forEach(ensure);
     (Array.isArray(txHistory) ? txHistory : []).forEach(function(t2) {
       if (/return|refund|void/i.test(String(t2.transactionType || ""))) return;
-      var d = String(t2.transactionTime || "").slice(0, 10);
+      var d = _dateKeyOf(t2.transactionTime || 0);
       if (!d || !_inDashPeriod(d)) return;
       var a = ensure(nameOf[t2.storeId] || "Bars");
       (t2.items || []).forEach(function(it) {
@@ -5593,7 +5599,7 @@ function GreenPOS() {
       return m[d];
     };
     _txScoped.forEach(function(t2) {
-      var d = String(t2.transactionTime || "").slice(0, 10);
+      var d = _dateKeyOf(t2.transactionTime || 0);
       if (!d || !_inDashPeriod(d)) return;
       var a = ensure(d);
       (t2.items || []).forEach(function(it) {
