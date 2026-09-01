@@ -36,6 +36,18 @@ export function photoKey(name) {
 
 const usable = (s) => /^(https?:|data:image|\/)/.test(String(s || ""));
 
+/** Generated, locally hosted photographs used only when neither StoreHub nor
+ * the curated catalogue has an exact product photo. Keep this category routing
+ * in step with skuFallbackImg() in the POS source. */
+export function generatedPhotoFor(p) {
+  p = p || {};
+  const joined = `${p.category || p.cat || ""} ${p.name || ""}`.toLowerCase();
+  if (/joint|pre-?roll|preroll|blunt|cone/.test(joined)) return "/assets/products/generated-fallbacks/pre-roll.webp";
+  if (/flower|weed|exotic|top\s*shelf|midgrade/.test(joined)) return "/assets/products/generated-fallbacks/flower.webp";
+  if (/food|drink|beer|bar|coffee|smoothie|soda|snack|milkshake/.test(joined)) return "/assets/products/generated-fallbacks/food-drink.webp";
+  return "/assets/products/generated-fallbacks/retail.webp";
+}
+
 let cache = null;
 export async function photoMap() {
   if (cache) return cache;
@@ -84,7 +96,8 @@ export function photoFor(name, m) {
   return best;
 }
 
-/** Give every item the catalogue's picture, keeping its own where we have none. */
+/** Give every item the catalogue's picture, then its upstream picture, then a
+ * generated category photograph. No sellable StoreHub SKU leaves here blank. */
 export async function applyPhotos(data) {
   if (!Array.isArray(data) || !data.length) return data;
   const m = await photoMap();
@@ -92,7 +105,8 @@ export async function applyPhotos(data) {
   return data.map((p) => {
     if (!p || typeof p !== "object") return p;
     const pick = photoFor(p.name, m);
-    if (!pick || pick === p.image) return p;
-    return { ...p, image: pick };
+    const image = pick || (usable(p.image) ? p.image : generatedPhotoFor(p));
+    if (image === p.image) return p;
+    return { ...p, image };
   });
 }

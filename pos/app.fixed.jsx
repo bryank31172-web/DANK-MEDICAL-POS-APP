@@ -1358,32 +1358,18 @@ function webImgFor(name, map){
   return best;
 }
 
-// StoreHub does not provide reliable product photos. Give every unmatched SKU
-// its own deterministic visual instead of an empty circle/category emoji. The
-// same SKU always gets the same colour and card, including after another sync.
+// StoreHub does not provide reliable product photos. Use a polished generated
+// product photograph for every unmatched SKU instead of exposing the old
+// initials/emoji placeholder. Exact catalogue and event photos still win.
 function skuFallbackImg(p){
   p=p||{};
-  var name=String(p.name||"Unnamed product").replace(/^\s*\([^)]*\)\s*/,"").trim();
-  var cat=String(p.cat||p.category||"Product");
-  var key=String(p.sku||p.id||name);
-  var hash=0;
-  for(var i=0;i<key.length;i++)hash=((hash<<5)-hash+key.charCodeAt(i))|0;
-  var hue=Math.abs(hash)%360;
-  var short=name.length>24?name.slice(0,23)+"…":name;
-  var initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w.charAt(0).toUpperCase();}).join("")||"SKU";
-  var esc=function(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");};
-  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420">'
-    +'<defs><radialGradient id="g" cx="50%" cy="38%" r="72%"><stop offset="0" stop-color="hsl('+hue+',58%,28%)"/><stop offset="1" stop-color="#07110b"/></radialGradient></defs>'
-    +'<rect width="640" height="420" fill="url(#g)"/>'
-    +'<circle cx="320" cy="165" r="94" fill="hsla('+hue+',70%,62%,.16)" stroke="hsla('+hue+',80%,72%,.55)" stroke-width="3"/>'
-    +'<circle cx="285" cy="145" r="42" fill="hsla('+((hue+38)%360)+',68%,60%,.30)"/>'
-    +'<circle cx="350" cy="140" r="47" fill="hsla('+((hue+78)%360)+',68%,60%,.28)"/>'
-    +'<circle cx="320" cy="195" r="52" fill="hsla('+hue+',76%,68%,.30)"/>'
-    +'<text x="320" y="181" text-anchor="middle" fill="#f4ffe9" font-family="Arial,sans-serif" font-size="54" font-weight="800">'+esc(initials)+'</text>'
-    +'<text x="320" y="310" text-anchor="middle" fill="#ffffff" font-family="Arial,sans-serif" font-size="31" font-weight="700">'+esc(short)+'</text>'
-    +'<text x="320" y="350" text-anchor="middle" fill="#b8c7ba" font-family="Arial,sans-serif" font-size="20">'+esc(cat)+' · '+esc(p.sku||"StoreHub SKU")+'</text>'
-    +'</svg>';
-  return "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
+  var name=String(p.name||"").toLowerCase();
+  var cat=String(p.cat||p.category||"").toLowerCase();
+  var joined=cat+" "+name;
+  if(/joint|pre-?roll|preroll|blunt|cone/.test(joined))return "/assets/products/generated-fallbacks/pre-roll.webp";
+  if(/flower|weed|exotic|top\s*shelf|midgrade/.test(joined))return "/assets/products/generated-fallbacks/flower.webp";
+  if(/food|drink|beer|bar|coffee|smoothie|soda|snack|milkshake/.test(joined))return "/assets/products/generated-fallbacks/food-drink.webp";
+  return "/assets/products/generated-fallbacks/retail.webp";
 }
 
 // Event products are live StoreHub rows, so their ids are not stable here.
