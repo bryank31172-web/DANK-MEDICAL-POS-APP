@@ -32,7 +32,7 @@ console.log('shift length');
 ok('a daytime shift is its plain duration', M.shiftHours('09:00-18:00') === 9);
 ok('an overnight shift does not go negative', M.shiftHours('17:00-02:00') === 9, M.shiftHours('17:00-02:00'));
 ok('the bar early-close is eight, not sixteen', M.shiftHours('17:00-01:00') === 8, M.shiftHours('17:00-01:00'));
-ok('Sathorn early is eight', M.shiftHours('01:00-09:00') === 8);
+ok('Sathorn early is nine', M.shiftHours('00:00-09:00') === 9);
 ok("the CEO's part window is five", M.shiftHours('21:00-02:00') === 5, M.shiftHours('21:00-02:00'));
 ok('a shift ending at its start time is a full day, not zero', M.shiftHours('09:00-09:00') === 24);
 ok('nonsense is zero rather than NaN', M.shiftHours('later') === 0);
@@ -106,7 +106,7 @@ ok('every full-time counter person is inside the 25-27 band',
    counter.map((s) => s.name.split(' ')[0] + ':' + s.shifts).join(' '));
 ok('nobody is over their own maximum', counter.every((s) => s.shifts <= s.max));
 ok('hours follow the shift length, not a flat number',
-   by.Alex.hours === 216 && by.Raizo.hours === by.Raizo.shifts * 8,
+   by.Alex.hours === 216 && by.Raizo.hours === by.Raizo.shifts * 9,
    by.Alex.hours + ' / ' + by.Raizo.hours);
 ok('Alex leads 224 Bar for 26 shifts / 216h', by.Alex.shifts === 26 && by.Alex.hours === 216, by.Alex.shifts + ' / ' + by.Alex.hours);
 ok('Jack covers the four Friday bar nights / 36h', by.Jack.shifts === 4 && by.Jack.hours === 36, by.Jack.shifts + ' / ' + by.Jack.hours);
@@ -338,7 +338,7 @@ const rena = by.Rena;
 ok("Ploy's weekend media duty is written down", ploy.duties.length === 4, ploy.duties.length);
 ok('…on Saturdays only', ploy.duties.every((d) => new Date(d.date + 'T00:00:00Z').getUTCDay() === 6));
 ok('…and adds no shifts beyond the ones she stood', ploy.shifts <= 26, ploy.shifts);
-ok('…and adds no hours: hours are exactly shifts × 8', ploy.hours === ploy.shifts * 8, ploy.hours);
+ok('…and adds no hours: hours are exactly shifts × 9', ploy.hours === ploy.shifts * 9, ploy.hours);
 ok("Rena's weekly marketing duty is also inside, not on top of, her roster",
    rena.duties.length >= 4 && rena.hours === rena.shifts * 9,
    rena.duties.length + ' duties / ' + rena.shifts + ' shifts');
