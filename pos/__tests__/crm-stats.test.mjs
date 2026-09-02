@@ -2,7 +2,7 @@
  * StoreHub sync writes `totalSpent: existing.totalSpent||0` — it never reads
  * spend or visits from anywhere. The sales are already synced, so count them. */
 import fs from 'fs';
-const src=fs.readFileSync('/home/user/DANK-MEDICAL-POS-APP/pos/app.fixed.jsx','utf8');
+const src=fs.readFileSync(new URL('../app.fixed.jsx',import.meta.url),'utf8');
 const a=src.indexOf('  const custStats=React.useMemo(function(){');
 const b=src.indexOf('  const [barPick,setBarPick]', a);
 // run the two blocks with React's hooks stubbed to plain evaluation

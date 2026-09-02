@@ -2535,7 +2535,7 @@ function GreenPOS() {
   const _txScoped=(Array.isArray(txHistory)?txHistory:[]).filter(function(t){return (activeBranch==="all"||t.storeId===activeBranch)&&!(/return|refund|void/i.test(String(t.transactionType||"")));});
   const _branchKey=activeBranch==="all"?null:(function(){var st=stores.find(function(s){return s.id===activeBranch;});if(!st)return null;var n=String(st.name||"").toLowerCase();if(n.indexOf("pattanakarn")>=0)return "Pattanakarn";if(n.indexOf("sathorn")>=0)return "Sathorn";if(n.indexOf("petchaboon")>=0||n.indexOf("phetchabun")>=0)return "Petchaboon";if(n.indexOf("phuket")>=0)return "Phuket";return "Bars";})();
   const _legacy=LEGACY_SALES.filter(function(r){return activeBranch==="all"||r.branch===_branchKey;});
-  const salesData=(function(){var m={};_txScoped.forEach(function(t){var d=String(t.transactionTime||"").slice(0,10);if(!d)return;if(!m[d])m[d]={date:d,bills:0,sales:0};m[d].bills+=1;m[d].sales+=(+t.total||0);});_legacy.forEach(function(r){if(!m[r.date])m[r.date]={date:r.date,bills:0,sales:0};m[r.date].bills+=(+r.bills||0);m[r.date].sales+=(+r.sales||0);});return Object.keys(m).sort().map(function(k){return m[k];});})();
+  const salesData=(function(){var m={};_txScoped.forEach(function(t){var d=_dateKeyOf(t.transactionTime||0);if(!d)return;if(!m[d])m[d]={date:d,bills:0,sales:0};m[d].bills+=1;m[d].sales+=(+t.total||0);});_legacy.forEach(function(r){if(!m[r.date])m[r.date]={date:r.date,bills:0,sales:0};m[r.date].bills+=(+r.bills||0);m[r.date].sales+=(+r.sales||0);});return Object.keys(m).sort().map(function(k){return m[k];});})();
   const _periodWindow=(function(){
     var bkk=7*3600*1000;
     var now=new Date(Date.now()+bkk);var todayStr=now.toISOString().slice(0,10);
@@ -2891,13 +2891,17 @@ function GreenPOS() {
         return Array.from(prevMap.values());
       });
       // Fetch today's transactions
-      const today = new Date().toISOString().slice(0,10);
-      const _toD = new Date().toISOString().slice(0,10);
-      const _fromD = new Date(Date.now()-90*24*3600*1000).toISOString().slice(0,10);
+      const _toD = new Date(Date.now()+7*3600*1000).toISOString().slice(0,10);
+      const _fromD = new Date(Date.now()+7*3600*1000-89*24*3600*1000).toISOString().slice(0,10);
       const txRes = await fetch(base + "/transactions?from=" + _fromD + "&to=" + _toD);
-      const shTxAll = txRes.ok ? await txRes.json() : [];
+      if (!txRes.ok) {
+        var txErr = await txRes.json().catch(function(){return {};});
+        throw new Error(txErr.error || ("Transactions API: " + txRes.status));
+      }
+      const shTxAll = await txRes.json();
+      if (!Array.isArray(shTxAll)) throw new Error("Transactions API returned invalid data");
       if (Array.isArray(shTxAll)) setTxHistory(shTxAll);
-      const shTx = (Array.isArray(shTxAll)?shTxAll:[]).filter(function(t){return String(t.transactionTime||"").slice(0,10)===_toD;});
+      const shTx = shTxAll.filter(function(t){return _dateKeyOf(t.transactionTime||0)===_toD;});
       try {
         const stRes = await fetch(base + "/stores");
         const shStores = stRes.ok ? await stRes.json() : [];
@@ -3448,7 +3452,7 @@ function GreenPOS() {
   const _prodUnitMap=new Map(products.map(function(p){return [p.id,p.unit||"pc"];}));
   var _netProfit=0,_unitsSold=0,_itemRev=0,_cogsTotal=0;
   var _aspByCatMap={};
-  _txScoped.forEach(function(t){var _dstr=String(t.transactionTime||"").slice(0,10);if(!_dstr||!_inDashPeriod(_dstr))return;(t.items||[]).forEach(function(it){var q=+it.quantity||0,tt=+it.total||0;var _cg=(_cogsMap.get(it.productId)||0)*q;_netProfit+=tt-_cg;_cogsTotal+=_cg;_unitsSold+=q;_itemRev+=tt;
+  _txScoped.forEach(function(t){var _dstr=_dateKeyOf(t.transactionTime||0);if(!_dstr||!_inDashPeriod(_dstr))return;(t.items||[]).forEach(function(it){var q=+it.quantity||0,tt=+it.total||0;var _cg=(_cogsMap.get(it.productId)||0)*q;_netProfit+=tt-_cg;_cogsTotal+=_cg;_unitsSold+=q;_itemRev+=tt;
     var _ck=_prodCatMap.get(it.productId)||"Other";
     if(!_aspByCatMap[_ck])_aspByCatMap[_ck]={units:0,rev:0,unit:_prodUnitMap.get(it.productId)||"pc"};
     _aspByCatMap[_ck].units+=q;_aspByCatMap[_ck].rev+=tt;
@@ -3476,7 +3480,7 @@ function GreenPOS() {
     ["Pattanakarn","Sathorn","Petchaboon","Phuket","Bars"].forEach(ensure);
     (Array.isArray(txHistory)?txHistory:[]).forEach(function(t){
       if(/return|refund|void/i.test(String(t.transactionType||"")))return;
-      var d=String(t.transactionTime||"").slice(0,10);if(!d||!_inDashPeriod(d))return;
+      var d=_dateKeyOf(t.transactionTime||0);if(!d||!_inDashPeriod(d))return;
       var a=ensure(nameOf[t.storeId]||"Bars");
       (t.items||[]).forEach(function(it){var q=+it.quantity||0;a.rev+=(+it.total||0);a.cogs+=(_cogsMap.get(it.productId)||0)*q;});
     });
@@ -3491,7 +3495,7 @@ function GreenPOS() {
   })();
   var _dailyProfit=(function(){
     var m={};var ensure=function(d){if(!m[d])m[d]={date:d,rev:0,gross:0};return m[d];};
-    _txScoped.forEach(function(t){var d=String(t.transactionTime||"").slice(0,10);if(!d||!_inDashPeriod(d))return;var a=ensure(d);(t.items||[]).forEach(function(it){var q=+it.quantity||0,tt=+it.total||0;a.rev+=tt;a.gross+=tt-((_cogsMap.get(it.productId)||0)*q);});});
+    _txScoped.forEach(function(t){var d=_dateKeyOf(t.transactionTime||0);if(!d||!_inDashPeriod(d))return;var a=ensure(d);(t.items||[]).forEach(function(it){var q=+it.quantity||0,tt=+it.total||0;a.rev+=tt;a.gross+=tt-((_cogsMap.get(it.productId)||0)*q);});});
     _legacy.forEach(function(r){if(!_inDashPeriod(r.date))return;var a=ensure(r.date);a.rev+=(+r.sales||0);a.gross+=(+r.sales||0)*_legacyMargin;});
     return Object.keys(m).sort().reverse().map(function(d){var a=m[d];return {date:d,rev:a.rev,gross:a.gross,net:a.gross-_fixedDaily};});
   })();
