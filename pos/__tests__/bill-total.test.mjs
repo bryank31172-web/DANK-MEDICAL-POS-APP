@@ -2,7 +2,7 @@
  * - discount)` read that 0 as missing — inventing a -748 total and a -848
  * profit for a sale that actually lost only the cost of the goods. */
 import fs from 'fs';
-const src=fs.readFileSync('/home/user/DANK-MEDICAL-POS-APP/pos/app.fixed.jsx','utf8');
+const src=fs.readFileSync(new URL('../app.fixed.jsx',import.meta.url),'utf8');
 const a=src.indexOf('      // A bill the customer paid nothing for');
 const b=src.indexOf('var profit=total-cost;',a)+'var profit=total-cost;'.length;
 const calc=new Function('t','subtotal','discount','cost', src.slice(a,b)+'; return {total:total,profit:profit};');

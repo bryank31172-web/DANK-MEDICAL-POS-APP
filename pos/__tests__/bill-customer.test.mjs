@@ -2,7 +2,7 @@
  * our own customer id, while StoreHub sends its own. Pull the resolver out of
  * the source and check it against the id shapes StoreHub actually uses. */
 import fs from 'fs';
-const src=fs.readFileSync('/home/user/DANK-MEDICAL-POS-APP/pos/app.fixed.jsx','utf8');
+const src=fs.readFileSync(new URL('../app.fixed.jsx',import.meta.url),'utf8');
 const a=src.indexOf('    var custMap={};\n'), b=src.indexOf('    var rows=[];',a);
 const body=src.slice(a,b);
 const make=new Function('customers', body+'; return _lookupCust;');

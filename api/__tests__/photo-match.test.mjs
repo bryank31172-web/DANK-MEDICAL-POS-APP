@@ -1,7 +1,7 @@
 /* The website and the till must show the same picture for the same product.
    node api/__tests__/photo-match.test.mjs */
 import { readFileSync } from "node:fs";
-import { photoKey, photoMap, photoFor, applyPhotos, resetPhotoCache } from "../_photos.js";
+import { photoKey, photoMap, photoFor, applyPhotos, generatedPhotoFor, resetPhotoCache } from "../_photos.js";
 
 const catalogue = JSON.parse(readFileSync(new URL("../../products.json", import.meta.url), "utf8"));
 let pass = 0, fail = 0;
@@ -118,7 +118,7 @@ ok("fills a product that arrived with no photo", out[0].image === want, out[0].i
 ok("the same product in two name shapes gets one photo", out[0].image === out[1].image);
 ok("the catalogue overrides a stale upstream photo", out[1].image === want, out[1].image);
 ok("an unknown product keeps the photo it came with", out[2].image === "https://keep.example/y.jpg");
-ok("an unknown product with no photo stays empty", out[3].image === "");
+ok("an unknown product with no photo receives a generated product photo", out[3].image === generatedPhotoFor(fromStoreHub[3]));
 ok("the input array is not mutated", fromStoreHub[1].image === "https://old.example/x.jpg");
 
 ok("empty input is handled", (await applyPhotos([])).length === 0);

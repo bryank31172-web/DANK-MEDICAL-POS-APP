@@ -3,7 +3,7 @@
  * there is "Zkittles Blunt" on the till. These are the real names from both
  * sides, taken off the live screens. */
 import fs from 'fs';
-const src=fs.readFileSync('/home/user/DANK-MEDICAL-POS-APP/pos/app.fixed.jsx','utf8');
+const src=fs.readFileSync(new URL('../app.fixed.jsx',import.meta.url),'utf8');
 const a=src.indexOf('function webKey(name){');
 const b=src.indexOf('// ── BAR ──',a);
 const {webKey,webImgFor}=new Function(src.slice(a,b)+'; return {webKey:webKey,webImgFor:webImgFor};')();
