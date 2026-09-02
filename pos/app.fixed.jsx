@@ -6000,11 +6000,10 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <span style={{fontSize:13}}>{currentStaff?.avatar}</span>
             {!mob&&<div><div style={{fontSize:11,fontWeight:700}}>{currentStaff?.name}</div><div style={{fontSize:9,color:C.accent,textTransform:"capitalize"}}>{currentStaff?.role}</div></div>}
           </div>
-          <button onClick={syncStorehub} title="StoreHub Sync" style={{...gs.btn(C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${C.border}`}}>{syncStatus==="syncing"?"⏳":"🔄"}</button>
           <button title="Age Verification Log" onClick={()=>setShowAgeVerif(true)} style={{...gs.btn(C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${ageVerifLog.length>0?"rgba(74,222,128,0.3)":C.border}`,position:"relative"}}>
           🪪{ageVerifLog.length>0&&<span style={{position:"absolute",top:-4,right:-4,background:C.green,color:"#000",borderRadius:"50%",width:14,height:14,fontSize:8,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>{ageVerifLog.length}</span>}
         </button>
-        <button title="Sync with StoreHub" style={{...gs.btn(syncStatus==="syncing"?C.card2:syncStatus==="success"?"rgba(74,222,128,0.15)":C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${syncStatus==="success"?"rgba(74,222,128,0.3)":C.border}`}}>
+        <button onClick={syncStorehub} title="Sync with StoreHub" style={{...gs.btn(syncStatus==="syncing"?C.card2:syncStatus==="success"?"rgba(74,222,128,0.15)":C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${syncStatus==="success"?"rgba(74,222,128,0.3)":C.border}`}}>
           {syncStatus==="syncing"?"⏳":syncStatus==="success"?"✅":"🔄"}
         </button>
         <button onClick={()=>{setCurrentStaff(null);setScreen("login");setCart([]);setSelCustomer(null);setActiveTab("pos");}} style={{...gs.btn(C.card2,"#fff"),padding:"5px 9px",fontSize:11,border:`1px solid ${C.border}`}}>⏏</button>
