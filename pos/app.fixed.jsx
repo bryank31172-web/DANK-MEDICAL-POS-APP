@@ -1527,9 +1527,12 @@ function softTint(c){
 }
 function ProdTile(props){
   var src=props.src, h=props.h||96;
-  var isPhoto=typeof src==="string"&&(src.slice(0,4)==="http"||src.slice(0,5)==="data:");
+  // Product artwork is normally served from this deployment as /assets/....
+  // Treat root-relative paths as images too; otherwise every generated
+  // StoreHub fallback is rendered as placeholder text instead of an <img>.
+  var isPhoto=typeof src==="string"&&(src.slice(0,4)==="http"||src.slice(0,5)==="data:"||src.charAt(0)==="/");
   var _s=useState(true), okImg=_s[0], setOkImg=_s[1];
-  var fallbackPhoto=typeof props.fallback==="string"&&(props.fallback.slice(0,4)==="http"||props.fallback.slice(0,5)==="data:");
+  var fallbackPhoto=typeof props.fallback==="string"&&(props.fallback.slice(0,4)==="http"||props.fallback.slice(0,5)==="data:"||props.fallback.charAt(0)==="/");
   useEffect(function(){setOkImg(true);},[src]);
   var shownSrc=isPhoto&&okImg?src:(fallbackPhoto?props.fallback:"");
   var show=!!shownSrc;

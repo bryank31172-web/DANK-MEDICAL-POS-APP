@@ -121,6 +121,16 @@ ok("an unknown product keeps the photo it came with", out[2].image === "https://
 ok("an unknown product with no photo receives a generated product photo", out[3].image === generatedPhotoFor(fromStoreHub[3]));
 ok("the input array is not mutated", fromStoreHub[1].image === "https://old.example/x.jpg");
 
+/* Even if products.json cannot be read (or is temporarily empty), a newly
+   imported StoreHub SKU must still receive a generated image. */
+resetPhotoCache();
+const cwd = process.cwd();
+process.chdir(new URL(".", import.meta.url).pathname);
+const withoutCatalogue = await applyPhotos([{ id: "sh-new", name: "Brand New StoreHub Flower", category: "Flowers", image: "" }]);
+process.chdir(cwd);
+ok("new StoreHub SKU gets a generated photo without the curated catalogue", withoutCatalogue[0].image === "/assets/products/generated-fallbacks/flower.webp");
+resetPhotoCache();
+
 ok("empty input is handled", (await applyPhotos([])).length === 0);
 ok("a non-array is handled", (await applyPhotos(null)) === null);
 ok("junk entries do not throw", (await applyPhotos([null, 7, { name: "Crunch Berrie" }]))[2].image === want);
