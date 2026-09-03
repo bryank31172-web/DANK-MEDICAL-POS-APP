@@ -101,7 +101,6 @@ export function photoFor(name, m) {
 export async function applyPhotos(data) {
   if (!Array.isArray(data) || !data.length) return data;
   const m = await photoMap();
-  if (!m.size) return data;
   return data.map((p) => {
     if (!p || typeof p !== "object") return p;
     const pick = photoFor(p.name, m);

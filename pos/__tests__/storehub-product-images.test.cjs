@@ -3,7 +3,9 @@ const path = require('path');
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'app.fixed.jsx'), 'utf8');
 let failures = 0;
+let checks = 0;
 function check(label, condition) {
+  checks++;
   console.log((condition ? '  ✓ ' : '  ✗ ') + label);
   if (!condition) failures++;
 }
@@ -21,7 +23,8 @@ check('a bar SKU receives the food/drink photo', skuFallbackImg({name:'Mojito',c
 check('an accessory receives the retail photo', skuFallbackImg({name:'Grinder',cat:'Accessories'}).endsWith('/retail.webp'));
 check('POS image resolver always ends with SKU fallback', /webImgFor\(p\.name,webImgs\)\|\|skuFallbackImg\(p\)/.test(src));
 check('broken remote images fall back to generated SKU image', /fallback=\{skuFallbackImg\(p\)\}/.test(src));
+check('root-relative generated photos render as image elements', /src\.charAt\(0\)===\"\/\"/.test(src));
 check('image state resets when an async photo source changes', /useEffect\(function\(\)\{setOkImg\(true\);\},\[src\]\)/.test(src));
 
-console.log(`\n${failures ? 'FAIL' : 'PASS'} — ${7 - failures} passed, ${failures} failed`);
+console.log(`\n${failures ? 'FAIL' : 'PASS'} — ${checks - failures} passed, ${failures} failed`);
 process.exit(failures ? 1 : 0);
