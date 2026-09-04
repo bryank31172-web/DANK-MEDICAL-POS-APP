@@ -2673,6 +2673,7 @@ function GreenPOS() {
   const [editCustomer,setEditCustomer]=useState(null);
   const [topUpCust,setTopUpCust]=useState(null);
   const [topUpForm,setTopUpForm]=useState({amount:"",method:"cash"});
+  const [topUpProof,setTopUpProof]=useState(null);
   const TOPUP_BONUS=0.10;
   const FIRST_TOPUP_BONUS=0.10;
   const [cart,setCart]=useState([]);
@@ -2834,6 +2835,7 @@ function GreenPOS() {
   const [printerModel,setPrinterModel]=useState("80mm ESC/POS Thermal");
   const [printerIP,setPrinterIP]=useState("");
   const [printerConnType,setPrinterConnType]=useState("usb");
+  const [inventoryByStore,setInventoryByStore]=useState({});
   const [printQueue,setPrintQueue]=useState([]);
   const [isPrinting,setIsPrinting]=useState(false);
   
@@ -2909,24 +2911,30 @@ function GreenPOS() {
         const stRes = await fetch(base + "/stores");
         const shStores = stRes.ok ? await stRes.json() : [];
         if (Array.isArray(shStores) && shStores.length) setStores(shStores.map(function(s){return {id:s.id,name:s.name||"Store",address:[s.address1,s.city].filter(Boolean).join(", ")};}));
-        // Real stock: sum on-hand quantity across stores
+        // Real stock by StoreHub location. Keep each branch separate: summing
+        // locations made a selected branch show another shop's grams as its own.
         try {
-          const totals = {};
+          const totals = {}, byStore = {};
           for (var _si=0; _si<shStores.length; _si++) {
             try {
               const invRes = await fetch(base + "/inventory?sub=" + encodeURIComponent(shStores[_si].id));
               if (!invRes.ok) continue;
               const invArr = await invRes.json();
+              var storeStock={};
               (Array.isArray(invArr)?invArr:[]).forEach(function(iv){
                 const pid = iv.productId || iv.id;
                 if (!pid) return;
                 const q = +((iv.quantityOnHand!==undefined?iv.quantityOnHand:(iv.qty!==undefined?iv.qty:(iv.quantity!==undefined?iv.quantity:(iv.stock!==undefined?iv.stock:iv.onHand)))))||0;
+                storeStock[pid]=q;
                 totals[pid] = (totals[pid]||0) + q;
               });
+              byStore[String(shStores[_si].id)]=storeStock;
             } catch(_e2) {}
           }
+          setInventoryByStore(byStore);
           if (Object.keys(totals).length) {
-            setProducts(function(prev){return prev.map(function(p){return totals[p.id]!==undefined?Object.assign({},p,{stock:Math.round(totals[p.id])}):p;});});
+            var shown=activeBranch!=="all"&&byStore[String(activeBranch)]?byStore[String(activeBranch)]:totals;
+            setProducts(function(prev){return prev.map(function(p){return shown[p.id]!==undefined?Object.assign({},p,{stock:Math.round(shown[p.id]*100)/100}):p;});});
           }
         } catch(_e3) {}
         // Real staff from StoreHub POS
@@ -2963,9 +2971,9 @@ function GreenPOS() {
               id: c.refId, name: (c.firstName||"") + " " + (c.lastName||""),
               phone: c.phone || existing.phone || "",
               email: c.email || existing.email || "",
-              points: Math.max(+existing.points||0, Math.round(+c.loyalty||+c.loyaltyPoints||+c.storeCredit||+c.cashback||0)),
-              totalSpent: +existing.totalSpent||0,
-              visits: +existing.visits||0,
+              points: Math.max(+existing.points||0, Math.round(+c.loyalty||+c.loyaltyPoints||+c.points||+(c.loyalty&&c.loyalty.points)||+(c.membership&&c.membership.points)||0)),
+              totalSpent: Math.max(+existing.totalSpent||0,+c.totalSpent||+c.lifeTimeSpend||+c.lifetimeSpend||+(c.loyalty&&c.loyalty.totalSpent)||0),
+              visits: Math.max(+existing.visits||0,+c.visits||+c.visitCount||+(c.loyalty&&c.loyalty.visits)||0),
               isMedical: (Array.isArray(c.tags)?c.tags.join(","):String(c.tags||"")).toLowerCase().indexOf("medical")>=0 || !!existing.isMedical,
               birthday: c.birthday || existing.birthday || "",
               tags: (Array.isArray(c.tags)?c.tags.join(";"):(c.tags||existing.tags||"")),
@@ -2988,6 +2996,17 @@ function GreenPOS() {
       }
     }
   };
+
+  // Switching the branch selector must also switch the sellable StoreHub
+  // quantity. Previously the selector scoped sales only; stock stayed as the
+  // all-location sum fetched during sync.
+  useEffect(function(){
+    var ids=Object.keys(inventoryByStore||{});if(!ids.length)return;
+    var shown={};
+    if(activeBranch!=="all"&&inventoryByStore[String(activeBranch)])shown=inventoryByStore[String(activeBranch)];
+    else ids.forEach(function(sid){var inv=inventoryByStore[sid]||{};Object.keys(inv).forEach(function(pid){shown[pid]=(shown[pid]||0)+(+inv[pid]||0);});});
+    setProducts(function(prev){return prev.map(function(p){return shown[p.id]!==undefined?Object.assign({},p,{stock:Math.round(shown[p.id]*100)/100}):p;});});
+  },[activeBranch,inventoryByStore]);
 
   // -- Priority 1: Daily Operations ------------------------------------------
   const [showExport,setShowExport]=useState(false);
@@ -4496,14 +4515,20 @@ function GreenPOS() {
   const getMonthlyWage = (s) => s.payType==="daily" ? s.wage*20 : s.wage;
 
 
-  const custSpendOf=function(cid){var s=0;(Array.isArray(txHistory)?txHistory:[]).forEach(function(t){if(String(t.customerId||t.customer||"")===String(cid)&&!/return|refund|void/i.test(String(t.transactionType||"")))s+=(+t.total||0);});var c2=customers.find(function(x){return x.id===cid;});if(c2&&+c2.totalSpent>s)s=+c2.totalSpent;return s;};
+  const crmKey=function(v,phone){var s=String(v==null?"":v).trim().toLowerCase();if(phone){s=s.replace(/[^0-9]/g,"");if(s.indexOf("66")===0)s="0"+s.slice(2);if(s.length>9)s=s.slice(-10);}return s;};
+  const customerMatchKeys=function(c){var out=[];[c&&c.id,c&&c.refId,c&&c.shId,c&&c.customerId,c&&c.memberId,c&&c.email].forEach(function(v){var k=crmKey(v,false);if(k&&out.indexOf(k)<0)out.push(k);});if(c&&c.phone){var p=crmKey(c.phone,true);if(p&&out.indexOf(p)<0)out.push(p);}return out;};
+  const txMatchKeys=function(t2){var out=[];[t2&&t2.customerId,t2&&t2.customer,t2&&t2.customerRefId,t2&&t2.memberId,t2&&t2.customerEmail,t2&&t2.email,t2&&t2.customer&&t2.customer.id,t2&&t2.customer&&t2.customer.refId,t2&&t2.customer&&t2.customer.email].forEach(function(v){var k=crmKey(v,false);if(k&&k!=="[object object]"&&out.indexOf(k)<0)out.push(k);});[t2&&t2.customerPhone,t2&&t2.phone,t2&&t2.customer&&t2.customer.phone].forEach(function(v){var k=crmKey(v,true);if(k&&out.indexOf(k)<0)out.push(k);});return out;};
+  const txMatchesCustomer=function(t2,c){var mine=customerMatchKeys(c),theirs=txMatchKeys(t2);return mine.some(function(k){return theirs.indexOf(k)>=0;});};
+  const txItemCategory=function(it){var p=products.find(function(x){return String(x.id)===String(it.productId||it.id);});return (p&&p.cat)||it.category||it.cat||"Other";};
+  const custSpendOf=function(cid){var c2=customers.find(function(x){return String(x.id)===String(cid);});var s=0;(Array.isArray(txHistory)?txHistory:[]).forEach(function(t){if(c2&&txMatchesCustomer(t,c2)&&!/return|refund|void/i.test(String(t.transactionType||"")))s+=(+t.total||0);});if(c2&&+c2.totalSpent>s)s=+c2.totalSpent;return s;};
   const custBillHistory=function(cid){
     if(!cid)return [];
+    var cust=customers.find(function(x){return String(x.id)===String(cid);});
     var appBills=(transactions||[]).filter(function(t2){return String(t2.customerId||"")===String(cid);}).map(function(t2){
-      return {id:t2.id,date:t2.date,total:+t2.total||0,items:(t2.items||[]).map(function(it){return {name:it.name,qty:it.qty,price:it.unitPrice||it.price};}),payment:t2.payment,discAmt:+t2.discAmt||0,discType:t2.discType,discVal:t2.discVal,isVoid:!!t2.isVoid,source:"app",_t:new Date(t2.date).getTime()||0};
+      return {id:t2.id,date:t2.date,total:+t2.total||0,items:(t2.items||[]).map(function(it){return {name:it.name,qty:it.qty,price:it.unitPrice||it.price,cat:txItemCategory(it)};}),payment:t2.payment,discAmt:+t2.discAmt||0,discType:t2.discType,discVal:t2.discVal,isVoid:!!t2.isVoid,source:"app",_t:new Date(t2.date).getTime()||0};
     });
-    var shBills=(Array.isArray(txHistory)?txHistory:[]).filter(function(t2){return String(t2.customerId||t2.customer||"")===String(cid);}).map(function(t2){
-      return {id:t2.id||("sh-"+t2.transactionTime),date:new Date(t2.transactionTime||0).toLocaleString(),total:+t2.total||0,items:(t2.items||[]).map(function(it){return {name:it.name||it.productName,qty:it.quantity,price:it.price};}),payment:t2.paymentType||t2.payment||"—",discAmt:0,discType:null,discVal:0,isVoid:/return|refund|void/i.test(String(t2.transactionType||"")),source:"storehub",_t:new Date(t2.transactionTime||0).getTime()||0};
+    var shBills=(Array.isArray(txHistory)?txHistory:[]).filter(function(t2){return cust&&txMatchesCustomer(t2,cust);}).map(function(t2){
+      return {id:t2.id||("sh-"+t2.transactionTime),date:new Date(t2.transactionTime||0).toLocaleString(),total:+t2.total||0,items:(t2.items||[]).map(function(it){return {name:it.name||it.productName,qty:it.quantity,price:it.price,cat:txItemCategory(it)};}),payment:t2.paymentType||t2.payment||"—",discAmt:0,discType:null,discVal:0,isVoid:/return|refund|void/i.test(String(t2.transactionType||"")),source:"storehub",_t:new Date(t2.transactionTime||0).getTime()||0};
     });
     return appBills.concat(shBills).sort(function(a,b){return b._t-a._t;});
   };
@@ -5139,7 +5164,11 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
         await printerDevice.close();
         notify("🖨 " + lbl + " printed ✅");
       } else if (printerConnType === "network" && printerIP) {
-        notify("🖨 " + lbl + " sent to " + printerIP + " ✅");
+        var bytes=typeof data==="string"?new TextEncoder().encode(data):data;
+        var binary="";for(var bi=0;bi<bytes.length;bi+=8192)binary+=String.fromCharCode.apply(null,bytes.slice(bi,bi+8192));
+        var pr=await fetch(deviceBridgeUrl.replace(/\/$/,"")+"/v1/print",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({host:printerIP,port:9100,data:btoa(binary)})});
+        var pj=await pr.json().catch(function(){return {};});if(!pr.ok)throw new Error(pj.error||("LAN printer bridge "+pr.status));
+        notify("🖨 " + lbl + " printed via LAN " + printerIP + " ✅");
       } else {
         // Browser print fallback
         const decoded = new TextDecoder().decode(data);
@@ -5156,7 +5185,13 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       notify("🖨 Print error: " + (err.message || "unknown"), "error");
     }
     setIsPrinting(false);
-  }, [printerDevice, printerConnType, printerIP]);
+  }, [printerDevice, printerConnType, printerIP, deviceBridgeUrl]);
+
+  const connectNetworkPrinter=async function(){
+    if(!/^((10\.)|(192\.168\.)|(172\.(1[6-9]|2\d|3[01])\.))/.test(printerIP)){notify("ใส่ LAN IP ของเครื่องพิมพ์ เช่น 192.168.1.100","error");return;}
+    try{var r=await fetch(deviceBridgeUrl.replace(/\/$/,"")+"/health");if(!r.ok)throw new Error("bridge offline");setPrinterConnType("network");setPrinterConnected(true);setPrinterModel("LAN ESC/POS · "+printerIP+":9100");notify("🖨 LAN printer ready — กด Test Print เพื่อตรวจจริง");}
+    catch(e){notify("เปิด Local Device Bridge บนเครื่อง POS ก่อนเชื่อม LAN printer","error");}
+  };
 
   const connectUSBPrinter = async () => {
     if(!("usb" in navigator)) {
@@ -5453,25 +5488,24 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   // history is right there; count it instead of showing a zero we know is wrong.
   const custStats=React.useMemo(function(){
     var byKey={};
-    var add=function(k,total,when){
+    var add=function(k,total,when,items){
       var s2=String(k||"").trim().toLowerCase(); if(!s2)return;
-      var e=byKey[s2]||(byKey[s2]={spent:0,visits:0,last:0});
+      var e=byKey[s2]||(byKey[s2]={spent:0,visits:0,last:0,categories:{},lastItems:[]});
       e.spent+=total; e.visits+=1;
-      var ts=new Date(when||0).getTime(); if(ts>e.last)e.last=ts;
+      (items||[]).forEach(function(it){var cat=txItemCategory(it);e.categories[cat]=(e.categories[cat]||0)+(+it.quantity||+it.qty||1);});
+      var ts=new Date(when||0).getTime(); if(ts>e.last){e.last=ts;e.lastItems=(items||[]).map(function(it){return {name:it.name||it.productName||"Item",cat:txItemCategory(it)};});}
     };
     (Array.isArray(txHistory)?txHistory:[]).forEach(function(t){
       if(/return|refund|void/i.test(String(t.transactionType||"")))return;
       var total=+t.total||0;
-      [t.customerId,t.customer,t.customerRefId,t.memberId,t.customerPhone,t.phone,t.customerEmail,t.email]
-        .forEach(function(k){ if(k!==undefined&&k!==null&&k!=="")add(k,total,t.transactionTime); });
+      txMatchKeys(t).forEach(function(k){add(k,total,t.transactionTime,t.items||[]);});
     });
     return byKey;
   },[txHistory]);
   // a customer may be keyed by any of several ids; take the best-matching one
   const statsFor=React.useCallback(function(c){
-    var keys=[c.id,c.refId,c.shId,c.customerId,c.memberId,c.email];
-    if(c.phone)keys.push(String(c.phone).replace(/[^0-9]/g,""),c.phone);
-    var best={spent:0,visits:0,last:0};
+    var keys=customerMatchKeys(c);
+    var best={spent:0,visits:0,last:0,categories:{},lastItems:[]};
     keys.forEach(function(k){
       var e=k?custStats[String(k).trim().toLowerCase()]:null;
       if(e&&e.visits>best.visits)best=e;
@@ -7686,6 +7720,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                         </span>}
                       </div>
                       {c.lastPurchase&&<div style={{fontSize:10,color:C.muted}}>🛒 Last: {c.lastPurchase}</div>}
+                      {(function(){var st=statsFor(c);var cats=Object.keys(st.categories||{}).sort(function(a,b){return st.categories[b]-st.categories[a];}).slice(0,3);return cats.length?<div style={{marginTop:4,display:"flex",gap:4,flexWrap:"wrap"}}><span style={{fontSize:8.5,color:C.muted}}>ซื้อบ่อย:</span>{cats.map(function(cat){return <span key={cat} style={{...gs.badge("rgba(74,222,128,0.12)",C.green),fontSize:8}}>{cat}</span>;})}</div>:null;})()}
                       {c.tags&&c.tags!=="nan"&&c.tags!==""&&<div style={{marginTop:3,display:"flex",flexWrap:"wrap",gap:3}}>{String(c.tags||"").split(";").filter(t=>t.trim()).map((tag,ti)=><span key={ti} style={{...gs.badge("rgba(201,168,76,0.15)","#c9a84c"),fontSize:8}}>{tag.trim()}</span>)}</div>}
                       <div style={{display:"flex",gap:14,marginTop:7}}>
                         <div><div style={{fontSize:16,fontWeight:900,color:C.accent}}>⭐{(+c.points||0).toLocaleString()}</div><div style={{fontSize:8,color:C.muted}}>POINTS</div></div>
@@ -7712,7 +7747,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                       <button onClick={()=>{setRedeemCust(c);setShowRewardModal(true);}} style={{...gs.btn(C.accent,"#fff"),fontSize:10,padding:"5px 10px"}}>Redeem</button>
                       <button onClick={()=>setMemberCardCust(c)} style={{...gs.btn(C.gold,"#000"),fontSize:10,padding:"5px 10px"}}>🪪 Card</button>
                       {canEdit&&<button onClick={()=>{setEditCustomer(Object.assign({},c));}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,padding:"5px 10px",border:"1px solid "+C.border}}>✏ Edit</button>}
-                      <button onClick={()=>{setTopUpForm({amount:"",method:"cash"});setTopUpCust(c);}} style={{...gs.btn(C.gold,"#000"),fontSize:10,padding:"5px 10px"}}>💰 Top Up</button>
+                      <button onClick={()=>{setTopUpForm({amount:"",method:"cash"});setTopUpProof(null);setTopUpCust(c);}} style={{...gs.btn(C.gold,"#000"),fontSize:10,padding:"5px 10px"}}>💰 Top Up</button>
                       {isBday&&<button onClick={()=>{setSelCustomer(c);setDiscType("percent");setDiscVal(15);setActiveTab("pos");notify("🎂 15% birthday discount!");}} style={{...gs.btn(C.gold,"#000"),fontSize:10,padding:"5px 10px"}}>🎂 Bday</button>}
                     </div>
                   </div>
@@ -9249,15 +9284,17 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             </div>
             <div style={{...gs.card,gridColumn:mob?"auto":"1 / -1"}}>
               <div style={{fontSize:12,fontWeight:800,marginBottom:9}}>🖨 Receipt Printer</div>
+              <div style={{display:"flex",gap:6,marginBottom:9}}>{[["usb","USB"],["network","LAN / Network"]].map(function(x){var on=printerConnType===x[0];return <button key={x[0]} onClick={function(){if(!printerConnected)setPrinterConnType(x[0]);}} style={{...gs.btn(on?C.green:C.card2,on?"#000":"#fff"),fontSize:10,border:"1px solid "+C.border}}>{x[1]}</button>;})}</div>
+              {!printerConnected&&printerConnType==="network"&&<div style={{display:"flex",gap:7,marginBottom:9}}><input value={printerIP} onChange={function(e){setPrinterIP(e.target.value.trim());}} placeholder="Printer IP เช่น 192.168.1.100" style={{...gs.input,flex:1}}/><button onClick={connectNetworkPrinter} style={{...gs.btn(C.green),fontSize:10}}>เชื่อม LAN</button></div>}
               <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                 <span style={{...gs.badge(printerConnected?C.green:C.card3,printerConnected?"#000":"#9ca3af")}}>{printerConnected?"● "+printerModel:"not connected"}</span>
-                {!printerConnected?<button onClick={connectUSBPrinter} style={{...gs.btn(C.green),fontSize:11}}>🔌 Connect USB Printer</button>
+                {!printerConnected&&printerConnType==="usb"?<button onClick={connectUSBPrinter} style={{...gs.btn(C.green),fontSize:11}}>🔌 Connect USB Printer</button>
                   :<span style={{display:"contents"}}>
-                    <button onClick={function(){sendToPrinter("  DANK POS TEST PRINT\n  "+new Date().toLocaleString()+"\n--------------------------------\n  ✓ Printer OK\n\n\n","Test");}} style={{...gs.btn(C.card2,"#fff"),fontSize:11,border:"1px solid "+C.border}}>🧾 Test Print</button>
-                    <button onClick={disconnectPrinter} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:11}}>Disconnect</button>
+                    {printerConnected&&<button onClick={function(){sendToPrinter("  DANK POS TEST PRINT\n  "+new Date().toLocaleString()+"\n--------------------------------\n  Printer OK\n\n\n","Test");}} style={{...gs.btn(C.card2,"#fff"),fontSize:11,border:"1px solid "+C.border}}>🧾 Test Print</button>}
+                    {printerConnected&&<button onClick={disconnectPrinter} style={{...gs.btn(C.card3,"#9ca3af"),fontSize:11}}>Disconnect</button>}
                   </span>}
               </div>
-              <div style={{fontSize:9,color:C.muted,marginTop:7}}>Supports 80mm ESC/POS USB printers (Epson, Xprinter, Rongta…) in Chrome/Edge. Without one, receipts print via the browser print dialog.</div>
+              <div style={{fontSize:9,color:C.muted,marginTop:7}}>LAN printers use RAW ESC/POS port 9100 through the Local Device Bridge. USB works in Chrome/Edge. · เครื่อง LAN ต้องให้คอม POS และ printer อยู่ Wi-Fi/LAN วงเดียวกัน</div>
             </div>
             <div style={{...gs.card,gridColumn:mob?"auto":"1 / -1"}}>
               <div style={{fontSize:12,fontWeight:800,marginBottom:3}}>📱 LINE Notifications</div>
@@ -10760,6 +10797,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               <div style={{...gs.card,background:C.card2,padding:"9px 10px",textAlign:"center"}}><div style={{fontSize:15,fontWeight:900,color:C.blue}}>{validBills.length}</div><div style={{fontSize:8,color:C.muted}}>BILLS</div></div>
               <div style={{...gs.card,background:C.card2,padding:"9px 10px",textAlign:"center"}}><div style={{fontSize:15,fontWeight:900,color:C.accent}}>฿{avgBill.toLocaleString()}</div><div style={{fontSize:8,color:C.muted}}>AVG/BILL</div></div>
             </div>
+            {(function(){var st=statsFor(c);var cats=Object.keys(st.categories||{}).sort(function(a,b){return st.categories[b]-st.categories[a];});if(!cats.length)return null;return <div style={{...gs.card,background:C.card2,padding:"9px 11px",marginBottom:10}}><div style={{fontSize:10,fontWeight:800,marginBottom:5}}>🧠 หมวดที่ลูกค้าซื้ออัตโนมัติ / Purchased categories</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{cats.slice(0,6).map(function(cat){return <span key={cat} style={{...gs.badge("rgba(74,222,128,0.12)",C.green),fontSize:8.5}}>{cat} · {Math.round(st.categories[cat]*100)/100}</span>;})}</div>{st.lastItems&&st.lastItems.length?<div style={{fontSize:9,color:C.muted,marginTop:6}}>บิลล่าสุด: {st.lastItems.slice(0,4).map(function(x){return x.name;}).join(", ")}</div>:null}</div>;})()}
             {(function(){var d=_arOwedMap[String(c.id)];if(!d)return null;var days=d.oldest?Math.max(0,Math.floor((Date.now()-new Date(d.oldest+"T00:00:00Z").getTime())/86400000)):null;return (
               <div style={{background:"rgba(244,63,94,0.08)",border:"1px solid rgba(244,63,94,0.4)",borderRadius:10,padding:"9px 11px",marginBottom:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -11700,6 +11738,10 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <select style={{...gs.input,marginBottom:10}} value={topUpForm.method} onChange={function(e){var v=e.target.value;setTopUpForm(function(p){return Object.assign({},p,{method:v});});}}>
               {[["cash","เงินสด Cash"],["transfer","โอน Transfer"],["card","บัตร Card"],["crypto","คริปโต Crypto"]].map(function(m){return <option key={m[0]} value={m[0]}>{m[1]}</option>;})}
             </select>
+            <div style={{background:C.card2,border:"1px dashed "+C.border,borderRadius:9,padding:"9px 10px",marginBottom:10}}>
+              <div style={{fontSize:10,fontWeight:800,marginBottom:6}}>📎 หลักฐานเติมเงิน / Top-up proof {topUpForm.method==="cash"?"(optional)":""}</div>
+              {topUpProof?<div style={{display:"flex",alignItems:"center",gap:8}}><img src={topUpProof} alt="Top-up proof" style={{width:52,height:52,borderRadius:7,objectFit:"cover",border:"1px solid "+C.border}}/><span style={{fontSize:9.5,color:C.green,flex:1}}>✓ แนบหลักฐานแล้ว</span><button onClick={function(){setTopUpProof(null);}} style={{...gs.btn(C.card3,"#fff"),fontSize:9,padding:"4px 8px"}}>✕ ลบ</button></div>:<label style={{display:"inline-block",...gs.btn(C.card3,"#fff"),fontSize:10,border:"1px solid "+C.border,cursor:"pointer",padding:"7px 12px"}}>📷 Upload slip / proof<input type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={function(e){var f=e.target.files&&e.target.files[0];if(!f)return;imgFromFile(f,function(dataUrl){if(dataUrl)setTopUpProof(dataUrl);else notify("อัปโหลดรูปไม่สำเร็จ","error");});e.target.value="";}}/></label>}
+            </div>
             <div style={{...gs.card,background:C.card2,padding:"9px 12px",marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:C.muted}}>เติม / Amount</span><b>฿{amt.toLocaleString()}</b></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:C.muted}}>โบนัส +{Math.round(bonusRate*100)}% / Bonus</span><b style={{color:C.gold}}>+฿{bonus.toLocaleString()}</b></div>
@@ -11707,7 +11749,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             </div>
             <div style={{display:"flex",gap:7}}>
               <button onClick={function(){setTopUpCust(null);}} style={{...gs.btn(C.card2,"#fff"),flex:1,border:"1px solid "+C.border}}>ยกเลิก</button>
-              <button onClick={function(){if(amt<=0){notify("ใส่จำนวนเงินก่อน","error");return;}var tc=topUpCust;var pct=Math.round(bonusRate*100);setCustomers(function(prev){return prev.map(function(x){return x.id===tc.id?Object.assign({},x,{balance:(+x.balance||0)+credit,topups:(x.topups||[]).concat([{amt:amt,bonus:bonus,credit:credit,method:topUpForm.method,date:new Date().toISOString(),by:currentStaff&&currentStaff.name,rate:bonusRate}])}):x;});});addAudit("TOPUP",tc.name+" +฿"+amt+" (+"+pct+"% ฿"+bonus+") = ฿"+credit+" via "+topUpForm.method,currentStaff&&currentStaff.name);setTopUpCust(null);notify("💰 เติมเงิน ฿"+amt.toLocaleString()+" + โบนัส "+pct+"% ฿"+bonus.toLocaleString()+" = เครดิต ฿"+credit.toLocaleString()+" ✓");}} style={{...gs.btn(C.green),flex:2}}>💰 ยืนยันเติมเงิน +10%</button>
+              <button onClick={function(){if(amt<=0){notify("ใส่จำนวนเงินก่อน","error");return;}if(topUpForm.method!=="cash"&&!topUpProof){notify("กรุณาแนบสลิป/หลักฐานก่อนยืนยันเติมเงิน","error");return;}var tc=topUpCust;var pct=Math.round(bonusRate*100);setCustomers(function(prev){return prev.map(function(x){return x.id===tc.id?Object.assign({},x,{balance:(+x.balance||0)+credit,topups:(x.topups||[]).concat([{amt:amt,bonus:bonus,credit:credit,method:topUpForm.method,proofImage:topUpProof||null,date:new Date().toISOString(),by:currentStaff&&currentStaff.name,rate:bonusRate}])}):x;});});addAudit("TOPUP",tc.name+" +฿"+amt+" (+"+pct+"% ฿"+bonus+") = ฿"+credit+" via "+topUpForm.method+(topUpProof?" · proof attached":" · cash"),currentStaff&&currentStaff.name);setTopUpCust(null);setTopUpProof(null);notify("💰 เติมเงิน ฿"+amt.toLocaleString()+" + โบนัส "+pct+"% ฿"+bonus.toLocaleString()+" = เครดิต ฿"+credit.toLocaleString()+" ✓");}} style={{...gs.btn(C.green),flex:2}}>💰 ยืนยันเติมเงิน +10%</button>
             </div>
           </div>
         </div>);})()}
