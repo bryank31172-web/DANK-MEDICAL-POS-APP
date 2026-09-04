@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Amoe Stock Report · DANK</title>
+  <style>
+    body{margin:0;background:#0b1711;color:#f5f1e6;font:16px system-ui;display:grid;place-items:center;min-height:100vh}
+    main{text-align:center;padding:24px}h1{color:#ddb95f;font-size:24px}p{color:#aab9af}.error{color:#ff8f8f}
+  </style>
+</head>
+<body>
+  <main><h1>DANK · AMOE STOCK REPORT</h1><p id="status">Loading secure form… / กำลังโหลดแบบฟอร์ม…</p></main>
+  <script>
+    const endpoint = 'https://xqxdnarcrdocssjfvuvw.supabase.co/functions/v1/amoe-stock-report';
+    fetch(endpoint, { cache: 'no-store' })
+      .then(response => {
+        if (!response.ok) throw new Error('Form unavailable');
+        return response.text();
+      })
+      .then(markup => {
+        document.open();
+        document.write(markup);
+        document.close();
+      })
+      .catch(() => {
+        const status = document.getElementById('status');
+        status.className = 'error';
+        status.textContent = 'The form could not load. Please try again. / โหลดไม่ได้ กรุณาลองอีกครั้ง';
+      });
+  </script>
+</body>
+</html>
