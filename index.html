@@ -4185,6 +4185,7 @@ function GreenPOS() {
   const [editCustomer, setEditCustomer] = useState(null);
   const [topUpCust, setTopUpCust] = useState(null);
   const [topUpForm, setTopUpForm] = useState({ amount: "", method: "cash" });
+  const [topUpProof, setTopUpProof] = useState(null);
   const TOPUP_BONUS = 0.1;
   const FIRST_TOPUP_BONUS = 0.1;
   const [cart, setCart] = useState([]);
@@ -4449,6 +4450,7 @@ function GreenPOS() {
   const [printerModel, setPrinterModel] = useState("80mm ESC/POS Thermal");
   const [printerIP, setPrinterIP] = useState("");
   const [printerConnType, setPrinterConnType] = useState("usb");
+  const [inventoryByStore, setInventoryByStore] = useState({});
   const [printQueue, setPrintQueue] = useState([]);
   const [isPrinting, setIsPrinting] = useState(false);
   useEffect(() => {
@@ -4552,25 +4554,30 @@ function GreenPOS() {
           return { id: s.id, name: s.name || "Store", address: [s.address1, s.city].filter(Boolean).join(", ") };
         }));
         try {
-          const totals = {};
+          const totals = {}, byStore = {};
           for (var _si = 0; _si < shStores.length; _si++) {
             try {
               const invRes = await fetch(base + "/inventory?sub=" + encodeURIComponent(shStores[_si].id));
               if (!invRes.ok) continue;
               const invArr = await invRes.json();
+              var storeStock = {};
               (Array.isArray(invArr) ? invArr : []).forEach(function(iv) {
                 const pid = iv.productId || iv.id;
                 if (!pid) return;
                 const q = +(iv.quantityOnHand !== void 0 ? iv.quantityOnHand : iv.qty !== void 0 ? iv.qty : iv.quantity !== void 0 ? iv.quantity : iv.stock !== void 0 ? iv.stock : iv.onHand) || 0;
+                storeStock[pid] = q;
                 totals[pid] = (totals[pid] || 0) + q;
               });
+              byStore[String(shStores[_si].id)] = storeStock;
             } catch (_e2) {
             }
           }
+          setInventoryByStore(byStore);
           if (Object.keys(totals).length) {
+            var shown = activeBranch !== "all" && byStore[String(activeBranch)] ? byStore[String(activeBranch)] : totals;
             setProducts(function(prev) {
               return prev.map(function(p) {
-                return totals[p.id] !== void 0 ? Object.assign({}, p, { stock: Math.round(totals[p.id]) }) : p;
+                return shown[p.id] !== void 0 ? Object.assign({}, p, { stock: Math.round(shown[p.id] * 100) / 100 }) : p;
               });
             });
           }
@@ -4617,9 +4624,9 @@ function GreenPOS() {
               name: (c.firstName || "") + " " + (c.lastName || ""),
               phone: c.phone || existing.phone || "",
               email: c.email || existing.email || "",
-              points: Math.max(+existing.points || 0, Math.round(+c.loyalty || +c.loyaltyPoints || +c.storeCredit || +c.cashback || 0)),
-              totalSpent: +existing.totalSpent || 0,
-              visits: +existing.visits || 0,
+              points: Math.max(+existing.points || 0, Math.round(+c.loyalty || +c.loyaltyPoints || +c.points || +(c.loyalty && c.loyalty.points) || +(c.membership && c.membership.points) || 0)),
+              totalSpent: Math.max(+existing.totalSpent || 0, +c.totalSpent || +c.lifeTimeSpend || +c.lifetimeSpend || +(c.loyalty && c.loyalty.totalSpent) || 0),
+              visits: Math.max(+existing.visits || 0, +c.visits || +c.visitCount || +(c.loyalty && c.loyalty.visits) || 0),
               isMedical: (Array.isArray(c.tags) ? c.tags.join(",") : String(c.tags || "")).toLowerCase().indexOf("medical") >= 0 || !!existing.isMedical,
               birthday: c.birthday || existing.birthday || "",
               tags: Array.isArray(c.tags) ? c.tags.join(";") : c.tags || existing.tags || "",
@@ -4642,6 +4649,23 @@ function GreenPOS() {
       }
     }
   };
+  useEffect(function() {
+    var ids = Object.keys(inventoryByStore || {});
+    if (!ids.length) return;
+    var shown = {};
+    if (activeBranch !== "all" && inventoryByStore[String(activeBranch)]) shown = inventoryByStore[String(activeBranch)];
+    else ids.forEach(function(sid) {
+      var inv = inventoryByStore[sid] || {};
+      Object.keys(inv).forEach(function(pid) {
+        shown[pid] = (shown[pid] || 0) + (+inv[pid] || 0);
+      });
+    });
+    setProducts(function(prev) {
+      return prev.map(function(p) {
+        return shown[p.id] !== void 0 ? Object.assign({}, p, { stock: Math.round(shown[p.id] * 100) / 100 }) : p;
+      });
+    });
+  }, [activeBranch, inventoryByStore]);
   const [showExport, setShowExport] = useState(false);
   const [exportType, setExportType] = useState("sales");
   const [showCommission, setShowCommission] = useState(false);
@@ -6998,31 +7022,79 @@ function GreenPOS() {
   ];
   const getKPIGrade = (score) => KPI_GRADES.find((g) => score >= g.min) || KPI_GRADES[3];
   const getMonthlyWage = (s) => s.payType === "daily" ? s.wage * 20 : s.wage;
+  const crmKey = function(v, phone) {
+    var s = String(v == null ? "" : v).trim().toLowerCase();
+    if (phone) {
+      s = s.replace(/[^0-9]/g, "");
+      if (s.indexOf("66") === 0) s = "0" + s.slice(2);
+      if (s.length > 9) s = s.slice(-10);
+    }
+    return s;
+  };
+  const customerMatchKeys = function(c) {
+    var out = [];
+    [c && c.id, c && c.refId, c && c.shId, c && c.customerId, c && c.memberId, c && c.email].forEach(function(v) {
+      var k = crmKey(v, false);
+      if (k && out.indexOf(k) < 0) out.push(k);
+    });
+    if (c && c.phone) {
+      var p = crmKey(c.phone, true);
+      if (p && out.indexOf(p) < 0) out.push(p);
+    }
+    return out;
+  };
+  const txMatchKeys = function(t2) {
+    var out = [];
+    [t2 && t2.customerId, t2 && t2.customer, t2 && t2.customerRefId, t2 && t2.memberId, t2 && t2.customerEmail, t2 && t2.email, t2 && t2.customer && t2.customer.id, t2 && t2.customer && t2.customer.refId, t2 && t2.customer && t2.customer.email].forEach(function(v) {
+      var k = crmKey(v, false);
+      if (k && k !== "[object object]" && out.indexOf(k) < 0) out.push(k);
+    });
+    [t2 && t2.customerPhone, t2 && t2.phone, t2 && t2.customer && t2.customer.phone].forEach(function(v) {
+      var k = crmKey(v, true);
+      if (k && out.indexOf(k) < 0) out.push(k);
+    });
+    return out;
+  };
+  const txMatchesCustomer = function(t2, c) {
+    var mine = customerMatchKeys(c), theirs = txMatchKeys(t2);
+    return mine.some(function(k) {
+      return theirs.indexOf(k) >= 0;
+    });
+  };
+  const txItemCategory = function(it) {
+    var p = products.find(function(x) {
+      return String(x.id) === String(it.productId || it.id);
+    });
+    return p && p.cat || it.category || it.cat || "Other";
+  };
   const custSpendOf = function(cid) {
+    var c2 = customers.find(function(x) {
+      return String(x.id) === String(cid);
+    });
     var s = 0;
     (Array.isArray(txHistory) ? txHistory : []).forEach(function(t2) {
-      if (String(t2.customerId || t2.customer || "") === String(cid) && !/return|refund|void/i.test(String(t2.transactionType || ""))) s += +t2.total || 0;
-    });
-    var c2 = customers.find(function(x) {
-      return x.id === cid;
+      if (c2 && txMatchesCustomer(t2, c2) && !/return|refund|void/i.test(String(t2.transactionType || ""))) s += +t2.total || 0;
     });
     if (c2 && +c2.totalSpent > s) s = +c2.totalSpent;
     return s;
   };
   const custBillHistory = function(cid) {
     if (!cid) return [];
+    var cust = customers.find(function(x) {
+      return String(x.id) === String(cid);
+    });
     var appBills = (transactions || []).filter(function(t2) {
       return String(t2.customerId || "") === String(cid);
     }).map(function(t2) {
       return { id: t2.id, date: t2.date, total: +t2.total || 0, items: (t2.items || []).map(function(it) {
-        return { name: it.name, qty: it.qty, price: it.unitPrice || it.price };
+        return { name: it.name, qty: it.qty, price: it.unitPrice || it.price, cat: txItemCategory(it) };
       }), payment: t2.payment, discAmt: +t2.discAmt || 0, discType: t2.discType, discVal: t2.discVal, isVoid: !!t2.isVoid, source: "app", _t: new Date(t2.date).getTime() || 0 };
     });
     var shBills = (Array.isArray(txHistory) ? txHistory : []).filter(function(t2) {
-      return String(t2.customerId || t2.customer || "") === String(cid);
+      return cust && txMatchesCustomer(t2, cust);
     }).map(function(t2) {
       return { id: t2.id || "sh-" + t2.transactionTime, date: new Date(t2.transactionTime || 0).toLocaleString(), total: +t2.total || 0, items: (t2.items || []).map(function(it) {
-        return { name: it.name || it.productName, qty: it.quantity, price: it.price };
+        return { name: it.name || it.productName, qty: it.quantity, price: it.price, cat: txItemCategory(it) };
       }), payment: t2.paymentType || t2.payment || "\u2014", discAmt: 0, discType: null, discVal: 0, isVoid: /return|refund|void/i.test(String(t2.transactionType || "")), source: "storehub", _t: new Date(t2.transactionTime || 0).getTime() || 0 };
     });
     return appBills.concat(shBills).sort(function(a, b) {
@@ -8177,7 +8249,15 @@ function GreenPOS() {
         await printerDevice.close();
         notify("\u{1F5A8} " + lbl + " printed \u2705");
       } else if (printerConnType === "network" && printerIP) {
-        notify("\u{1F5A8} " + lbl + " sent to " + printerIP + " \u2705");
+        var bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+        var binary = "";
+        for (var bi = 0; bi < bytes.length; bi += 8192) binary += String.fromCharCode.apply(null, bytes.slice(bi, bi + 8192));
+        var pr = await fetch(deviceBridgeUrl.replace(/\/$/, "") + "/v1/print", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ host: printerIP, port: 9100, data: btoa(binary) }) });
+        var pj = await pr.json().catch(function() {
+          return {};
+        });
+        if (!pr.ok) throw new Error(pj.error || "LAN printer bridge " + pr.status);
+        notify("\u{1F5A8} " + lbl + " printed via LAN " + printerIP + " \u2705");
       } else {
         const decoded = new TextDecoder().decode(data);
         const clean = decoded.replace(/[\x00-\x1f\x7f-\x9f]/g, "");
@@ -8193,7 +8273,23 @@ function GreenPOS() {
       notify("\u{1F5A8} Print error: " + (err.message || "unknown"), "error");
     }
     setIsPrinting(false);
-  }, [printerDevice, printerConnType, printerIP]);
+  }, [printerDevice, printerConnType, printerIP, deviceBridgeUrl]);
+  const connectNetworkPrinter = async function() {
+    if (!/^((10\.)|(192\.168\.)|(172\.(1[6-9]|2\d|3[01])\.))/.test(printerIP)) {
+      notify("\u0E43\u0E2A\u0E48 LAN IP \u0E02\u0E2D\u0E07\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E1E\u0E34\u0E21\u0E1E\u0E4C \u0E40\u0E0A\u0E48\u0E19 192.168.1.100", "error");
+      return;
+    }
+    try {
+      var r = await fetch(deviceBridgeUrl.replace(/\/$/, "") + "/health");
+      if (!r.ok) throw new Error("bridge offline");
+      setPrinterConnType("network");
+      setPrinterConnected(true);
+      setPrinterModel("LAN ESC/POS \xB7 " + printerIP + ":9100");
+      notify("\u{1F5A8} LAN printer ready \u2014 \u0E01\u0E14 Test Print \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E15\u0E23\u0E27\u0E08\u0E08\u0E23\u0E34\u0E07");
+    } catch (e) {
+      notify("\u0E40\u0E1B\u0E34\u0E14 Local Device Bridge \u0E1A\u0E19\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07 POS \u0E01\u0E48\u0E2D\u0E19\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21 LAN printer", "error");
+    }
+  };
   const connectUSBPrinter = async () => {
     if (!("usb" in navigator)) {
       notify("WebUSB not supported \u2014 use Chrome/Edge", "error");
@@ -8835,28 +8931,36 @@ function GreenPOS() {
   };
   const custStats = React.useMemo(function() {
     var byKey = {};
-    var add = function(k, total, when) {
+    var add = function(k, total, when, items) {
       var s2 = String(k || "").trim().toLowerCase();
       if (!s2) return;
-      var e = byKey[s2] || (byKey[s2] = { spent: 0, visits: 0, last: 0 });
+      var e = byKey[s2] || (byKey[s2] = { spent: 0, visits: 0, last: 0, categories: {}, lastItems: [] });
       e.spent += total;
       e.visits += 1;
+      (items || []).forEach(function(it) {
+        var cat = txItemCategory(it);
+        e.categories[cat] = (e.categories[cat] || 0) + (+it.quantity || +it.qty || 1);
+      });
       var ts = new Date(when || 0).getTime();
-      if (ts > e.last) e.last = ts;
+      if (ts > e.last) {
+        e.last = ts;
+        e.lastItems = (items || []).map(function(it) {
+          return { name: it.name || it.productName || "Item", cat: txItemCategory(it) };
+        });
+      }
     };
     (Array.isArray(txHistory) ? txHistory : []).forEach(function(t2) {
       if (/return|refund|void/i.test(String(t2.transactionType || ""))) return;
       var total = +t2.total || 0;
-      [t2.customerId, t2.customer, t2.customerRefId, t2.memberId, t2.customerPhone, t2.phone, t2.customerEmail, t2.email].forEach(function(k) {
-        if (k !== void 0 && k !== null && k !== "") add(k, total, t2.transactionTime);
+      txMatchKeys(t2).forEach(function(k) {
+        add(k, total, t2.transactionTime, t2.items || []);
       });
     });
     return byKey;
   }, [txHistory]);
   const statsFor = React.useCallback(function(c) {
-    var keys = [c.id, c.refId, c.shId, c.customerId, c.memberId, c.email];
-    if (c.phone) keys.push(String(c.phone).replace(/[^0-9]/g, ""), c.phone);
-    var best = { spent: 0, visits: 0, last: 0 };
+    var keys = customerMatchKeys(c);
+    var best = { spent: 0, visits: 0, last: 0, categories: {}, lastItems: [] };
     keys.forEach(function(k) {
       var e = k ? custStats[String(k).trim().toLowerCase()] : null;
       if (e && e.visits > best.visits) best = e;
@@ -10991,7 +11095,15 @@ function GreenPOS() {
       setMedCardCust(c);
     }, style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 9, border: "1px solid " + C.border, cursor: "pointer" }) }, "\u{1F4CE} attach")) : /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: C.muted } }, "NO"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setMedCardCust(c);
-    }, style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 9, border: "1px solid " + C.border, cursor: "pointer" }) }, "\u{1F4CE} attach"))), c.lastPurchase && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u{1F6D2} Last: ", c.lastPurchase), c.tags && c.tags !== "nan" && c.tags !== "" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, display: "flex", flexWrap: "wrap", gap: 3 } }, String(c.tags || "").split(";").filter((t2) => t2.trim()).map((tag, ti) => /* @__PURE__ */ React.createElement("span", { key: ti, style: __spreadProps(__spreadValues({}, gs.badge("rgba(201,168,76,0.15)", "#c9a84c")), { fontSize: 8 }) }, tag.trim()))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 7 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.accent } }, "\u2B50", (+c.points || 0).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "POINTS")), (function() {
+    }, style: __spreadProps(__spreadValues({}, gs.badge(C.card3, "#9ca3af")), { fontSize: 9, border: "1px solid " + C.border, cursor: "pointer" }) }, "\u{1F4CE} attach"))), c.lastPurchase && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted } }, "\u{1F6D2} Last: ", c.lastPurchase), (function() {
+      var st = statsFor(c);
+      var cats = Object.keys(st.categories || {}).sort(function(a, b) {
+        return st.categories[b] - st.categories[a];
+      }).slice(0, 3);
+      return cats.length ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 8.5, color: C.muted } }, "\u0E0B\u0E37\u0E49\u0E2D\u0E1A\u0E48\u0E2D\u0E22:"), cats.map(function(cat) {
+        return /* @__PURE__ */ React.createElement("span", { key: cat, style: __spreadProps(__spreadValues({}, gs.badge("rgba(74,222,128,0.12)", C.green)), { fontSize: 8 }) }, cat);
+      })) : null;
+    })(), c.tags && c.tags !== "nan" && c.tags !== "" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, display: "flex", flexWrap: "wrap", gap: 3 } }, String(c.tags || "").split(";").filter((t2) => t2.trim()).map((tag, ti) => /* @__PURE__ */ React.createElement("span", { key: ti, style: __spreadProps(__spreadValues({}, gs.badge("rgba(201,168,76,0.15)", "#c9a84c")), { fontSize: 8 }) }, tag.trim()))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 7 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 900, color: C.accent } }, "\u2B50", (+c.points || 0).toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "POINTS")), (function() {
       var _st = statsFor(c);
       var _sp = Math.max(+c.totalSpent || 0, _st.spent);
       var _vi = Math.max(+c.visits || 0, _st.visits);
@@ -11012,6 +11124,7 @@ function GreenPOS() {
       setEditCustomer(Object.assign({}, c));
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10, padding: "5px 10px", border: "1px solid " + C.border }) }, "\u270F Edit"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
       setTopUpForm({ amount: "", method: "cash" });
+      setTopUpProof(null);
       setTopUpCust(c);
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.gold, "#000")), { fontSize: 10, padding: "5px 10px" }) }, "\u{1F4B0} Top Up"), isBday && /* @__PURE__ */ React.createElement("button", { onClick: () => {
       setSelCustomer(c);
@@ -12080,9 +12193,16 @@ function GreenPOS() {
     return /* @__PURE__ */ React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: C.card2, borderRadius: 8, border: "1px solid " + C.border, marginBottom: 5 } }, pimg(p.img, 18), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.muted } }, "\u0E3F", (+p.price || 0).toLocaleString(), "/g \xB7 ", p.stock, "g left \xB7 \u2248\u0E3F", Math.round((+scaleReading || 0) * (+p.price || 0)).toLocaleString())), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       weighToCart(p);
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 9, padding: "4px 9px", flexShrink: 0 }) }, "\u2696 Add ", fmtW(scaleReading), "g"));
-  })), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { gridColumn: mob ? "auto" : "1 / -1" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 9 } }, "\u{1F5A8} Receipt Printer"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: __spreadValues({}, gs.badge(printerConnected ? C.green : C.card3, printerConnected ? "#000" : "#9ca3af")) }, printerConnected ? "\u25CF " + printerModel : "not connected"), !printerConnected ? /* @__PURE__ */ React.createElement("button", { onClick: connectUSBPrinter, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11 }) }, "\u{1F50C} Connect USB Printer") : /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
-    sendToPrinter("  DANK POS TEST PRINT\n  " + (/* @__PURE__ */ new Date()).toLocaleString() + "\n--------------------------------\n  \u2713 Printer OK\n\n\n", "Test");
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 11, border: "1px solid " + C.border }) }, "\u{1F9FE} Test Print"), /* @__PURE__ */ React.createElement("button", { onClick: disconnectPrinter, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 11 }) }, "Disconnect"))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 7 } }, "Supports 80mm ESC/POS USB printers (Epson, Xprinter, Rongta\u2026) in Chrome/Edge. Without one, receipts print via the browser print dialog.")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { gridColumn: mob ? "auto" : "1 / -1" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 3 } }, "\u{1F4F1} LINE Notifications"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, '\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E01\u0E31\u0E1A\u0E40\u0E0B\u0E34\u0E23\u0E4C\u0E1F\u0E40\u0E27\u0E2D\u0E23\u0E4C "Bryan AI \u2014 LINE Group Monitor" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E48\u0E07\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E40\u0E02\u0E49\u0E32 LINE \u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13\u0E42\u0E14\u0E22\u0E15\u0E23\u0E07 \xB7 Connects to your separately-hosted Bryan AI LINE server to push alerts straight to your LINE.'), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "LINE Server URL (\u0E40\u0E0A\u0E48\u0E19 https://your-app.up.railway.app)"), /* @__PURE__ */ React.createElement("input", { value: lineNotifyUrl, onChange: function(e) {
+  })), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { gridColumn: mob ? "auto" : "1 / -1" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 9 } }, "\u{1F5A8} Receipt Printer"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 9 } }, [["usb", "USB"], ["network", "LAN / Network"]].map(function(x) {
+    var on = printerConnType === x[0];
+    return /* @__PURE__ */ React.createElement("button", { key: x[0], onClick: function() {
+      if (!printerConnected) setPrinterConnType(x[0]);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(on ? C.green : C.card2, on ? "#000" : "#fff")), { fontSize: 10, border: "1px solid " + C.border }) }, x[1]);
+  })), !printerConnected && printerConnType === "network" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7, marginBottom: 9 } }, /* @__PURE__ */ React.createElement("input", { value: printerIP, onChange: function(e) {
+    setPrinterIP(e.target.value.trim());
+  }, placeholder: "Printer IP \u0E40\u0E0A\u0E48\u0E19 192.168.1.100", style: __spreadProps(__spreadValues({}, gs.input), { flex: 1 }) }), /* @__PURE__ */ React.createElement("button", { onClick: connectNetworkPrinter, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10 }) }, "\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21 LAN")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: __spreadValues({}, gs.badge(printerConnected ? C.green : C.card3, printerConnected ? "#000" : "#9ca3af")) }, printerConnected ? "\u25CF " + printerModel : "not connected"), !printerConnected && printerConnType === "usb" ? /* @__PURE__ */ React.createElement("button", { onClick: connectUSBPrinter, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 11 }) }, "\u{1F50C} Connect USB Printer") : /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, printerConnected && /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    sendToPrinter("  DANK POS TEST PRINT\n  " + (/* @__PURE__ */ new Date()).toLocaleString() + "\n--------------------------------\n  Printer OK\n\n\n", "Test");
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 11, border: "1px solid " + C.border }) }, "\u{1F9FE} Test Print"), printerConnected && /* @__PURE__ */ React.createElement("button", { onClick: disconnectPrinter, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#9ca3af")), { fontSize: 11 }) }, "Disconnect"))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 7 } }, "LAN printers use RAW ESC/POS port 9100 through the Local Device Bridge. USB works in Chrome/Edge. \xB7 \u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07 LAN \u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2B\u0E49\u0E04\u0E2D\u0E21 POS \u0E41\u0E25\u0E30 printer \u0E2D\u0E22\u0E39\u0E48 Wi-Fi/LAN \u0E27\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { gridColumn: mob ? "auto" : "1 / -1" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 3 } }, "\u{1F4F1} LINE Notifications"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginBottom: 10 } }, '\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E01\u0E31\u0E1A\u0E40\u0E0B\u0E34\u0E23\u0E4C\u0E1F\u0E40\u0E27\u0E2D\u0E23\u0E4C "Bryan AI \u2014 LINE Group Monitor" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E48\u0E07\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E40\u0E02\u0E49\u0E32 LINE \u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13\u0E42\u0E14\u0E22\u0E15\u0E23\u0E07 \xB7 Connects to your separately-hosted Bryan AI LINE server to push alerts straight to your LINE.'), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "LINE Server URL (\u0E40\u0E0A\u0E48\u0E19 https://your-app.up.railway.app)"), /* @__PURE__ */ React.createElement("input", { value: lineNotifyUrl, onChange: function(e) {
     setLineNotifyUrl(e.target.value);
   }, placeholder: "https://your-line-server.example.com", style: __spreadProps(__spreadValues({}, gs.input), { marginBottom: 9 }) }), /* @__PURE__ */ React.createElement("label", { style: gs.label }, "Notify Secret (\u0E16\u0E49\u0E32\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32 NOTIFY_SECRET \u0E44\u0E27\u0E49\u0E43\u0E19\u0E40\u0E0B\u0E34\u0E23\u0E4C\u0E1F\u0E40\u0E27\u0E2D\u0E23\u0E4C) \xB7 optional"), /* @__PURE__ */ React.createElement("input", { value: lineNotifySecret, onChange: function(e) {
     setLineNotifySecret(e.target.value);
@@ -13806,6 +13926,17 @@ function GreenPOS() {
     } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 900, fontSize: 15 } }, "\u{1F464} ", c.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, "\u{1F4DE} ", c.phone, c.email ? " \xB7 \u2709 " + c.email : ""), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: C.gold, fontWeight: 800, letterSpacing: 1 } }, "\u{1FAAA} ", memberCodeOf(c))), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setCustDetailView(null);
     }, style: { background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 17 } }, "\u2715")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 10px", textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.green } }, "\u0E3F", totalSpend.toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "TOTAL SPENT")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 10px", textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.blue } }, validBills.length), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "BILLS")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 10px", textAlign: "center" }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 900, color: C.accent } }, "\u0E3F", avgBill.toLocaleString()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.muted } }, "AVG/BILL"))), (function() {
+      var st = statsFor(c);
+      var cats = Object.keys(st.categories || {}).sort(function(a, b) {
+        return st.categories[b] - st.categories[a];
+      });
+      if (!cats.length) return null;
+      return /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 11px", marginBottom: 10 }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, fontWeight: 800, marginBottom: 5 } }, "\u{1F9E0} \u0E2B\u0E21\u0E27\u0E14\u0E17\u0E35\u0E48\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E0B\u0E37\u0E49\u0E2D\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 / Purchased categories"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, cats.slice(0, 6).map(function(cat) {
+        return /* @__PURE__ */ React.createElement("span", { key: cat, style: __spreadProps(__spreadValues({}, gs.badge("rgba(74,222,128,0.12)", C.green)), { fontSize: 8.5 }) }, cat, " \xB7 ", Math.round(st.categories[cat] * 100) / 100);
+      })), st.lastItems && st.lastItems.length ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.muted, marginTop: 6 } }, "\u0E1A\u0E34\u0E25\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14: ", st.lastItems.slice(0, 4).map(function(x) {
+        return x.name;
+      }).join(", ")) : null);
+    })(), (function() {
       var d = _arOwedMap[String(c.id)];
       if (!d) return null;
       var days2 = d.oldest ? Math.max(0, Math.floor((Date.now() - (/* @__PURE__ */ new Date(d.oldest + "T00:00:00Z")).getTime()) / 864e5)) : null;
@@ -14786,22 +14917,37 @@ function GreenPOS() {
       });
     } }, [["cash", "\u0E40\u0E07\u0E34\u0E19\u0E2A\u0E14 Cash"], ["transfer", "\u0E42\u0E2D\u0E19 Transfer"], ["card", "\u0E1A\u0E31\u0E15\u0E23 Card"], ["crypto", "\u0E04\u0E23\u0E34\u0E1B\u0E42\u0E15 Crypto"]].map(function(m) {
       return /* @__PURE__ */ React.createElement("option", { key: m[0], value: m[0] }, m[1]);
-    })), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 12px", marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E40\u0E15\u0E34\u0E21 / Amount"), /* @__PURE__ */ React.createElement("b", null, "\u0E3F", amt.toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E42\u0E1A\u0E19\u0E31\u0E2A +", Math.round(bonusRate * 100), "% / Bonus"), /* @__PURE__ */ React.createElement("b", { style: { color: C.gold } }, "+\u0E3F", bonus.toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 900, borderTop: "1px solid " + C.border, paddingTop: 5, marginTop: 2 } }, /* @__PURE__ */ React.createElement("span", null, "\u0E40\u0E04\u0E23\u0E14\u0E34\u0E15\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49 / Credit added"), /* @__PURE__ */ React.createElement("span", { style: { color: C.green } }, "\u0E3F", credit.toLocaleString()))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    })), /* @__PURE__ */ React.createElement("div", { style: { background: C.card2, border: "1px dashed " + C.border, borderRadius: 9, padding: "9px 10px", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, fontWeight: 800, marginBottom: 6 } }, "\u{1F4CE} \u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19\u0E40\u0E15\u0E34\u0E21\u0E40\u0E07\u0E34\u0E19 / Top-up proof ", topUpForm.method === "cash" ? "(optional)" : ""), topUpProof ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("img", { src: topUpProof, alt: "Top-up proof", style: { width: 52, height: 52, borderRadius: 7, objectFit: "cover", border: "1px solid " + C.border } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9.5, color: C.green, flex: 1 } }, "\u2713 \u0E41\u0E19\u0E1A\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19\u0E41\u0E25\u0E49\u0E27"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+      setTopUpProof(null);
+    }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { fontSize: 9, padding: "4px 8px" }) }, "\u2715 \u0E25\u0E1A")) : /* @__PURE__ */ React.createElement("label", { style: __spreadProps(__spreadValues({ display: "inline-block" }, gs.btn(C.card3, "#fff")), { fontSize: 10, border: "1px solid " + C.border, cursor: "pointer", padding: "7px 12px" }) }, "\u{1F4F7} Upload slip / proof", /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", capture: "environment", style: { display: "none" }, onChange: function(e) {
+      var f = e.target.files && e.target.files[0];
+      if (!f) return;
+      imgFromFile(f, function(dataUrl) {
+        if (dataUrl) setTopUpProof(dataUrl);
+        else notify("\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E39\u0E1B\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08", "error");
+      });
+      e.target.value = "";
+    } }))), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, padding: "9px 12px", marginBottom: 12 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E40\u0E15\u0E34\u0E21 / Amount"), /* @__PURE__ */ React.createElement("b", null, "\u0E3F", amt.toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { color: C.muted } }, "\u0E42\u0E1A\u0E19\u0E31\u0E2A +", Math.round(bonusRate * 100), "% / Bonus"), /* @__PURE__ */ React.createElement("b", { style: { color: C.gold } }, "+\u0E3F", bonus.toLocaleString())), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 900, borderTop: "1px solid " + C.border, paddingTop: 5, marginTop: 2 } }, /* @__PURE__ */ React.createElement("span", null, "\u0E40\u0E04\u0E23\u0E14\u0E34\u0E15\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49 / Credit added"), /* @__PURE__ */ React.createElement("span", { style: { color: C.green } }, "\u0E3F", credit.toLocaleString()))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 7 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setTopUpCust(null);
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
       if (amt <= 0) {
         notify("\u0E43\u0E2A\u0E48\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E01\u0E48\u0E2D\u0E19", "error");
         return;
       }
+      if (topUpForm.method !== "cash" && !topUpProof) {
+        notify("\u0E01\u0E23\u0E38\u0E13\u0E32\u0E41\u0E19\u0E1A\u0E2A\u0E25\u0E34\u0E1B/\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E40\u0E15\u0E34\u0E21\u0E40\u0E07\u0E34\u0E19", "error");
+        return;
+      }
       var tc = topUpCust;
       var pct = Math.round(bonusRate * 100);
       setCustomers(function(prev) {
         return prev.map(function(x) {
-          return x.id === tc.id ? Object.assign({}, x, { balance: (+x.balance || 0) + credit, topups: (x.topups || []).concat([{ amt, bonus, credit, method: topUpForm.method, date: (/* @__PURE__ */ new Date()).toISOString(), by: currentStaff && currentStaff.name, rate: bonusRate }]) }) : x;
+          return x.id === tc.id ? Object.assign({}, x, { balance: (+x.balance || 0) + credit, topups: (x.topups || []).concat([{ amt, bonus, credit, method: topUpForm.method, proofImage: topUpProof || null, date: (/* @__PURE__ */ new Date()).toISOString(), by: currentStaff && currentStaff.name, rate: bonusRate }]) }) : x;
         });
       });
-      addAudit("TOPUP", tc.name + " +\u0E3F" + amt + " (+" + pct + "% \u0E3F" + bonus + ") = \u0E3F" + credit + " via " + topUpForm.method, currentStaff && currentStaff.name);
+      addAudit("TOPUP", tc.name + " +\u0E3F" + amt + " (+" + pct + "% \u0E3F" + bonus + ") = \u0E3F" + credit + " via " + topUpForm.method + (topUpProof ? " \xB7 proof attached" : " \xB7 cash"), currentStaff && currentStaff.name);
       setTopUpCust(null);
+      setTopUpProof(null);
       notify("\u{1F4B0} \u0E40\u0E15\u0E34\u0E21\u0E40\u0E07\u0E34\u0E19 \u0E3F" + amt.toLocaleString() + " + \u0E42\u0E1A\u0E19\u0E31\u0E2A " + pct + "% \u0E3F" + bonus.toLocaleString() + " = \u0E40\u0E04\u0E23\u0E14\u0E34\u0E15 \u0E3F" + credit.toLocaleString() + " \u2713");
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { flex: 2 }) }, "\u{1F4B0} \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E40\u0E15\u0E34\u0E21\u0E40\u0E07\u0E34\u0E19 +10%"))));
   })(), editCustomer && /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
