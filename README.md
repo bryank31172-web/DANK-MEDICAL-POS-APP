@@ -342,6 +342,15 @@ tab. The product data is embedded, so the sheet also opens standalone.
    photos and sends a Telegram summary with all variances. Past counts (with photos
    and variances) are viewable under **Recent counts**.
 
+### Dedicated Amoe stock report
+
+`/amoe-stock-report.html` is the mobile form for Amoe's per-shift Active and
+Inactive Stock reports. It requires the separately issued access code and photo
+proof. Reports, line-item calculations, and proof-photo paths are stored in the
+POS Supabase project; proof images are kept in the private
+`stock-report-proofs` bucket. The access-code hash is configured in
+`stock_report_settings` and the plaintext code must never be committed.
+
 **Scale integration (pull from scale).** The **⚖️ Connect scale** button uses the
 **Web Serial API** to read a USB/serial bench scale. Click it, pick the scale's
 serial port, and live weights stream into `scale: … g`; the per-row **⚖️** button
