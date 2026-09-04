@@ -1,5 +1,6 @@
 process.env.CLINIC_BRIDGE_TEST='1';
-const {normalize,server}=await import('./server.mjs');
+const {normalize,server,sendNetworkPrint}=await import('./server.mjs');
+const net=(await import('node:net')).default;
 let pass=0,total=0;
 function check(ok,note){total++;if(ok){pass++;console.log('✓ '+note);}else console.error('✗ '+note);}
 
@@ -23,6 +24,14 @@ const latest=await response.json();
 check(latest.reading?.temperatureC===36.8&&latest.reading?.deviceId==='HTTP-TEST','POS can read the latest measurement');
 response=await fetch(base+'/v1/vitals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({weightKg:999})});
 check(response.status===422,'HTTP endpoint rejects unsafe values');
+let printed=Buffer.alloc(0);
+const printer=net.createServer(socket=>socket.on('data',chunk=>{printed=Buffer.concat([printed,chunk]);}));
+await new Promise((resolve,reject)=>{printer.once('error',reject);printer.listen(0,'127.0.0.1',resolve);});
+await sendNetworkPrint({host:'127.0.0.1',port:printer.address().port,data:Buffer.from('DANK TEST').toString('base64')});
+await new Promise(resolve=>setTimeout(resolve,20));
+check(printed.toString()==='DANK TEST','LAN printer bridge sends raw ESC/POS bytes');
+await new Promise(resolve=>printer.close(resolve));
+try{await sendNetworkPrint({host:'8.8.8.8',port:9100,data:Buffer.from('x').toString('base64')});check(false,'rejects public printer destinations');}catch{check(true,'rejects public printer destinations');}
 await new Promise(resolve=>server.close(resolve));
 
 console.log(`\n${pass}/${total} passed`);
