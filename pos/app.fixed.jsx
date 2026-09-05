@@ -397,11 +397,85 @@ function rosterPay(person, actualHours, slotHours, shifts) {
   };
 }
 
+/* The owner-approved September 2026 roster, transcribed cell-for-cell from
+ * DANK BASE COVERAGE V8. Keep this separate from the normal generator: this
+ * month is a signed operating record, while later months remain editable and
+ * generated from availability. Arrays are day 1 through day 30. */
+var SHIFT_FIXED_2026_09 = {
+  ptk: {
+    A1: ['amoe','amoe','jack','amoe','amoe','amoe','amoe','amoe','amoe','rena','amoe','amoe','amoe','amoe','amoe','amoe','honey','amoe','amoe','amoe','amoe','amoe','amoe','honey','amoe','amoe','amoe','amoe','amoe','amoe'],
+    A2: ['dylan','dylan','dylan','dylan','jack','dylan','dylan','dylan','dylan','dylan','honey','dylan','dylan','dylan','dylan','dylan','dylan','honey','dylan','dylan','dylan','dylan','dylan','dylan','honey','dylan','dylan','dylan','dylan','dylan'],
+    B1: ['palm','palm','palm','palm','palm','steve','palm','palm','palm','palm','palm','palm','steve','palm','palm','palm','palm','steve','palm','palm','palm','palm','palm','palm','steve','palm','palm','palm','palm','palm'],
+    B2: ['mon','mon','mon','honey','mon','mon','mon','mon','mon','steve','mon','mon','mon','mon','mon','mon','ploy','mon','mon','mon','mon','mon','mon','ploy','mon','mon','mon','mon','mon','mon'],
+    C1: ['jack','jack','steve','rena','rena','rena','rena','jack','jack','jack','steve','rena','rena','rena','jack','jack','raizo','raizo','rena','rena','rena','jack','raizo','raizo','raizo','rena','rena','rena','rena','jack'],
+    C2: ['rena','rena','raizo','raizo','raizo','honey','steve','rena','honey','honey','rena','jack','honey','steve','rena','raizo','jack','rena','raizo','jack','steve','rena','jack','jack','rena','honey','jack','steve','jack','honey'],
+  },
+  sat: {
+    EARLY: ['raizo','raizo','meng','meng','meng','meng','raizo','raizo','raizo','raizo','raizo','raizo','meng','raizo','raizo','meng','meng','meng','meng','meng','raizo','raizo','meng','meng','meng','meng','meng','raizo','raizo','raizo'],
+    DAY: ['meng','meng','pok','pok','pok','pok','pok','meng','meng','meng','meng','meng','pok','pok','meng','pok','pok','pok','pok','pok','pok','meng','pok','pok','pok','pok','pok','pok','meng','meng'],
+    NIGHT: ['steve','mel','mel','mel','steve','ploy','ploy','steve','mel','mel','mel','steve','ploy','ploy','steve','mel','steve','mel','steve','ploy','mel','steve','mel','steve','mel','steve','raizo','mel','mel','mel'],
+    PEAK: ['mel','ploy','ploy','ploy','ploy','mel','mel','mel','ploy','ploy','ploy','ploy','mel','mel','mel','ploy','mel','ploy','ploy','mel','ploy','mel','ploy','mel','ploy','ploy','mel','ploy','ploy','ploy'],
+  },
+  bar: {
+    MONTHU: ['alex','alex','alex',null,null,null,'honey','alex','alex','alex',null,null,null,'honey','alex','alex','alex',null,null,null,'honey','alex','alex','alex',null,null,null,'honey','alex','alex'],
+    FSDAY: [null,null,null,'jack','honey','jack',null,null,null,null,'jack','honey','jack',null,null,null,null,'jack','jack','honey',null,null,null,null,'jack','jack','honey',null,null,null],
+    FSNIGHT: [null,null,null,'alex','alex','alex',null,null,null,null,'alex','alex','alex',null,null,null,null,'alex','alex','alex',null,null,null,null,'alex','alex','alex',null,null,null],
+  },
+};
+
+function fixedRosterFor(year, month1) {
+  if (+year !== 2026 || +month1 !== 9) return null;
+  var cells = {};
+  Object.keys(SHIFT_FIXED_2026_09).forEach(function (loc) {
+    Object.keys(SHIFT_FIXED_2026_09[loc]).forEach(function (slot) {
+      SHIFT_FIXED_2026_09[loc][slot].forEach(function (id, i) {
+        if (id) cells[loc + '|2026-09-' + ('0' + (i + 1)).slice(-2) + '|' + slot] = id;
+      });
+    });
+  });
+  return cells;
+}
+
+/* Exact roster roles/limits used only by the signed month. Wage fields are
+ * preserved from the manager's saved staff rows; the schedule must never
+ * invent or overwrite a salary. */
+function fixedRosterStaffFor(staff, year, month1) {
+  if (+year !== 2026 || +month1 !== 9) return staff || [];
+  var profile = {
+    amoe:  { role:'BUDTENDER',kind:'full',locs:['ptk'],slots:['A1'],target:26,max:26,normalHours:234 },
+    dylan: { role:'BUDTENDER',kind:'full',locs:['ptk'],slots:['A2'],target:26,max:26,normalHours:234 },
+    rena:  { role:'BUDTENDER',kind:'full',locs:['ptk'],slots:['A1','C1','C2'],target:23,max:23,normalHours:207 },
+    palm:  { role:'BUDTENDER',kind:'full',locs:['ptk'],slots:['B1'],target:26,max:26,normalHours:234 },
+    mon:   { role:'BUDTENDER',kind:'full',locs:['ptk'],slots:['B2'],target:26,max:26,normalHours:234 },
+    steve: { role:'RELIEF BUDTENDER',kind:'full',relief:true,locs:['ptk','sat'],slots:['B1','B2','C1','C2','NIGHT'],target:21,max:21,normalHours:189 },
+    raizo: { role:'RELIEF BUDTENDER',kind:'full',relief:true,locs:['ptk','sat'],slots:['C1','C2','EARLY','NIGHT'],target:26,max:26,normalHours:234 },
+    meng:  { role:'BUDTENDER',kind:'full',locs:['sat'],slots:['EARLY','DAY'],target:26,max:26,normalHours:234 },
+    pok:   { role:'BUDTENDER',kind:'full',locs:['sat'],slots:['DAY'],target:19,max:19,normalHours:171 },
+    ploy:  { role:'BUDTENDER + CONTENT',kind:'full',locs:['ptk','sat'],slots:['B2','NIGHT','PEAK'],target:25,max:25,normalHours:225,duty:{date:'2026-09-10',loc:'sat',label:'CONTENT / SOCIAL MEDIA'} },
+    mel:   { role:'BUDTENDER',kind:'full',locs:['sat'],slots:['NIGHT','PEAK'],target:26,max:26,normalHours:234 },
+    alex:  { role:'BAR TEAM LEADER',kind:'full',locs:['bar'],slots:['MONTHU','FSNIGHT'],target:26,max:26,normalHours:208,rosterHoursPerDuty:8 },
+    jack:  { role:'BARTENDER',kind:'full',locs:['ptk','bar'],slots:['A1','A2','C1','C2','FSDAY'],target:26,max:26,normalHours:226 },
+    honey: { role:'BARTENDER / RELIEF',kind:'part',relief:true,locs:['ptk','bar'],slots:['A1','A2','B1','B2','C2','MONTHU','FSDAY'],target:20,max:20,normalHours:172 },
+  };
+  var list = (staff || []).filter(function (p) { return p.id !== 'bank'; }).map(function (p) {
+    return profile[p.id] ? Object.assign({}, p, profile[p.id], { off:[], leave:[] }) : p;
+  });
+  if (!list.some(function (p) { return p.id === 'bank'; })) list.push({
+    id:'bank',name:'Bank',role:'MANAGEMENT QA',kind:'management',locs:['ptk','sat','bar'],slots:[],off:[],target:0,max:0
+  });
+  return list;
+}
+
+function buildPublishedRoster(locations, staff, year, month1) {
+  var exactStaff = fixedRosterStaffFor(staff, year, month1);
+  return { staff: exactStaff, result: buildRoster(locations, exactStaff, year, month1, fixedRosterFor(year, month1)) };
+}
+
 /* The whole month, in one pass per location. Returns the grid, per-person
  * totals, and everything that is wrong with it — the report is not optional
  * and not separate, because a roster you have to remember to validate is a
  * roster that ships broken. */
-function buildRoster(locations, staff, year, month1) {
+function buildRoster(locations, staff, year, month1, fixedCells) {
   var days = monthDates(year, month1);
 
   /* "Everyone is happy to move their day off" means the generator picks the
@@ -477,11 +551,16 @@ function buildRoster(locations, staff, year, month1) {
         if (!slotRunsOn(slot, day.dow)) { cells[key] = { closed: true }; return; }
         if (cells[key] !== undefined) return;
 
-        var cands = (staff || []).filter(function (p) {
+        /* A signed fixed roster is an assignment record, not a suggestion to
+         * the generator. For that month every listed cell wins exactly, and
+         * an omitted optional cell stays closed instead of being invented. */
+        var fixedId = fixedCells ? fixedCells[key] : undefined;
+        if (fixedCells && fixedId === undefined) { cells[key] = { closed: true, fixed: true }; return; }
+        var cands = fixedCells ? [] : (staff || []).filter(function (p) {
           p.__dates = dates[p.id] || [];
           return rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) === null;
         });
-        var pick = rosterPick(cands, slot, count, shiftSpan(slot.label));
+        var pick = fixedCells ? byId[fixedId] : rosterPick(cands, slot, count, shiftSpan(slot.label));
         if (!pick) {
           cells[key] = null;
           if (!slot.optional) {
@@ -515,11 +594,23 @@ function buildRoster(locations, staff, year, month1) {
          * window and their hours come from it. */
         var take = function (p) {
           var w = p.window || (p.windows || {})[slot.id] || '';
-          var hh = shiftHours(w || slot.label);
-          assignedOn[day.date][p.id] = loc.id + '/' + slot.id;
+          /* Roster hours can be contract-credit hours rather than elapsed
+           * opening hours. The approved September sheet credits Alex's mixed
+           * 224 Bar duties at eight hours each (26 duties / 208h). */
+          var hh = p.rosterHoursPerDuty || shiftHours(w || slot.label);
+          /* Keep every assignment, not just the last one. This makes the
+           * one-person/one-shift-per-day rule enforceable across businesses. */
+          var sameDay = assignedOn[day.date][p.id] || [];
+          if (!Array.isArray(sameDay)) sameDay = [sameDay];
+          sameDay.push(loc.id + '/' + slot.id);
+          assignedOn[day.date][p.id] = sameDay;
           count[p.id]++; hours[p.id] += hh; dates[p.id].push(day.date);
           byLoc[p.id + '|' + loc.id] = (byLoc[p.id + '|' + loc.id] || 0) + 1;
-          if (p.duty && p.duty.dow === day.dow && (!p.duty.loc || p.duty.loc === loc.id)) {
+          if (p.duty &&
+              ((p.duty.date && p.duty.date === day.date) ||
+               ((p.duty.dates || []).indexOf(day.date) >= 0) ||
+               (p.duty.dow != null && p.duty.dow === day.dow)) &&
+              (!p.duty.loc || p.duty.loc === loc.id)) {
             duties[p.id].push({ date: day.date, label: p.duty.label });
           }
           return { id: p.id, name: p.name, window: w };
@@ -565,8 +656,10 @@ function buildRoster(locations, staff, year, month1) {
   Object.keys(assignedOn).sort().forEach(function (date) {
     var seen = {};
     Object.keys(assignedOn[date]).forEach(function (pid) {
-      seen[pid] = (seen[pid] || 0) + 1;
-      if (seen[pid] > 1) doubles.push({ id: pid, name: (byId[pid] || {}).name, date: date });
+      var booked = assignedOn[date][pid];
+      var n = Array.isArray(booked) ? booked.length : 1;
+      seen[pid] = (seen[pid] || 0) + n;
+      if (seen[pid] > 1) doubles.push({ id: pid, name: (byId[pid] || {}).name, date: date, assignments: booked });
     });
   });
 
@@ -654,7 +747,7 @@ function rosterPayroll(res, staff, wagesBudget) {
   var byLoc = {}, base = 0, ot = 0, otH = 0;
   var noShift = [], noPay = [];
   (res.summary || []).forEach(function (s) {
-    if (s.kind === 'ceo') return;                 // owners, not payroll
+    if (s.kind === 'ceo' || s.kind === 'management') return; // owners / QA, not payroll
     base += s.pay.basePay; ot += s.pay.otPay; otH += s.pay.otHours;
     (s.locs.length ? s.locs : ['—']).forEach(function (l) {
       byLoc[l] = (byLoc[l] || 0) + (s.pay.totalPay / Math.max(1, s.locs.length));
@@ -870,10 +963,10 @@ var SHIFT_LOCATIONS = [
     { id: 'C1', label: '17:00-02:00' }, { id: 'C2', label: '17:00-02:00' },
     { id: 'STOCK', name: 'STOCK / ADMIN', label: '17:00-02:00', days: [0], optional: true },
   ] },
-  { id: 'sat', name: 'DANK SATHORN RAMA 3', note: '3 EXACT BASE SHIFTS | 2 STAFF ONLY DURING 11:00-19:00 PEAK', slots: [
-    { id: 'EARLY', label: '01:00-09:00' }, { id: 'DAY', label: '09:00-17:00' },
-    { id: 'NIGHT', label: '17:00-01:00' }, { id: 'PEAK', label: '11:00-19:00' },
-    { id: 'ADMIN', name: 'MANAGER / ADMIN', label: '11:00-19:00', optional: true },
+  { id: 'sat', name: 'DANK SATHORN RAMA 3', note: '24 HOURS | 00:00-09:00: 1 | 09:00-18:00: 1 | 18:00-03:00: 1 | 15:00-00:00 PEAK: +1', slots: [
+    { id: 'EARLY', label: '00:00-09:00' }, { id: 'DAY', label: '09:00-18:00' },
+    { id: 'NIGHT', label: '18:00-03:00' }, { id: 'PEAK', label: '15:00-00:00' },
+    { id: 'ADMIN', name: 'MANAGER / ADMIN', label: '15:00-00:00', optional: true },
   ] },
   { id: 'bar', name: 'DANK 224 BAR', note: 'ONE BARTENDER PER SHIFT | NO BAR-SHIFT OVERLAP', slots: [
     { id: 'MONTHU', name: 'MON-THU PM', label: '17:00-01:00', days: [1, 2, 3, 4] },
@@ -8560,14 +8653,19 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       {activeTab==="workshifts"&&(function(){
         var yy=+shiftMonth.slice(0,4), mm=+shiftMonth.slice(5,7);
         var monthLabel=new Date(Date.UTC(yy,mm-1,1)).toLocaleDateString("en-GB",{month:"long",year:"numeric",timeZone:"UTC"}).toUpperCase();
-        var saved=shiftBooks[shiftMonth]||null;
+        var published=buildPublishedRoster(shiftLocs,shiftStaff,yy,mm);
+        var isFixedRoster=!!fixedRosterFor(yy,mm);
+        var rosterStaff=published.staff;
+        /* September 2026 is the owner's signed fixed roster. It deliberately
+         * outranks an older generated copy already saved on a device. */
+        var saved=isFixedRoster?published.result:(shiftBooks[shiftMonth]||null);
         var res=shiftDraft&&shiftDraft.key===shiftMonth?shiftDraft.result:null;
         var shown=res||saved;
         var isDraft=!!res;
         var v=shown?shown.validation:null;
         var locList=shiftLocs.filter(function(l){return shiftLoc==="all"||l.id===shiftLoc;});
-        var staffById={}; shiftStaff.forEach(function(p){staffById[p.id]=p;});
-        var report=shown?shiftReportBundle(locList,shiftStaff,shown,monthLabel,shiftMonth):null;
+        var staffById={}; rosterStaff.forEach(function(p){staffById[p.id]=p;});
+        var report=shown?shiftReportBundle(locList,rosterStaff,shown,monthLabel,shiftMonth):null;
 
         /* colour tells you at a glance who is not the usual person on that
          * shift — that is the whole reason a manager scans the sheet */
@@ -8590,7 +8688,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
         })();
 
         var generate=function(){
-          var r=buildRoster(shiftLocs,shiftStaff,yy,mm);
+          var r=buildPublishedRoster(shiftLocs,shiftStaff,yy,mm).result;
           setShiftDraft({key:shiftMonth,result:r});
           notify(r.validation.ok?"✅ ร่างตารางเสร็จ — ตรวจแล้วกดอนุมัติ":("⚠ ร่างเสร็จ แต่มีปัญหา "+(r.validation.empty.length+r.validation.doubles.length+r.validation.unauthorised.length)+" จุด"));
         };
@@ -8632,7 +8730,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
               return <button key={o.id} onClick={function(){setShiftLoc(o.id);}} style={{...gs.btn(shiftLoc===o.id?C.green:C.card2,shiftLoc===o.id?"#000":"#fff"),fontSize:11,border:shiftLoc===o.id?"none":"1px solid "+C.border,minHeight:34}}>{o.n}</button>;
             })}
             {isDraft&&<span style={{...gs.badge(C.gold,"#000"),marginLeft:6}}>ร่าง · ยังไม่อนุมัติ</span>}
-            {!isDraft&&saved&&<span style={{...gs.badge(C.green,"#000"),marginLeft:6}}>อนุมัติแล้ว</span>}
+            {!isDraft&&saved&&<span style={{...gs.badge(C.green,"#000"),marginLeft:6}}>{isFixedRoster?"🔒 Fixed roster ตาม Base Coverage V8":"อนุมัติแล้ว"}</span>}
           </div>
 
           {shown&&report&&(

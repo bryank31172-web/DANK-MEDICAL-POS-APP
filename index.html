@@ -349,7 +349,82 @@ function rosterPay(person, actualHours, slotHours, shifts) {
     totalPay: Math.round((base + otPay) * 100) / 100
   };
 }
-function buildRoster(locations, staff, year, month1) {
+var SHIFT_FIXED_2026_09 = {
+  ptk: {
+    A1: ["amoe", "amoe", "jack", "amoe", "amoe", "amoe", "amoe", "amoe", "amoe", "rena", "amoe", "amoe", "amoe", "amoe", "amoe", "amoe", "honey", "amoe", "amoe", "amoe", "amoe", "amoe", "amoe", "honey", "amoe", "amoe", "amoe", "amoe", "amoe", "amoe"],
+    A2: ["dylan", "dylan", "dylan", "dylan", "jack", "dylan", "dylan", "dylan", "dylan", "dylan", "honey", "dylan", "dylan", "dylan", "dylan", "dylan", "dylan", "honey", "dylan", "dylan", "dylan", "dylan", "dylan", "dylan", "honey", "dylan", "dylan", "dylan", "dylan", "dylan"],
+    B1: ["palm", "palm", "palm", "palm", "palm", "steve", "palm", "palm", "palm", "palm", "palm", "palm", "steve", "palm", "palm", "palm", "palm", "steve", "palm", "palm", "palm", "palm", "palm", "palm", "steve", "palm", "palm", "palm", "palm", "palm"],
+    B2: ["mon", "mon", "mon", "honey", "mon", "mon", "mon", "mon", "mon", "steve", "mon", "mon", "mon", "mon", "mon", "mon", "ploy", "mon", "mon", "mon", "mon", "mon", "mon", "ploy", "mon", "mon", "mon", "mon", "mon", "mon"],
+    C1: ["jack", "jack", "steve", "rena", "rena", "rena", "rena", "jack", "jack", "jack", "steve", "rena", "rena", "rena", "jack", "jack", "raizo", "raizo", "rena", "rena", "rena", "jack", "raizo", "raizo", "raizo", "rena", "rena", "rena", "rena", "jack"],
+    C2: ["rena", "rena", "raizo", "raizo", "raizo", "honey", "steve", "rena", "honey", "honey", "rena", "jack", "honey", "steve", "rena", "raizo", "jack", "rena", "raizo", "jack", "steve", "rena", "jack", "jack", "rena", "honey", "jack", "steve", "jack", "honey"]
+  },
+  sat: {
+    EARLY: ["raizo", "raizo", "meng", "meng", "meng", "meng", "raizo", "raizo", "raizo", "raizo", "raizo", "raizo", "meng", "raizo", "raizo", "meng", "meng", "meng", "meng", "meng", "raizo", "raizo", "meng", "meng", "meng", "meng", "meng", "raizo", "raizo", "raizo"],
+    DAY: ["meng", "meng", "pok", "pok", "pok", "pok", "pok", "meng", "meng", "meng", "meng", "meng", "pok", "pok", "meng", "pok", "pok", "pok", "pok", "pok", "pok", "meng", "pok", "pok", "pok", "pok", "pok", "pok", "meng", "meng"],
+    NIGHT: ["steve", "mel", "mel", "mel", "steve", "ploy", "ploy", "steve", "mel", "mel", "mel", "steve", "ploy", "ploy", "steve", "mel", "steve", "mel", "steve", "ploy", "mel", "steve", "mel", "steve", "mel", "steve", "raizo", "mel", "mel", "mel"],
+    PEAK: ["mel", "ploy", "ploy", "ploy", "ploy", "mel", "mel", "mel", "ploy", "ploy", "ploy", "ploy", "mel", "mel", "mel", "ploy", "mel", "ploy", "ploy", "mel", "ploy", "mel", "ploy", "mel", "ploy", "ploy", "mel", "ploy", "ploy", "ploy"]
+  },
+  bar: {
+    MONTHU: ["alex", "alex", "alex", null, null, null, "honey", "alex", "alex", "alex", null, null, null, "honey", "alex", "alex", "alex", null, null, null, "honey", "alex", "alex", "alex", null, null, null, "honey", "alex", "alex"],
+    FSDAY: [null, null, null, "jack", "honey", "jack", null, null, null, null, "jack", "honey", "jack", null, null, null, null, "jack", "jack", "honey", null, null, null, null, "jack", "jack", "honey", null, null, null],
+    FSNIGHT: [null, null, null, "alex", "alex", "alex", null, null, null, null, "alex", "alex", "alex", null, null, null, null, "alex", "alex", "alex", null, null, null, null, "alex", "alex", "alex", null, null, null]
+  }
+};
+function fixedRosterFor(year, month1) {
+  if (+year !== 2026 || +month1 !== 9) return null;
+  var cells = {};
+  Object.keys(SHIFT_FIXED_2026_09).forEach(function(loc) {
+    Object.keys(SHIFT_FIXED_2026_09[loc]).forEach(function(slot) {
+      SHIFT_FIXED_2026_09[loc][slot].forEach(function(id, i) {
+        if (id) cells[loc + "|2026-09-" + ("0" + (i + 1)).slice(-2) + "|" + slot] = id;
+      });
+    });
+  });
+  return cells;
+}
+function fixedRosterStaffFor(staff, year, month1) {
+  if (+year !== 2026 || +month1 !== 9) return staff || [];
+  var profile = {
+    amoe: { role: "BUDTENDER", kind: "full", locs: ["ptk"], slots: ["A1"], target: 26, max: 26, normalHours: 234 },
+    dylan: { role: "BUDTENDER", kind: "full", locs: ["ptk"], slots: ["A2"], target: 26, max: 26, normalHours: 234 },
+    rena: { role: "BUDTENDER", kind: "full", locs: ["ptk"], slots: ["A1", "C1", "C2"], target: 23, max: 23, normalHours: 207 },
+    palm: { role: "BUDTENDER", kind: "full", locs: ["ptk"], slots: ["B1"], target: 26, max: 26, normalHours: 234 },
+    mon: { role: "BUDTENDER", kind: "full", locs: ["ptk"], slots: ["B2"], target: 26, max: 26, normalHours: 234 },
+    steve: { role: "RELIEF BUDTENDER", kind: "full", relief: true, locs: ["ptk", "sat"], slots: ["B1", "B2", "C1", "C2", "NIGHT"], target: 21, max: 21, normalHours: 189 },
+    raizo: { role: "RELIEF BUDTENDER", kind: "full", relief: true, locs: ["ptk", "sat"], slots: ["C1", "C2", "EARLY", "NIGHT"], target: 26, max: 26, normalHours: 234 },
+    meng: { role: "BUDTENDER", kind: "full", locs: ["sat"], slots: ["EARLY", "DAY"], target: 26, max: 26, normalHours: 234 },
+    pok: { role: "BUDTENDER", kind: "full", locs: ["sat"], slots: ["DAY"], target: 19, max: 19, normalHours: 171 },
+    ploy: { role: "BUDTENDER + CONTENT", kind: "full", locs: ["ptk", "sat"], slots: ["B2", "NIGHT", "PEAK"], target: 25, max: 25, normalHours: 225, duty: { date: "2026-09-10", loc: "sat", label: "CONTENT / SOCIAL MEDIA" } },
+    mel: { role: "BUDTENDER", kind: "full", locs: ["sat"], slots: ["NIGHT", "PEAK"], target: 26, max: 26, normalHours: 234 },
+    alex: { role: "BAR TEAM LEADER", kind: "full", locs: ["bar"], slots: ["MONTHU", "FSNIGHT"], target: 26, max: 26, normalHours: 208, rosterHoursPerDuty: 8 },
+    jack: { role: "BARTENDER", kind: "full", locs: ["ptk", "bar"], slots: ["A1", "A2", "C1", "C2", "FSDAY"], target: 26, max: 26, normalHours: 226 },
+    honey: { role: "BARTENDER / RELIEF", kind: "part", relief: true, locs: ["ptk", "bar"], slots: ["A1", "A2", "B1", "B2", "C2", "MONTHU", "FSDAY"], target: 20, max: 20, normalHours: 172 }
+  };
+  var list = (staff || []).filter(function(p) {
+    return p.id !== "bank";
+  }).map(function(p) {
+    return profile[p.id] ? Object.assign({}, p, profile[p.id], { off: [], leave: [] }) : p;
+  });
+  if (!list.some(function(p) {
+    return p.id === "bank";
+  })) list.push({
+    id: "bank",
+    name: "Bank",
+    role: "MANAGEMENT QA",
+    kind: "management",
+    locs: ["ptk", "sat", "bar"],
+    slots: [],
+    off: [],
+    target: 0,
+    max: 0
+  });
+  return list;
+}
+function buildPublishedRoster(locations, staff, year, month1) {
+  var exactStaff = fixedRosterStaffFor(staff, year, month1);
+  return { staff: exactStaff, result: buildRoster(locations, exactStaff, year, month1, fixedRosterFor(year, month1)) };
+}
+function buildRoster(locations, staff, year, month1, fixedCells) {
   var days = monthDates(year, month1);
   var flexIdx = 0;
   staff = (staff || []).map(function(p) {
@@ -403,11 +478,16 @@ function buildRoster(locations, staff, year, month1) {
           return;
         }
         if (cells[key] !== void 0) return;
-        var cands = (staff || []).filter(function(p) {
+        var fixedId = fixedCells ? fixedCells[key] : void 0;
+        if (fixedCells && fixedId === void 0) {
+          cells[key] = { closed: true, fixed: true };
+          return;
+        }
+        var cands = fixedCells ? [] : (staff || []).filter(function(p) {
           p.__dates = dates[p.id] || [];
           return rosterEligible(p, loc, slot, day, assignedOn[day.date], count, byLoc) === null;
         });
-        var pick = rosterPick(cands, slot, count, shiftSpan(slot.label));
+        var pick = fixedCells ? byId[fixedId] : rosterPick(cands, slot, count, shiftSpan(slot.label));
         if (!pick) {
           cells[key] = null;
           if (!slot.optional) {
@@ -433,13 +513,16 @@ function buildRoster(locations, staff, year, month1) {
         }
         var take = function(p) {
           var w = p.window || (p.windows || {})[slot.id] || "";
-          var hh = shiftHours(w || slot.label);
-          assignedOn[day.date][p.id] = loc.id + "/" + slot.id;
+          var hh = p.rosterHoursPerDuty || shiftHours(w || slot.label);
+          var sameDay = assignedOn[day.date][p.id] || [];
+          if (!Array.isArray(sameDay)) sameDay = [sameDay];
+          sameDay.push(loc.id + "/" + slot.id);
+          assignedOn[day.date][p.id] = sameDay;
           count[p.id]++;
           hours[p.id] += hh;
           dates[p.id].push(day.date);
           byLoc[p.id + "|" + loc.id] = (byLoc[p.id + "|" + loc.id] || 0) + 1;
-          if (p.duty && p.duty.dow === day.dow && (!p.duty.loc || p.duty.loc === loc.id)) {
+          if (p.duty && (p.duty.date && p.duty.date === day.date || (p.duty.dates || []).indexOf(day.date) >= 0 || p.duty.dow != null && p.duty.dow === day.dow) && (!p.duty.loc || p.duty.loc === loc.id)) {
             duties[p.id].push({ date: day.date, label: p.duty.label });
           }
           return { id: p.id, name: p.name, window: w };
@@ -478,8 +561,10 @@ function buildRoster(locations, staff, year, month1) {
   Object.keys(assignedOn).sort().forEach(function(date) {
     var seen = {};
     Object.keys(assignedOn[date]).forEach(function(pid) {
-      seen[pid] = (seen[pid] || 0) + 1;
-      if (seen[pid] > 1) doubles.push({ id: pid, name: (byId[pid] || {}).name, date });
+      var booked = assignedOn[date][pid];
+      var n = Array.isArray(booked) ? booked.length : 1;
+      seen[pid] = (seen[pid] || 0) + n;
+      if (seen[pid] > 1) doubles.push({ id: pid, name: (byId[pid] || {}).name, date, assignments: booked });
     });
   });
   var slotLenOf = function(p) {
@@ -587,7 +672,7 @@ function rosterPayroll(res, staff, wagesBudget) {
   var byLoc = {}, base = 0, ot = 0, otH = 0;
   var noShift = [], noPay = [];
   (res.summary || []).forEach(function(s) {
-    if (s.kind === "ceo") return;
+    if (s.kind === "ceo" || s.kind === "management") return;
     base += s.pay.basePay;
     ot += s.pay.otPay;
     otH += s.pay.otHours;
@@ -864,12 +949,12 @@ var SHIFT_LOCATIONS = [
     { id: "C2", label: "17:00-02:00" },
     { id: "STOCK", name: "STOCK / ADMIN", label: "17:00-02:00", days: [0], optional: true }
   ] },
-  { id: "sat", name: "DANK SATHORN RAMA 3", note: "3 EXACT BASE SHIFTS | 2 STAFF ONLY DURING 11:00-19:00 PEAK", slots: [
-    { id: "EARLY", label: "01:00-09:00" },
-    { id: "DAY", label: "09:00-17:00" },
-    { id: "NIGHT", label: "17:00-01:00" },
-    { id: "PEAK", label: "11:00-19:00" },
-    { id: "ADMIN", name: "MANAGER / ADMIN", label: "11:00-19:00", optional: true }
+  { id: "sat", name: "DANK SATHORN RAMA 3", note: "24 HOURS | 00:00-09:00: 1 | 09:00-18:00: 1 | 18:00-03:00: 1 | 15:00-00:00 PEAK: +1", slots: [
+    { id: "EARLY", label: "00:00-09:00" },
+    { id: "DAY", label: "09:00-18:00" },
+    { id: "NIGHT", label: "18:00-03:00" },
+    { id: "PEAK", label: "15:00-00:00" },
+    { id: "ADMIN", name: "MANAGER / ADMIN", label: "15:00-00:00", optional: true }
   ] },
   { id: "bar", name: "DANK 224 BAR", note: "ONE BARTENDER PER SHIFT | NO BAR-SHIFT OVERLAP", slots: [
     { id: "MONTHU", name: "MON-THU PM", label: "17:00-01:00", days: [1, 2, 3, 4] },
@@ -11710,7 +11795,10 @@ function GreenPOS() {
   })(), activeTab === "workshifts" && (function() {
     var yy = +shiftMonth.slice(0, 4), mm = +shiftMonth.slice(5, 7);
     var monthLabel = new Date(Date.UTC(yy, mm - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).toUpperCase();
-    var saved = shiftBooks[shiftMonth] || null;
+    var published = buildPublishedRoster(shiftLocs, shiftStaff, yy, mm);
+    var isFixedRoster = !!fixedRosterFor(yy, mm);
+    var rosterStaff = published.staff;
+    var saved = isFixedRoster ? published.result : shiftBooks[shiftMonth] || null;
     var res = shiftDraft && shiftDraft.key === shiftMonth ? shiftDraft.result : null;
     var shown = res || saved;
     var isDraft = !!res;
@@ -11719,10 +11807,10 @@ function GreenPOS() {
       return shiftLoc === "all" || l.id === shiftLoc;
     });
     var staffById = {};
-    shiftStaff.forEach(function(p) {
+    rosterStaff.forEach(function(p) {
       staffById[p.id] = p;
     });
-    var report = shown ? shiftReportBundle(locList, shiftStaff, shown, monthLabel, shiftMonth) : null;
+    var report = shown ? shiftReportBundle(locList, rosterStaff, shown, monthLabel, shiftMonth) : null;
     var inkFor = function(p) {
       if (!p) return C.muted;
       if (p.kind === "manager") return C.gold;
@@ -11743,7 +11831,7 @@ function GreenPOS() {
       return out;
     })();
     var generate = function() {
-      var r = buildRoster(shiftLocs, shiftStaff, yy, mm);
+      var r = buildPublishedRoster(shiftLocs, shiftStaff, yy, mm).result;
       setShiftDraft({ key: shiftMonth, result: r });
       notify(r.validation.ok ? "\u2705 \u0E23\u0E48\u0E32\u0E07\u0E15\u0E32\u0E23\u0E32\u0E07\u0E40\u0E2A\u0E23\u0E47\u0E08 \u2014 \u0E15\u0E23\u0E27\u0E08\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34" : "\u26A0 \u0E23\u0E48\u0E32\u0E07\u0E40\u0E2A\u0E23\u0E47\u0E08 \u0E41\u0E15\u0E48\u0E21\u0E35\u0E1B\u0E31\u0E0D\u0E2B\u0E32 " + (r.validation.empty.length + r.validation.doubles.length + r.validation.unauthorised.length) + " \u0E08\u0E38\u0E14");
     };
@@ -11787,7 +11875,7 @@ function GreenPOS() {
       return /* @__PURE__ */ React.createElement("button", { key: o.id, onClick: function() {
         setShiftLoc(o.id);
       }, style: __spreadProps(__spreadValues({}, gs.btn(shiftLoc === o.id ? C.green : C.card2, shiftLoc === o.id ? "#000" : "#fff")), { fontSize: 11, border: shiftLoc === o.id ? "none" : "1px solid " + C.border, minHeight: 34 }) }, o.n);
-    }), isDraft && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.gold, "#000")), { marginLeft: 6 }) }, "\u0E23\u0E48\u0E32\u0E07 \xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"), !isDraft && saved && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.green, "#000")), { marginLeft: 6 }) }, "\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E41\u0E25\u0E49\u0E27")), shown && report && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid " + C.blue + "55", background: "linear-gradient(135deg,rgba(56,189,248,0.07),rgba(74,222,128,0.025))" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800 } }, "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \xB7 Live report connections"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 2 } }, "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30 + \u0E04\u0E48\u0E32\u0E41\u0E23\u0E07 + Actual Expense + POS commission \u0E43\u0E0A\u0E49\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E2D\u0E37\u0E48\u0E19\u0E43\u0E19\u0E41\u0E2D\u0E1B")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    }), isDraft && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.gold, "#000")), { marginLeft: 6 }) }, "\u0E23\u0E48\u0E32\u0E07 \xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"), !isDraft && saved && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, gs.badge(C.green, "#000")), { marginLeft: 6 }) }, isFixedRoster ? "\u{1F512} Fixed roster \u0E15\u0E32\u0E21 Base Coverage V8" : "\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E41\u0E25\u0E49\u0E27")), shown && report && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, border: "1px solid " + C.blue + "55", background: "linear-gradient(135deg,rgba(56,189,248,0.07),rgba(74,222,128,0.025))" }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, fontWeight: 800 } }, "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \xB7 Live report connections"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 2 } }, "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30 + \u0E04\u0E48\u0E32\u0E41\u0E23\u0E07 + Actual Expense + POS commission \u0E43\u0E0A\u0E49\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E2D\u0E37\u0E48\u0E19\u0E43\u0E19\u0E41\u0E2D\u0E1B")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
       setFinView("expenses");
       setActiveTab("finance");
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10, border: "1px solid " + C.border }) }, "Actual Expense"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
