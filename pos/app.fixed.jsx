@@ -1030,6 +1030,8 @@ const TAB_GUIDE=[
    steps:"• (เฉพาะ CEO) เชื่อม StoreHub + เว็บไซต์ลูกค้า และตรวจสถานะ API"},
   {id:"work",name:"📋 Work — งานมอบหมาย",kw:["งานมอบหมาย","task","checklist","เช็คลิสต์","งานประจำวัน"],
    steps:"• งานที่ได้รับมอบหมาย/เช็คลิสต์ประจำวัน — เสร็จแล้วติ๊ก · ขอเลื่อน deadline ได้ (ผู้จัดการอนุมัติ)"},
+  {id:"workshifts",name:"🗓 Work Shifts — ตารางกะ",kw:["ตารางกะ","ตารางงาน","work shifts","roster","schedule"],
+   steps:"• ดูตารางกะรายเดือน แยกสาขา พร้อมเวลางาน · ผู้จัดการสร้างร่าง ตรวจ conflict และอนุมัติก่อนบันทึก\n• ถาม AI ในหน้านี้ได้ว่าใครทำงานวันไหน ใครแทนได้ ค่าแรง หรือ OT"},
   {id:"scale",name:"⚖ Scale & Print — เครื่องชั่ง/ปริ้น",kw:["เครื่องชั่ง","ชั่ง","scale","น้ำหนัก","weight","ปริ้น","printer","พิมพ์ใบเสร็จ","หน่วย","kg","จอลูกค้า","customer display","cds","จอที่สอง"],
    steps:"• ต่อเครื่องชั่ง USB: กด 🔌 Connect (ใช้ Chrome/Edge) · ตั้งหน่วย Auto/g/kg — ถ้าตัวเลขน้อยกว่าหน้าจอเครื่อง 1000 เท่า ให้ตั้งเป็น kg\n• 🧪 Test scale เช็คก่อนใช้ทุกครั้ง · ตั้งค่าเครื่องพิมพ์ใบเสร็จที่หน้านี้\n• 🖥 จอลูกค้า (CDS): กด เปิดจอลูกค้า → ลากไปจอที่สอง กด F11 — ลูกค้าเห็นตะกร้า ราคา ยอดรวม และ QR โอนเงินสด ๆ"},
   {id:"marketing",name:"📣 Marketing — การตลาด",kw:["การตลาด","marketing","โพสต์","content","แคปชั่น","โฆษณา"],
@@ -1052,7 +1054,45 @@ function asstGotoFor(t){
   if(/^👥/u.test(s))return "staff";
   return null;
 }
-const ASST_SYSTEM="คุณคือ Bryan AI ผู้ช่วยในแอป CLINICWORKS POS (Dank Cannabis Clinic Bangkok) หน้าที่หลัก: สอนพนักงานใช้แอปแบบละเอียดทีละขั้น และชี้ว่าต้องไปหน้าไหน\nกติกา:\n- ตอบภาษาเดียวกับผู้ถาม (ไทย/English)\n- ตอบเป็นขั้นตอน 1. 2. 3. สั้น ชัด ทำตามได้ทันที\n- ถ้าคำตอบเกี่ยวกับหน้าใดในแอป ให้จบข้อความด้วยแท็ก [GOTO:id] ของหน้านั้น (แท็กเดียว, id จากคู่มือ)\n- ห้ามแต่งฟีเจอร์ที่ไม่มีในคู่มือ ถ้าไม่แน่ใจให้บอกว่าไม่มีและแนะนำหน้าที่ใกล้เคียง\n\nคู่มือแอปทั้งหมด (id — หน้า):\n"+TAB_GUIDE.map(function(g){return g.id+" — "+g.name+"\n"+g.steps;}).join("\n\n");
+// Voice commands are intentionally limited to safe navigation. DANK SIRI may
+// take staff to the right screen, but checkout, refunds, stock edits and other
+// mutations still require the normal on-screen review/confirmation. This keeps
+// a noisy counter (or a misheard word) from changing shop data.
+function asstCommandFor(question){
+  var q=String(question||"").toLowerCase().replace(/^\s*(hey\s+)?dank\s+siri[,:\s-]*/i,"").trim();
+  if(!q)return null;
+  var isCommand=/(เปิด|ไปที่|ไปหน้า|พาไป|เข้าเมนู|แสดงหน้า|open|go to|show|take me|navigate)/i.test(q);
+  if(!isCommand)return null;
+  var aliases={
+    shift:["กะ","เข้ากะ","ปิดกะ","shift","clock in","clock out"],
+    pos:["หน้าขาย","คิดเงิน","ขายของ","pos","checkout","cashier","ใบเสร็จ","receipt"],
+    inventory:["สต๊อก","สต็อก","รับของ","stock","inventory","receive"],
+    crm:["ลูกค้า","สมาชิก","crm","customer","member"],
+    dashboard:["ยอดขาย","แดชบอร์ด","dashboard","sales","kpi"],
+    finance:["การเงิน","รายจ่าย","กำไร","finance","expense","profit"],
+    work:["งาน","เช็คลิสต์","work","task","checklist"],
+    workshifts:["ตารางกะ","ตารางงาน","work shifts","roster","schedule"],
+    scale:["เครื่องชั่ง","เครื่องพิมพ์","จอลูกค้า","scale","printer","customer display"],
+    orders:["ออเดอร์ออนไลน์","เดลิเวอรี่","orders","delivery"],
+    bar:["บาร์","สูตรค็อกเทล","bar","cocktail"],
+    aisum:["สรุปร้าน","ภาพรวม","ai summary","overview"]
+  };
+  var best=null,bestLen=0;
+  TAB_GUIDE.forEach(function(g){
+    var words=(aliases[g.id]||[]).concat(g.kw||[],[g.id]);
+    words.forEach(function(w){var n=String(w||"").toLowerCase();if(n.length>=2&&q.indexOf(n)>=0&&n.length>bestLen){best=g;bestLen=n.length;}});
+  });
+  if(!best)return null;
+  var guarded=/(คืนเงิน|ยกเลิกบิล|void|refund|ปรับสต๊อก|แก้สต๊อก|adjust stock|ลบ|delete|ส่วนลด|discount|รับชำระ|checkout|ปิดกะ|clock out)/i.test(q);
+  return {
+    text:(guarded?"🛡 คำสั่งนี้มีผลต่อข้อมูลร้าน ฉันเปิดหน้าที่ถูกต้องให้แล้ว แต่พนักงานต้องตรวจสอบและกดยืนยันบนหน้าจอเอง\n":"✅ เปิดให้แล้ว: ")+best.name,
+    nav:best.id,
+    autoNav:true,
+    guarded:guarded
+  };
+}
+function asstSpeechLang(text){return /[\u0E00-\u0E7F]/.test(String(text||""))?"th-TH":"en-US";}
+const ASST_SYSTEM="คุณคือ DANK SIRI ผู้ช่วยพนักงานในแอป CLINICWORKS POS (Dank Cannabis Clinic Bangkok) หน้าที่หลัก: สอนพนักงานใช้แอปแบบละเอียดทีละขั้น และชี้ว่าต้องไปหน้าไหน\nกติกา:\n- ตอบภาษาเดียวกับผู้ถาม (ไทย/English)\n- ตอบเป็นขั้นตอน 1. 2. 3. สั้น ชัด ทำตามได้ทันที\n- ถ้าคำตอบเกี่ยวกับหน้าใดในแอป ให้จบข้อความด้วยแท็ก [GOTO:id] ของหน้านั้น (แท็กเดียว, id จากคู่มือ)\n- ห้ามสั่งทำรายการที่เปลี่ยนข้อมูลร้านโดยอัตโนมัติ เช่น checkout, refund, void, ปรับ stock หรือลบข้อมูล ให้พาไปหน้าที่ถูกต้องและบอกให้พนักงานตรวจสอบแล้วกดยืนยันเอง\n- ห้ามแต่งฟีเจอร์ที่ไม่มีในคู่มือ ถ้าไม่แน่ใจให้บอกว่าไม่มีและแนะนำหน้าที่ใกล้เคียง\n\nคู่มือแอปทั้งหมด (id — หน้า):\n"+TAB_GUIDE.map(function(g){return g.id+" — "+g.name+"\n"+g.steps;}).join("\n\n");
 
 // Categories sort the same way on every screen: flower first and best grade
 // first, then the rest of the cannabis range, then everything that is not
@@ -5458,6 +5498,10 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   const [asstQ,setAsstQ]=useState("");
   const [asstMsgs,setAsstMsgs]=useState([]);
   const [asstBusy,setAsstBusy]=useState(false);
+  const [asstListening,setAsstListening]=useState(false);
+  const [asstVoiceError,setAsstVoiceError]=useState("");
+  const [asstVoiceReply,setAsstVoiceReply]=useState(function(){try{return localStorage.getItem("dank_siri_voice_reply")!=="0";}catch(e){return true;}});
+  const asstRecognitionRef=useRef(null);
   const [claimBusy,setClaimBusy]=useState(false);
   // the customer site's curated catalogue, used only for its photos
   const [webImgs,setWebImgs]=useState({});
@@ -5515,6 +5559,8 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   const [barPick,setBarPick]=useState(null);
   const [barDone,setBarDone]=useState({});
   const asstGreetRef=useRef(false);
+  useEffect(function(){try{localStorage.setItem("dank_siri_voice_reply",asstVoiceReply?"1":"0");}catch(e){}},[asstVoiceReply]);
+  useEffect(function(){return function(){try{if(asstRecognitionRef.current)asstRecognitionRef.current.abort();if(window.speechSynthesis)window.speechSynthesis.cancel();}catch(e){}};},[]);
   useEffect(function(){if(screen==="main"&&!asstGreetRef.current){asstGreetRef.current=true;var tm=setTimeout(function(){setAsstIntro(true);},1800);return function(){clearTimeout(tm);};}},[screen]);
   const asstBestSellers=function(){var agg={};(_txScoped||[]).forEach(function(t){(t.items||[]).forEach(function(it){var pid=it.productId;if(!pid)return;if(!agg[pid])agg[pid]={s:0,r:0,pid:pid};agg[pid].s+=(+it.quantity||0);agg[pid].r+=(+it.total||0);});});return Object.values(agg).sort(function(a,b){return b.r-a.r;}).slice(0,5).map(function(x){var pr=products.find(function(p){return p.id===x.pid;});return (pr?cleanName(pr).short:("#"+x.pid))+" (฿"+Math.round(x.r).toLocaleString()+")";});};
   // one product by name: stock, price, margin, and where to go next
@@ -5682,12 +5728,30 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
     try{navigator.clipboard.writeText(full);}catch(e){}
     notify("📋 คัดลอกคำถาม+ข้อมูลแล้ว — เปิดแอป Grok แล้ววางได้เลย");
   };
-  const asstSend=function(text){
+  const asstSpeak=function(text){
+    if(!asstVoiceReply||!window.speechSynthesis||typeof window.SpeechSynthesisUtterance!=="function")return;
+    try{
+      window.speechSynthesis.cancel();
+      var clean=String(text||"").replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu,"").replace(/^[•·]\s*/gm,"").trim();
+      if(!clean)return;
+      var u=new window.SpeechSynthesisUtterance(clean.slice(0,1200));
+      u.lang=asstSpeechLang(clean);u.rate=0.96;u.pitch=1;u.volume=1;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  };
+  const asstSend=function(text,opts){
     var q=String(text!==undefined?text:asstQ||"").trim(); if(!q)return;
-    var ans=asstProductAnswer(q)||asstRecipeAnswer(q)||asstAnswer(q);
+    var ans=asstCommandFor(q)||asstProductAnswer(q)||asstRecipeAnswer(q)||asstAnswer(q);
     if(typeof ans==="string")ans={text:ans,nav:asstGotoFor(ans)};
     setAsstQ("");
-    if(ans){setAsstMsgs(function(p){return p.concat([{role:"user",text:q},{role:"bot",text:ans.text,nav:ans.nav}]);});return;}
+    if(ans){
+      if(ans.autoNav&&ans.nav){
+        if(TABS.some(function(tb){return tb.id===ans.nav;})){setActiveTab(ans.nav);notify((ans.guarded?"🛡 ตรวจสอบก่อนยืนยัน · ":"🎙 DANK SIRI · ")+asstTabName(ans.nav));}
+        else ans={text:"🔒 บัญชีนี้ไม่มีสิทธิ์เปิดหน้า "+asstTabName(ans.nav)+" กรุณาให้ Manager/CEO เข้าระบบ",nav:null};
+      }
+      setAsstMsgs(function(p){return p.concat([{role:"user",text:q,voice:opts&&opts.voice},{role:"bot",text:ans.text,nav:ans.nav}]);});
+      asstSpeak(ans.text);return;
+    }
     // nothing canned matched — hand the question to the AI with the full manual
     setAsstMsgs(function(p){return p.concat([{role:"user",text:q}]);});
     setAsstBusy(true);
@@ -5696,12 +5760,28 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       .then(function(txt){
         var s=String(txt||"");var mm=s.match(/\[GOTO:([a-z]+)\]/i);
         var navId=(mm&&TAB_GUIDE.some(function(g){return g.id===mm[1].toLowerCase();}))?mm[1].toLowerCase():null;
-        setAsstMsgs(function(p){return p.concat([{role:"bot",text:s.replace(/\s*\[GOTO:[a-z]+\]/gi,"").trim(),nav:navId}]);});
+        var spoken=s.replace(/\s*\[GOTO:[a-z]+\]/gi,"").trim();
+        setAsstMsgs(function(p){return p.concat([{role:"bot",text:spoken,nav:navId}]);});asstSpeak(spoken);
       })
       .catch(function(e){
         setAsstMsgs(function(p){return p.concat([{role:"bot",text:"⚠ AI ยังตอบไม่ได้ตอนนี้ ("+((e&&e.message)||"connection")+")\nกด 📋 ด้านล่าง เดี๋ยวรวมคำถาม+ข้อมูลร้านให้เอาไปถามในแอป Grok แทน",askGrok:true}]);});
       })
       .then(function(){setAsstBusy(false);});
+  };
+  const asstListen=function(){
+    if(asstListening){try{if(asstRecognitionRef.current)asstRecognitionRef.current.stop();}catch(e){}return;}
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){setAsstVoiceError("อุปกรณ์นี้ยังไม่รองรับ Voice Recognition — ใช้ Chrome/Edge หรือพิมพ์คำสั่งแทน");return;}
+    try{
+      if(window.speechSynthesis)window.speechSynthesis.cancel();
+      var rec=new SR();asstRecognitionRef.current=rec;
+      rec.lang=lang==="th"?"th-TH":"en-US";rec.interimResults=false;rec.continuous=false;rec.maxAlternatives=1;
+      rec.onstart=function(){setAsstVoiceError("");setAsstListening(true);};
+      rec.onresult=function(ev){var tx=ev&&ev.results&&ev.results[0]&&ev.results[0][0]?ev.results[0][0].transcript:"";if(tx){setAsstQ(tx);asstSend(tx,{voice:true});}};
+      rec.onerror=function(ev){var code=ev&&ev.error||"voice";setAsstVoiceError(code==="not-allowed"?"กรุณาอนุญาตใช้ไมโครโฟน แล้วลองใหม่":"ฟังไม่ชัด ลองพูดอีกครั้ง ("+code+")");};
+      rec.onend=function(){setAsstListening(false);asstRecognitionRef.current=null;};
+      rec.start();
+    }catch(e){setAsstListening(false);setAsstVoiceError("เปิดไมโครโฟนไม่ได้: "+String(e&&e.message||e));}
   };
   const grokText=function(system,user,maxTok){return fetch("/api/grok?action=chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok||800,system:system,messages:[{role:"user",content:user}]})}).then(function(r){return r.json();}).then(function(d){if(d&&d.content&&d.content[0]&&d.content[0].text)return d.content[0].text;throw new Error((d&&d.error&&(d.error.message||String(d.error)))||"AI ยังไม่พร้อม — ต้องมีไฟล์ api/grok.mjs + XAI_KEY ใน Vercel");});};
   const [scanImg,setScanImg]=useState(null);
@@ -10712,19 +10792,20 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
       {screen==="main"&&(<span style={{display:"contents"}}>
         {asstIntro&&!asstOpen&&(
           <div style={{position:"fixed",right:mob?12:24,bottom:mob?128:96,zIndex:900,maxWidth:250,background:C.card,border:"1px solid "+C.green,borderRadius:14,padding:"11px 13px",boxShadow:"0 8px 30px rgba(0,0,0,0.55)"}}>
-            <div style={{fontSize:11.5,fontWeight:800,marginBottom:3}}>👋 สวัสดีค่ะ! ฉันคือ Bryan AI</div>
-            <div style={{fontSize:10,color:C.muted,lineHeight:1.6,marginBottom:8}}>ผู้ช่วยของคุณ ถามได้ทุกเรื่องในแอป — ยอดขาย สต๊อก วิธีใช้งาน ต้องการให้ช่วยอะไรไหมคะ?</div>
+            <div style={{fontSize:11.5,fontWeight:800,marginBottom:3}}>👋 สวัสดีค่ะ! ฉันคือ DANK SIRI</div>
+            <div style={{fontSize:10,color:C.muted,lineHeight:1.6,marginBottom:8}}>พูดหรือพิมพ์ถามวิธีทำงาน และสั่งเปิดหน้าต่าง ๆ ได้ เช่น “เปิดสต๊อก” หรือ “วิธีปิดกะ”</div>
             <div style={{display:"flex",gap:6}}>
-              <button onClick={function(){setAsstOpen(true);setAsstIntro(false);if(asstMsgs.length===0)setAsstMsgs([{role:"bot",text:"👋 สวัสดีค่ะ! ฉันคือ Bryan AI ผู้ช่วยประจำร้าน สอนใช้ได้ทุกหน้าในแอปและพาไปหน้านั้นให้เลย — พิมพ์ เช่น 'สอนใช้แอป', 'วิธีรับของ', 'วิธีปิดกะ', 'ยอดขายวันนี้' หรือกดปุ่มลัดด้านล่างได้เลยค่ะ"}]);}} style={{...gs.btn(C.green),fontSize:10,flex:1}}>💬 เปิดแชท</button>
+              <button onClick={function(){setAsstOpen(true);setAsstIntro(false);if(asstMsgs.length===0)setAsstMsgs([{role:"bot",text:"👋 สวัสดีค่ะ! ฉันคือ DANK SIRI ผู้ช่วยพนักงาน พูดหรือพิมพ์ถามวิธีทำงาน และสั่งเปิดหน้าใน POS ได้ เช่น 'เปิดสต๊อก' 'ไปหน้าขาย' 'วิธีรับของ' หรือ 'ยอดขายวันนี้'"}]);}} style={{...gs.btn(C.green),fontSize:10,flex:1}}>🎙 เปิด DANK SIRI</button>
               <button onClick={function(){setAsstIntro(false);}} style={{...gs.btn(C.card2,"#fff"),fontSize:10,border:"1px solid "+C.border}}>ไว้ก่อน</button>
             </div>
           </div>
         )}
-        <button onClick={function(){setAsstOpen(function(o){return !o;});setAsstIntro(false);if(asstMsgs.length===0)setAsstMsgs([{role:"bot",text:"👋 สวัสดีค่ะ! ฉันคือ Bryan AI ผู้ช่วยประจำร้าน สอนใช้ได้ทุกหน้าในแอปและพาไปหน้านั้นให้เลย — พิมพ์ เช่น 'สอนใช้แอป', 'วิธีรับของ', 'วิธีปิดกะ', 'ยอดขายวันนี้' หรือกดปุ่มลัดด้านล่างได้เลยค่ะ"}]);}} title="Bryan AI ผู้ช่วย" style={{position:"fixed",right:mob?12:24,bottom:mob?72:28,zIndex:901,width:54,height:54,borderRadius:"50%",background:C.green,border:"3px solid "+C.bg,cursor:"pointer",fontSize:25,boxShadow:"0 6px 20px rgba(74,222,128,0.45)"}}>🤖</button>
+        <button onClick={function(){setAsstOpen(function(o){return !o;});setAsstIntro(false);if(asstMsgs.length===0)setAsstMsgs([{role:"bot",text:"👋 สวัสดีค่ะ! ฉันคือ DANK SIRI ผู้ช่วยพนักงาน พูดหรือพิมพ์ถามวิธีทำงาน และสั่งเปิดหน้าใน POS ได้ เช่น 'เปิดสต๊อก' 'ไปหน้าขาย' 'วิธีรับของ' หรือ 'ยอดขายวันนี้'"}]);}} title="DANK SIRI ผู้ช่วยพนักงาน" aria-label="เปิด DANK SIRI ผู้ช่วยพนักงาน" aria-expanded={asstOpen} style={{position:"fixed",right:mob?12:24,bottom:mob?72:28,zIndex:901,width:54,height:54,borderRadius:"50%",background:asstListening?C.red:C.green,border:"3px solid "+C.bg,cursor:"pointer",fontSize:25,boxShadow:asstListening?"0 0 0 8px rgba(244,63,94,0.18)":"0 6px 20px rgba(74,222,128,0.45)"}}>🎙</button>
         {asstOpen&&(
           <div style={{position:"fixed",right:mob?8:24,bottom:mob?70:92,left:mob?8:"auto",zIndex:902,width:mob?"auto":360,maxHeight:"70vh",background:C.card,border:"1px solid "+C.border,borderRadius:16,boxShadow:"0 12px 40px rgba(0,0,0,0.6)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <div style={{padding:"11px 13px",borderBottom:"1px solid "+C.border,background:C.card2,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div><div style={{fontSize:12.5,fontWeight:900}}>🤖 Bryan AI ผู้ช่วย</div><div style={{fontSize:8.5,color:C.green}}>● พร้อมช่วย · ถามได้ทุกเรื่องในแอป</div></div>
+              <div><div style={{fontSize:12.5,fontWeight:900}}>🎙 DANK SIRI</div><div style={{fontSize:8.5,color:asstListening?C.red:C.green}}>● {asstListening?"กำลังฟัง... พูดได้เลย":"พร้อมช่วย · Ask + Command"}</div></div>
+              <button onClick={function(){setAsstVoiceReply(function(v){return !v;});if(window.speechSynthesis)window.speechSynthesis.cancel();}} title="เปิด/ปิดเสียงตอบ" aria-label="เปิดหรือปิดเสียงตอบของ DANK SIRI" aria-pressed={asstVoiceReply} style={{...gs.btn(C.card3,asstVoiceReply?C.green:C.muted),fontSize:11,padding:"5px 10px",border:"1px solid "+C.border,marginLeft:"auto",marginRight:5}}>{asstVoiceReply?"🔊":"🔇"}</button>
               <button onClick={function(){setAsstOpen(false);}} style={{...gs.btn(C.card3,"#fff"),fontSize:11,padding:"3px 9px",border:"1px solid "+C.border}}>✕</button>
             </div>
             <div style={{flex:1,overflowY:"auto",padding:"11px 12px",display:"flex",flexDirection:"column",gap:8,minHeight:120}}>
@@ -10735,12 +10816,14 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
                   {m.askGrok&&<button onClick={function(){asstAskGrok(asstMsgs[i-1]?asstMsgs[i-1].text:"");}} style={{...gs.btn(C.blue,"#000"),fontSize:9,padding:"4px 9px",marginTop:4}}>📋 ถาม Grok (ข้อมูลเต็ม)</button>}
                 </div>);})}
               {asstBusy&&<div style={{alignSelf:"flex-start",fontSize:10.5,color:C.muted,padding:"2px 4px"}}>🤖 กำลังคิด...</div>}
+              {asstVoiceError&&<div style={{fontSize:9.5,color:C.red,background:"rgba(244,63,94,0.08)",border:"1px solid rgba(244,63,94,0.3)",borderRadius:8,padding:"6px 8px"}}>{asstVoiceError}</div>}
             </div>
             <div style={{padding:"7px 10px",borderTop:"1px solid "+C.border,display:"flex",gap:5,overflowX:"auto",background:C.card2}}>
-              {["📖 สอนใช้แอป","วิธีปิดกะ","วิธีรับของ","วิธีชั่งของ","ยอดขายวันนี้","สต๊อกใกล้หมด","สินค้าขายดี"].map(function(qc){return <button key={qc} onClick={function(){asstSend(qc);}} style={{...gs.btn(C.card3,C.blue),fontSize:9,padding:"4px 8px",border:"1px solid "+C.border,whiteSpace:"nowrap",flexShrink:0}}>{qc}</button>;})}
+              {["เปิดหน้าขาย","เปิดสต๊อก","📖 สอนใช้แอป","วิธีปิดกะ","วิธีรับของ","ยอดขายวันนี้","สินค้าขายดี"].map(function(qc){return <button key={qc} onClick={function(){asstSend(qc);}} style={{...gs.btn(C.card3,C.blue),fontSize:9,padding:"4px 8px",border:"1px solid "+C.border,whiteSpace:"nowrap",flexShrink:0}}>{qc}</button>;})}
             </div>
             <div style={{padding:"8px 10px",borderTop:"1px solid "+C.border,display:"flex",gap:6}}>
-              <input value={asstQ} onChange={function(e){setAsstQ(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")asstSend();}} placeholder="พิมพ์คำถาม เช่น ยอดขายเดือนนี้..." style={{...gs.input,flex:1,fontSize:11}}/>
+              <button onClick={asstListen} disabled={asstBusy} title="แตะแล้วพูด" aria-label={asstListening?"หยุดฟัง":"เริ่มพูดกับ DANK SIRI"} aria-pressed={asstListening} style={{...gs.btn(asstListening?C.red:C.card3,asstListening?"#fff":C.green),fontSize:17,padding:0,width:44,height:42,flexShrink:0,border:"1px solid "+(asstListening?C.red:C.border),opacity:asstBusy?0.5:1}}>{asstListening?"■":"🎙"}</button>
+              <input value={asstQ} onChange={function(e){setAsstQ(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")asstSend();}} placeholder={asstListening?"กำลังฟัง...":"พูดหรือพิมพ์: เปิดสต๊อก, วิธีปิดกะ..."} style={{...gs.input,flex:1,fontSize:11}}/>
               <button onClick={function(){asstSend();}} style={{...gs.btn(C.green),fontSize:13,padding:"0 14px"}}>➤</button>
             </div>
           </div>
