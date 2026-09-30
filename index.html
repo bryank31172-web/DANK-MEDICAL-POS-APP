@@ -1271,6 +1271,12 @@ const TAB_GUIDE = [
     steps: "\u2022 \u0E07\u0E32\u0E19\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E21\u0E2D\u0E1A\u0E2B\u0E21\u0E32\u0E22/\u0E40\u0E0A\u0E47\u0E04\u0E25\u0E34\u0E2A\u0E15\u0E4C\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E27\u0E31\u0E19 \u2014 \u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27\u0E15\u0E34\u0E4A\u0E01 \xB7 \u0E02\u0E2D\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19 deadline \u0E44\u0E14\u0E49 (\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34)"
   },
   {
+    id: "workshifts",
+    name: "\u{1F5D3} Work Shifts \u2014 \u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30",
+    kw: ["\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30", "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E07\u0E32\u0E19", "work shifts", "roster", "schedule"],
+    steps: "\u2022 \u0E14\u0E39\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30\u0E23\u0E32\u0E22\u0E40\u0E14\u0E37\u0E2D\u0E19 \u0E41\u0E22\u0E01\u0E2A\u0E32\u0E02\u0E32 \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E27\u0E25\u0E32\u0E07\u0E32\u0E19 \xB7 \u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E48\u0E32\u0E07 \u0E15\u0E23\u0E27\u0E08 conflict \u0E41\u0E25\u0E30\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E01\u0E48\u0E2D\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\n\u2022 \u0E16\u0E32\u0E21 AI \u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E44\u0E14\u0E49\u0E27\u0E48\u0E32\u0E43\u0E04\u0E23\u0E17\u0E33\u0E07\u0E32\u0E19\u0E27\u0E31\u0E19\u0E44\u0E2B\u0E19 \u0E43\u0E04\u0E23\u0E41\u0E17\u0E19\u0E44\u0E14\u0E49 \u0E04\u0E48\u0E32\u0E41\u0E23\u0E07 \u0E2B\u0E23\u0E37\u0E2D OT"
+  },
+  {
     id: "scale",
     name: "\u2696 Scale & Print \u2014 \u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07/\u0E1B\u0E23\u0E34\u0E49\u0E19",
     kw: ["\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07", "\u0E0A\u0E31\u0E48\u0E07", "scale", "\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01", "weight", "\u0E1B\u0E23\u0E34\u0E49\u0E19", "printer", "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", "\u0E2B\u0E19\u0E48\u0E27\u0E22", "kg", "\u0E08\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", "customer display", "cds", "\u0E08\u0E2D\u0E17\u0E35\u0E48\u0E2A\u0E2D\u0E07"],
@@ -1307,7 +1313,49 @@ function asstGotoFor(t) {
   if (/^👥/u.test(s)) return "staff";
   return null;
 }
-const ASST_SYSTEM = "\u0E04\u0E38\u0E13\u0E04\u0E37\u0E2D Bryan AI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E43\u0E19\u0E41\u0E2D\u0E1B CLINICWORKS POS (Dank Cannabis Clinic Bangkok) \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2B\u0E25\u0E31\u0E01: \u0E2A\u0E2D\u0E19\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E0A\u0E49\u0E41\u0E2D\u0E1B\u0E41\u0E1A\u0E1A\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E17\u0E35\u0E25\u0E30\u0E02\u0E31\u0E49\u0E19 \u0E41\u0E25\u0E30\u0E0A\u0E35\u0E49\u0E27\u0E48\u0E32\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E44\u0E2B\u0E19\n\u0E01\u0E15\u0E34\u0E01\u0E32:\n- \u0E15\u0E2D\u0E1A\u0E20\u0E32\u0E29\u0E32\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E1C\u0E39\u0E49\u0E16\u0E32\u0E21 (\u0E44\u0E17\u0E22/English)\n- \u0E15\u0E2D\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E02\u0E31\u0E49\u0E19\u0E15\u0E2D\u0E19 1. 2. 3. \u0E2A\u0E31\u0E49\u0E19 \u0E0A\u0E31\u0E14 \u0E17\u0E33\u0E15\u0E32\u0E21\u0E44\u0E14\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35\n- \u0E16\u0E49\u0E32\u0E04\u0E33\u0E15\u0E2D\u0E1A\u0E40\u0E01\u0E35\u0E48\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E14\u0E43\u0E19\u0E41\u0E2D\u0E1B \u0E43\u0E2B\u0E49\u0E08\u0E1A\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E14\u0E49\u0E27\u0E22\u0E41\u0E17\u0E47\u0E01 [GOTO:id] \u0E02\u0E2D\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E31\u0E49\u0E19 (\u0E41\u0E17\u0E47\u0E01\u0E40\u0E14\u0E35\u0E22\u0E27, id \u0E08\u0E32\u0E01\u0E04\u0E39\u0E48\u0E21\u0E37\u0E2D)\n- \u0E2B\u0E49\u0E32\u0E21\u0E41\u0E15\u0E48\u0E07\u0E1F\u0E35\u0E40\u0E08\u0E2D\u0E23\u0E4C\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E19\u0E04\u0E39\u0E48\u0E21\u0E37\u0E2D \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E41\u0E19\u0E48\u0E43\u0E08\u0E43\u0E2B\u0E49\u0E1A\u0E2D\u0E01\u0E27\u0E48\u0E32\u0E44\u0E21\u0E48\u0E21\u0E35\u0E41\u0E25\u0E30\u0E41\u0E19\u0E30\u0E19\u0E33\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E43\u0E01\u0E25\u0E49\u0E40\u0E04\u0E35\u0E22\u0E07\n\n\u0E04\u0E39\u0E48\u0E21\u0E37\u0E2D\u0E41\u0E2D\u0E1B\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (id \u2014 \u0E2B\u0E19\u0E49\u0E32):\n" + TAB_GUIDE.map(function(g) {
+function asstCommandFor(question) {
+  var q = String(question || "").toLowerCase().replace(/^\s*(hey\s+)?dank\s+siri[,:\s-]*/i, "").trim();
+  if (!q) return null;
+  var isCommand = /(เปิด|ไปที่|ไปหน้า|พาไป|เข้าเมนู|แสดงหน้า|open|go to|show|take me|navigate)/i.test(q);
+  if (!isCommand) return null;
+  var aliases = {
+    shift: ["\u0E01\u0E30", "\u0E40\u0E02\u0E49\u0E32\u0E01\u0E30", "\u0E1B\u0E34\u0E14\u0E01\u0E30", "shift", "clock in", "clock out"],
+    pos: ["\u0E2B\u0E19\u0E49\u0E32\u0E02\u0E32\u0E22", "\u0E04\u0E34\u0E14\u0E40\u0E07\u0E34\u0E19", "\u0E02\u0E32\u0E22\u0E02\u0E2D\u0E07", "pos", "checkout", "cashier", "\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", "receipt"],
+    inventory: ["\u0E2A\u0E15\u0E4A\u0E2D\u0E01", "\u0E2A\u0E15\u0E47\u0E2D\u0E01", "\u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07", "stock", "inventory", "receive"],
+    crm: ["\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", "\u0E2A\u0E21\u0E32\u0E0A\u0E34\u0E01", "crm", "customer", "member"],
+    dashboard: ["\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22", "\u0E41\u0E14\u0E0A\u0E1A\u0E2D\u0E23\u0E4C\u0E14", "dashboard", "sales", "kpi"],
+    finance: ["\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19", "\u0E23\u0E32\u0E22\u0E08\u0E48\u0E32\u0E22", "\u0E01\u0E33\u0E44\u0E23", "finance", "expense", "profit"],
+    work: ["\u0E07\u0E32\u0E19", "\u0E40\u0E0A\u0E47\u0E04\u0E25\u0E34\u0E2A\u0E15\u0E4C", "work", "task", "checklist"],
+    workshifts: ["\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E30", "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E07\u0E32\u0E19", "work shifts", "roster", "schedule"],
+    scale: ["\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E0A\u0E31\u0E48\u0E07", "\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E1E\u0E34\u0E21\u0E1E\u0E4C", "\u0E08\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", "scale", "printer", "customer display"],
+    orders: ["\u0E2D\u0E2D\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E2D\u0E2D\u0E19\u0E44\u0E25\u0E19\u0E4C", "\u0E40\u0E14\u0E25\u0E34\u0E40\u0E27\u0E2D\u0E23\u0E35\u0E48", "orders", "delivery"],
+    bar: ["\u0E1A\u0E32\u0E23\u0E4C", "\u0E2A\u0E39\u0E15\u0E23\u0E04\u0E47\u0E2D\u0E01\u0E40\u0E17\u0E25", "bar", "cocktail"],
+    aisum: ["\u0E2A\u0E23\u0E38\u0E1B\u0E23\u0E49\u0E32\u0E19", "\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21", "ai summary", "overview"]
+  };
+  var best = null, bestLen = 0;
+  TAB_GUIDE.forEach(function(g) {
+    var words = (aliases[g.id] || []).concat(g.kw || [], [g.id]);
+    words.forEach(function(w) {
+      var n = String(w || "").toLowerCase();
+      if (n.length >= 2 && q.indexOf(n) >= 0 && n.length > bestLen) {
+        best = g;
+        bestLen = n.length;
+      }
+    });
+  });
+  if (!best) return null;
+  var guarded = /(คืนเงิน|ยกเลิกบิล|void|refund|ปรับสต๊อก|แก้สต๊อก|adjust stock|ลบ|delete|ส่วนลด|discount|รับชำระ|checkout|ปิดกะ|clock out)/i.test(q);
+  return {
+    text: (guarded ? "\u{1F6E1} \u0E04\u0E33\u0E2A\u0E31\u0E48\u0E07\u0E19\u0E35\u0E49\u0E21\u0E35\u0E1C\u0E25\u0E15\u0E48\u0E2D\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E49\u0E32\u0E19 \u0E09\u0E31\u0E19\u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2B\u0E49\u0E41\u0E25\u0E49\u0E27 \u0E41\u0E15\u0E48\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A\u0E41\u0E25\u0E30\u0E01\u0E14\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E1A\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E08\u0E2D\u0E40\u0E2D\u0E07\n" : "\u2705 \u0E40\u0E1B\u0E34\u0E14\u0E43\u0E2B\u0E49\u0E41\u0E25\u0E49\u0E27: ") + best.name,
+    nav: best.id,
+    autoNav: true,
+    guarded
+  };
+}
+function asstSpeechLang(text) {
+  return /[\u0E00-\u0E7F]/.test(String(text || "")) ? "th-TH" : "en-US";
+}
+const ASST_SYSTEM = "\u0E04\u0E38\u0E13\u0E04\u0E37\u0E2D DANK SIRI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E19\u0E41\u0E2D\u0E1B CLINICWORKS POS (Dank Cannabis Clinic Bangkok) \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2B\u0E25\u0E31\u0E01: \u0E2A\u0E2D\u0E19\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E0A\u0E49\u0E41\u0E2D\u0E1B\u0E41\u0E1A\u0E1A\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E17\u0E35\u0E25\u0E30\u0E02\u0E31\u0E49\u0E19 \u0E41\u0E25\u0E30\u0E0A\u0E35\u0E49\u0E27\u0E48\u0E32\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E44\u0E2B\u0E19\n\u0E01\u0E15\u0E34\u0E01\u0E32:\n- \u0E15\u0E2D\u0E1A\u0E20\u0E32\u0E29\u0E32\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E1C\u0E39\u0E49\u0E16\u0E32\u0E21 (\u0E44\u0E17\u0E22/English)\n- \u0E15\u0E2D\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E02\u0E31\u0E49\u0E19\u0E15\u0E2D\u0E19 1. 2. 3. \u0E2A\u0E31\u0E49\u0E19 \u0E0A\u0E31\u0E14 \u0E17\u0E33\u0E15\u0E32\u0E21\u0E44\u0E14\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35\n- \u0E16\u0E49\u0E32\u0E04\u0E33\u0E15\u0E2D\u0E1A\u0E40\u0E01\u0E35\u0E48\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E14\u0E43\u0E19\u0E41\u0E2D\u0E1B \u0E43\u0E2B\u0E49\u0E08\u0E1A\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E14\u0E49\u0E27\u0E22\u0E41\u0E17\u0E47\u0E01 [GOTO:id] \u0E02\u0E2D\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E31\u0E49\u0E19 (\u0E41\u0E17\u0E47\u0E01\u0E40\u0E14\u0E35\u0E22\u0E27, id \u0E08\u0E32\u0E01\u0E04\u0E39\u0E48\u0E21\u0E37\u0E2D)\n- \u0E2B\u0E49\u0E32\u0E21\u0E2A\u0E31\u0E48\u0E07\u0E17\u0E33\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E49\u0E32\u0E19\u0E42\u0E14\u0E22\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \u0E40\u0E0A\u0E48\u0E19 checkout, refund, void, \u0E1B\u0E23\u0E31\u0E1A stock \u0E2B\u0E23\u0E37\u0E2D\u0E25\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 \u0E43\u0E2B\u0E49\u0E1E\u0E32\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E41\u0E25\u0E30\u0E1A\u0E2D\u0E01\u0E43\u0E2B\u0E49\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E40\u0E2D\u0E07\n- \u0E2B\u0E49\u0E32\u0E21\u0E41\u0E15\u0E48\u0E07\u0E1F\u0E35\u0E40\u0E08\u0E2D\u0E23\u0E4C\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E19\u0E04\u0E39\u0E48\u0E21\u0E37\u0E2D \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E41\u0E19\u0E48\u0E43\u0E08\u0E43\u0E2B\u0E49\u0E1A\u0E2D\u0E01\u0E27\u0E48\u0E32\u0E44\u0E21\u0E48\u0E21\u0E35\u0E41\u0E25\u0E30\u0E41\u0E19\u0E30\u0E19\u0E33\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E43\u0E01\u0E25\u0E49\u0E40\u0E04\u0E35\u0E22\u0E07\n\n\u0E04\u0E39\u0E48\u0E21\u0E37\u0E2D\u0E41\u0E2D\u0E1B\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (id \u2014 \u0E2B\u0E19\u0E49\u0E32):\n" + TAB_GUIDE.map(function(g) {
   return g.id + " \u2014 " + g.name + "\n" + g.steps;
 }).join("\n\n");
 const CAT_TIERS = [
@@ -8904,6 +8952,16 @@ function GreenPOS() {
   const [asstQ, setAsstQ] = useState("");
   const [asstMsgs, setAsstMsgs] = useState([]);
   const [asstBusy, setAsstBusy] = useState(false);
+  const [asstListening, setAsstListening] = useState(false);
+  const [asstVoiceError, setAsstVoiceError] = useState("");
+  const [asstVoiceReply, setAsstVoiceReply] = useState(function() {
+    try {
+      return localStorage.getItem("dank_siri_voice_reply") !== "0";
+    } catch (e) {
+      return true;
+    }
+  });
+  const asstRecognitionRef = useRef(null);
   const [claimBusy, setClaimBusy] = useState(false);
   const [webImgs, setWebImgs] = useState({});
   useEffect(function() {
@@ -8970,6 +9028,21 @@ function GreenPOS() {
   const [barPick, setBarPick] = useState(null);
   const [barDone, setBarDone] = useState({});
   const asstGreetRef = useRef(false);
+  useEffect(function() {
+    try {
+      localStorage.setItem("dank_siri_voice_reply", asstVoiceReply ? "1" : "0");
+    } catch (e) {
+    }
+  }, [asstVoiceReply]);
+  useEffect(function() {
+    return function() {
+      try {
+        if (asstRecognitionRef.current) asstRecognitionRef.current.abort();
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+      } catch (e) {
+      }
+    };
+  }, []);
   useEffect(function() {
     if (screen === "main" && !asstGreetRef.current) {
       asstGreetRef.current = true;
@@ -9266,16 +9339,40 @@ function GreenPOS() {
     }
     notify("\u{1F4CB} \u0E04\u0E31\u0E14\u0E25\u0E2D\u0E01\u0E04\u0E33\u0E16\u0E32\u0E21+\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E40\u0E1B\u0E34\u0E14\u0E41\u0E2D\u0E1B Grok \u0E41\u0E25\u0E49\u0E27\u0E27\u0E32\u0E07\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22");
   };
-  const asstSend = function(text) {
+  const asstSpeak = function(text) {
+    if (!asstVoiceReply || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") return;
+    try {
+      window.speechSynthesis.cancel();
+      var clean = String(text || "").replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu, "").replace(/^[•·]\s*/gm, "").trim();
+      if (!clean) return;
+      var u = new window.SpeechSynthesisUtterance(clean.slice(0, 1200));
+      u.lang = asstSpeechLang(clean);
+      u.rate = 0.96;
+      u.pitch = 1;
+      u.volume = 1;
+      window.speechSynthesis.speak(u);
+    } catch (e) {
+    }
+  };
+  const asstSend = function(text, opts) {
     var q = String(text !== void 0 ? text : asstQ || "").trim();
     if (!q) return;
-    var ans = asstProductAnswer(q) || asstRecipeAnswer(q) || asstAnswer(q);
+    var ans = asstCommandFor(q) || asstProductAnswer(q) || asstRecipeAnswer(q) || asstAnswer(q);
     if (typeof ans === "string") ans = { text: ans, nav: asstGotoFor(ans) };
     setAsstQ("");
     if (ans) {
+      if (ans.autoNav && ans.nav) {
+        if (TABS.some(function(tb) {
+          return tb.id === ans.nav;
+        })) {
+          setActiveTab(ans.nav);
+          notify((ans.guarded ? "\u{1F6E1} \u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A\u0E01\u0E48\u0E2D\u0E19\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19 \xB7 " : "\u{1F399} DANK SIRI \xB7 ") + asstTabName(ans.nav));
+        } else ans = { text: "\u{1F512} \u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32 " + asstTabName(ans.nav) + " \u0E01\u0E23\u0E38\u0E13\u0E32\u0E43\u0E2B\u0E49 Manager/CEO \u0E40\u0E02\u0E49\u0E32\u0E23\u0E30\u0E1A\u0E1A", nav: null };
+      }
       setAsstMsgs(function(p) {
-        return p.concat([{ role: "user", text: q }, { role: "bot", text: ans.text, nav: ans.nav }]);
+        return p.concat([{ role: "user", text: q, voice: opts && opts.voice }, { role: "bot", text: ans.text, nav: ans.nav }]);
       });
+      asstSpeak(ans.text);
       return;
     }
     setAsstMsgs(function(p) {
@@ -9291,9 +9388,11 @@ function GreenPOS() {
       var navId = mm && TAB_GUIDE.some(function(g) {
         return g.id === mm[1].toLowerCase();
       }) ? mm[1].toLowerCase() : null;
+      var spoken = s.replace(/\s*\[GOTO:[a-z]+\]/gi, "").trim();
       setAsstMsgs(function(p) {
-        return p.concat([{ role: "bot", text: s.replace(/\s*\[GOTO:[a-z]+\]/gi, "").trim(), nav: navId }]);
+        return p.concat([{ role: "bot", text: spoken, nav: navId }]);
       });
+      asstSpeak(spoken);
     }).catch(function(e) {
       setAsstMsgs(function(p) {
         return p.concat([{ role: "bot", text: "\u26A0 AI \u0E22\u0E31\u0E07\u0E15\u0E2D\u0E1A\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E15\u0E2D\u0E19\u0E19\u0E35\u0E49 (" + (e && e.message || "connection") + ")\n\u0E01\u0E14 \u{1F4CB} \u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07 \u0E40\u0E14\u0E35\u0E4B\u0E22\u0E27\u0E23\u0E27\u0E21\u0E04\u0E33\u0E16\u0E32\u0E21+\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E49\u0E32\u0E19\u0E43\u0E2B\u0E49\u0E40\u0E2D\u0E32\u0E44\u0E1B\u0E16\u0E32\u0E21\u0E43\u0E19\u0E41\u0E2D\u0E1B Grok \u0E41\u0E17\u0E19", askGrok: true }]);
@@ -9301,6 +9400,52 @@ function GreenPOS() {
     }).then(function() {
       setAsstBusy(false);
     });
+  };
+  const asstListen = function() {
+    if (asstListening) {
+      try {
+        if (asstRecognitionRef.current) asstRecognitionRef.current.stop();
+      } catch (e) {
+      }
+      return;
+    }
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      setAsstVoiceError("\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E23\u0E2D\u0E07\u0E23\u0E31\u0E1A Voice Recognition \u2014 \u0E43\u0E0A\u0E49 Chrome/Edge \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E33\u0E2A\u0E31\u0E48\u0E07\u0E41\u0E17\u0E19");
+      return;
+    }
+    try {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      var rec = new SR();
+      asstRecognitionRef.current = rec;
+      rec.lang = lang === "th" ? "th-TH" : "en-US";
+      rec.interimResults = false;
+      rec.continuous = false;
+      rec.maxAlternatives = 1;
+      rec.onstart = function() {
+        setAsstVoiceError("");
+        setAsstListening(true);
+      };
+      rec.onresult = function(ev) {
+        var tx = ev && ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : "";
+        if (tx) {
+          setAsstQ(tx);
+          asstSend(tx, { voice: true });
+        }
+      };
+      rec.onerror = function(ev) {
+        var code = ev && ev.error || "voice";
+        setAsstVoiceError(code === "not-allowed" ? "\u0E01\u0E23\u0E38\u0E13\u0E32\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E43\u0E0A\u0E49\u0E44\u0E21\u0E42\u0E04\u0E23\u0E42\u0E1F\u0E19 \u0E41\u0E25\u0E49\u0E27\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48" : "\u0E1F\u0E31\u0E07\u0E44\u0E21\u0E48\u0E0A\u0E31\u0E14 \u0E25\u0E2D\u0E07\u0E1E\u0E39\u0E14\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 (" + code + ")");
+      };
+      rec.onend = function() {
+        setAsstListening(false);
+        asstRecognitionRef.current = null;
+      };
+      rec.start();
+    } catch (e) {
+      setAsstListening(false);
+      setAsstVoiceError("\u0E40\u0E1B\u0E34\u0E14\u0E44\u0E21\u0E42\u0E04\u0E23\u0E42\u0E1F\u0E19\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49: " + String(e && e.message || e));
+    }
   };
   const grokText = function(system, user, maxTok) {
     return fetch("/api/grok?action=chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: maxTok || 800, system, messages: [{ role: "user", content: user }] }) }).then(function(r) {
@@ -13860,19 +14005,24 @@ function GreenPOS() {
     setAiPanel(function(p) {
       return Object.assign({}, p, { open: false });
     });
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14")))), screen === "main" && /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, asstIntro && !asstOpen && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", right: mob ? 12 : 24, bottom: mob ? 128 : 96, zIndex: 900, maxWidth: 250, background: C.card, border: "1px solid " + C.green, borderRadius: 14, padding: "11px 13px", boxShadow: "0 8px 30px rgba(0,0,0,0.55)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, marginBottom: 3 } }, "\u{1F44B} \u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E48\u0E30! \u0E09\u0E31\u0E19\u0E04\u0E37\u0E2D Bryan AI"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, lineHeight: 1.6, marginBottom: 8 } }, "\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13 \u0E16\u0E32\u0E21\u0E44\u0E14\u0E49\u0E17\u0E38\u0E01\u0E40\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E43\u0E19\u0E41\u0E2D\u0E1B \u2014 \u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22 \u0E2A\u0E15\u0E4A\u0E2D\u0E01 \u0E27\u0E34\u0E18\u0E35\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19 \u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E2D\u0E30\u0E44\u0E23\u0E44\u0E2B\u0E21\u0E04\u0E30?"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { flex: 1, border: "1px solid " + C.border }) }, "\u0E1B\u0E34\u0E14")))), screen === "main" && /* @__PURE__ */ React.createElement("span", { style: { display: "contents" } }, asstIntro && !asstOpen && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", right: mob ? 12 : 24, bottom: mob ? 128 : 96, zIndex: 900, maxWidth: 250, background: C.card, border: "1px solid " + C.green, borderRadius: 14, padding: "11px 13px", boxShadow: "0 8px 30px rgba(0,0,0,0.55)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, marginBottom: 3 } }, "\u{1F44B} \u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E48\u0E30! \u0E09\u0E31\u0E19\u0E04\u0E37\u0E2D DANK SIRI"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.muted, lineHeight: 1.6, marginBottom: 8 } }, "\u0E1E\u0E39\u0E14\u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E16\u0E32\u0E21\u0E27\u0E34\u0E18\u0E35\u0E17\u0E33\u0E07\u0E32\u0E19 \u0E41\u0E25\u0E30\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07 \u0E46 \u0E44\u0E14\u0E49 \u0E40\u0E0A\u0E48\u0E19 \u201C\u0E40\u0E1B\u0E34\u0E14\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u201D \u0E2B\u0E23\u0E37\u0E2D \u201C\u0E27\u0E34\u0E18\u0E35\u0E1B\u0E34\u0E14\u0E01\u0E30\u201D"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setAsstOpen(true);
     setAsstIntro(false);
-    if (asstMsgs.length === 0) setAsstMsgs([{ role: "bot", text: "\u{1F44B} \u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E48\u0E30! \u0E09\u0E31\u0E19\u0E04\u0E37\u0E2D Bryan AI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E23\u0E49\u0E32\u0E19 \u0E2A\u0E2D\u0E19\u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E17\u0E38\u0E01\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E19\u0E41\u0E2D\u0E1B\u0E41\u0E25\u0E30\u0E1E\u0E32\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E31\u0E49\u0E19\u0E43\u0E2B\u0E49\u0E40\u0E25\u0E22 \u2014 \u0E1E\u0E34\u0E21\u0E1E\u0E4C \u0E40\u0E0A\u0E48\u0E19 '\u0E2A\u0E2D\u0E19\u0E43\u0E0A\u0E49\u0E41\u0E2D\u0E1B', '\u0E27\u0E34\u0E18\u0E35\u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07', '\u0E27\u0E34\u0E18\u0E35\u0E1B\u0E34\u0E14\u0E01\u0E30', '\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49' \u0E2B\u0E23\u0E37\u0E2D\u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21\u0E25\u0E31\u0E14\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30" }]);
-  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, flex: 1 }) }, "\u{1F4AC} \u0E40\u0E1B\u0E34\u0E14\u0E41\u0E0A\u0E17"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    if (asstMsgs.length === 0) setAsstMsgs([{ role: "bot", text: "\u{1F44B} \u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E48\u0E30! \u0E09\u0E31\u0E19\u0E04\u0E37\u0E2D DANK SIRI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19 \u0E1E\u0E39\u0E14\u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E16\u0E32\u0E21\u0E27\u0E34\u0E18\u0E35\u0E17\u0E33\u0E07\u0E32\u0E19 \u0E41\u0E25\u0E30\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E19 POS \u0E44\u0E14\u0E49 \u0E40\u0E0A\u0E48\u0E19 '\u0E40\u0E1B\u0E34\u0E14\u0E2A\u0E15\u0E4A\u0E2D\u0E01' '\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E02\u0E32\u0E22' '\u0E27\u0E34\u0E18\u0E35\u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07' \u0E2B\u0E23\u0E37\u0E2D '\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49'" }]);
+  }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 10, flex: 1 }) }, "\u{1F399} \u0E40\u0E1B\u0E34\u0E14 DANK SIRI"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setAsstIntro(false);
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.card2, "#fff")), { fontSize: 10, border: "1px solid " + C.border }) }, "\u0E44\u0E27\u0E49\u0E01\u0E48\u0E2D\u0E19"))), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setAsstOpen(function(o) {
       return !o;
     });
     setAsstIntro(false);
-    if (asstMsgs.length === 0) setAsstMsgs([{ role: "bot", text: "\u{1F44B} \u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E48\u0E30! \u0E09\u0E31\u0E19\u0E04\u0E37\u0E2D Bryan AI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E23\u0E49\u0E32\u0E19 \u0E2A\u0E2D\u0E19\u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E17\u0E38\u0E01\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E19\u0E41\u0E2D\u0E1B\u0E41\u0E25\u0E30\u0E1E\u0E32\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E31\u0E49\u0E19\u0E43\u0E2B\u0E49\u0E40\u0E25\u0E22 \u2014 \u0E1E\u0E34\u0E21\u0E1E\u0E4C \u0E40\u0E0A\u0E48\u0E19 '\u0E2A\u0E2D\u0E19\u0E43\u0E0A\u0E49\u0E41\u0E2D\u0E1B', '\u0E27\u0E34\u0E18\u0E35\u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07', '\u0E27\u0E34\u0E18\u0E35\u0E1B\u0E34\u0E14\u0E01\u0E30', '\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49' \u0E2B\u0E23\u0E37\u0E2D\u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21\u0E25\u0E31\u0E14\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22\u0E04\u0E48\u0E30" }]);
-  }, title: "Bryan AI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22", style: { position: "fixed", right: mob ? 12 : 24, bottom: mob ? 72 : 28, zIndex: 901, width: 54, height: 54, borderRadius: "50%", background: C.green, border: "3px solid " + C.bg, cursor: "pointer", fontSize: 25, boxShadow: "0 6px 20px rgba(74,222,128,0.45)" } }, "\u{1F916}"), asstOpen && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", right: mob ? 8 : 24, bottom: mob ? 70 : 92, left: mob ? 8 : "auto", zIndex: 902, width: mob ? "auto" : 360, maxHeight: "70vh", background: C.card, border: "1px solid " + C.border, borderRadius: 16, boxShadow: "0 12px 40px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "11px 13px", borderBottom: "1px solid " + C.border, background: C.card2, display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, fontWeight: 900 } }, "\u{1F916} Bryan AI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: C.green } }, "\u25CF \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E0A\u0E48\u0E27\u0E22 \xB7 \u0E16\u0E32\u0E21\u0E44\u0E14\u0E49\u0E17\u0E38\u0E01\u0E40\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E43\u0E19\u0E41\u0E2D\u0E1B")), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    if (asstMsgs.length === 0) setAsstMsgs([{ role: "bot", text: "\u{1F44B} \u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E48\u0E30! \u0E09\u0E31\u0E19\u0E04\u0E37\u0E2D DANK SIRI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19 \u0E1E\u0E39\u0E14\u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E16\u0E32\u0E21\u0E27\u0E34\u0E18\u0E35\u0E17\u0E33\u0E07\u0E32\u0E19 \u0E41\u0E25\u0E30\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E19 POS \u0E44\u0E14\u0E49 \u0E40\u0E0A\u0E48\u0E19 '\u0E40\u0E1B\u0E34\u0E14\u0E2A\u0E15\u0E4A\u0E2D\u0E01' '\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E02\u0E32\u0E22' '\u0E27\u0E34\u0E18\u0E35\u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07' \u0E2B\u0E23\u0E37\u0E2D '\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49'" }]);
+  }, title: "DANK SIRI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19", "aria-label": "\u0E40\u0E1B\u0E34\u0E14 DANK SIRI \u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19", "aria-expanded": asstOpen, style: { position: "fixed", right: mob ? 12 : 24, bottom: mob ? 72 : 28, zIndex: 901, width: 54, height: 54, borderRadius: "50%", background: asstListening ? C.red : C.green, border: "3px solid " + C.bg, cursor: "pointer", fontSize: 25, boxShadow: asstListening ? "0 0 0 8px rgba(244,63,94,0.18)" : "0 6px 20px rgba(74,222,128,0.45)" } }, "\u{1F399}"), asstOpen && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", right: mob ? 8 : 24, bottom: mob ? 70 : 92, left: mob ? 8 : "auto", zIndex: 902, width: mob ? "auto" : 360, maxHeight: "70vh", background: C.card, border: "1px solid " + C.border, borderRadius: 16, boxShadow: "0 12px 40px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "11px 13px", borderBottom: "1px solid " + C.border, background: C.card2, display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, fontWeight: 900 } }, "\u{1F399} DANK SIRI"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8.5, color: asstListening ? C.red : C.green } }, "\u25CF ", asstListening ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E1F\u0E31\u0E07... \u0E1E\u0E39\u0E14\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22" : "\u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E0A\u0E48\u0E27\u0E22 \xB7 Ask + Command")), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+    setAsstVoiceReply(function(v) {
+      return !v;
+    });
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+  }, title: "\u0E40\u0E1B\u0E34\u0E14/\u0E1B\u0E34\u0E14\u0E40\u0E2A\u0E35\u0E22\u0E07\u0E15\u0E2D\u0E1A", "aria-label": "\u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E23\u0E37\u0E2D\u0E1B\u0E34\u0E14\u0E40\u0E2A\u0E35\u0E22\u0E07\u0E15\u0E2D\u0E1A\u0E02\u0E2D\u0E07 DANK SIRI", "aria-pressed": asstVoiceReply, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, asstVoiceReply ? C.green : C.muted)), { fontSize: 11, padding: "5px 10px", border: "1px solid " + C.border, marginLeft: "auto", marginRight: 5 }) }, asstVoiceReply ? "\u{1F50A}" : "\u{1F507}"), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     setAsstOpen(false);
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, "#fff")), { fontSize: 11, padding: "3px 9px", border: "1px solid " + C.border }) }, "\u2715")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: "11px 12px", display: "flex", flexDirection: "column", gap: 8, minHeight: 120 } }, asstMsgs.map(function(m, i) {
     return /* @__PURE__ */ React.createElement("div", { key: i, style: { alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "90%" } }, /* @__PURE__ */ React.createElement("div", { style: { background: m.role === "user" ? C.green : C.card2, color: m.role === "user" ? "#000" : C.text, borderRadius: 12, padding: "8px 11px", fontSize: 10.5, lineHeight: 1.65, whiteSpace: "pre-wrap", border: m.role === "user" ? "none" : "1px solid " + C.border } }, m.text), m.nav && TABS.some(function(tb) {
@@ -13883,15 +14033,15 @@ function GreenPOS() {
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.green, "#000")), { fontSize: 9.5, padding: "5px 11px", marginTop: 4, fontWeight: 800 }) }, "\u{1F4CD} \u0E1E\u0E32\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32 ", asstTabName(m.nav), " \u203A"), m.askGrok && /* @__PURE__ */ React.createElement("button", { onClick: function() {
       asstAskGrok(asstMsgs[i - 1] ? asstMsgs[i - 1].text : "");
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.blue, "#000")), { fontSize: 9, padding: "4px 9px", marginTop: 4 }) }, "\u{1F4CB} \u0E16\u0E32\u0E21 Grok (\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E15\u0E47\u0E21)"));
-  }), asstBusy && /* @__PURE__ */ React.createElement("div", { style: { alignSelf: "flex-start", fontSize: 10.5, color: C.muted, padding: "2px 4px" } }, "\u{1F916} \u0E01\u0E33\u0E25\u0E31\u0E07\u0E04\u0E34\u0E14...")), /* @__PURE__ */ React.createElement("div", { style: { padding: "7px 10px", borderTop: "1px solid " + C.border, display: "flex", gap: 5, overflowX: "auto", background: C.card2 } }, ["\u{1F4D6} \u0E2A\u0E2D\u0E19\u0E43\u0E0A\u0E49\u0E41\u0E2D\u0E1B", "\u0E27\u0E34\u0E18\u0E35\u0E1B\u0E34\u0E14\u0E01\u0E30", "\u0E27\u0E34\u0E18\u0E35\u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07", "\u0E27\u0E34\u0E18\u0E35\u0E0A\u0E31\u0E48\u0E07\u0E02\u0E2D\u0E07", "\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", "\u0E2A\u0E15\u0E4A\u0E2D\u0E01\u0E43\u0E01\u0E25\u0E49\u0E2B\u0E21\u0E14", "\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E02\u0E32\u0E22\u0E14\u0E35"].map(function(qc) {
+  }), asstBusy && /* @__PURE__ */ React.createElement("div", { style: { alignSelf: "flex-start", fontSize: 10.5, color: C.muted, padding: "2px 4px" } }, "\u{1F916} \u0E01\u0E33\u0E25\u0E31\u0E07\u0E04\u0E34\u0E14..."), asstVoiceError && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, color: C.red, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.3)", borderRadius: 8, padding: "6px 8px" } }, asstVoiceError)), /* @__PURE__ */ React.createElement("div", { style: { padding: "7px 10px", borderTop: "1px solid " + C.border, display: "flex", gap: 5, overflowX: "auto", background: C.card2 } }, ["\u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E02\u0E32\u0E22", "\u0E40\u0E1B\u0E34\u0E14\u0E2A\u0E15\u0E4A\u0E2D\u0E01", "\u{1F4D6} \u0E2A\u0E2D\u0E19\u0E43\u0E0A\u0E49\u0E41\u0E2D\u0E1B", "\u0E27\u0E34\u0E18\u0E35\u0E1B\u0E34\u0E14\u0E01\u0E30", "\u0E27\u0E34\u0E18\u0E35\u0E23\u0E31\u0E1A\u0E02\u0E2D\u0E07", "\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49", "\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E02\u0E32\u0E22\u0E14\u0E35"].map(function(qc) {
     return /* @__PURE__ */ React.createElement("button", { key: qc, onClick: function() {
       asstSend(qc);
     }, style: __spreadProps(__spreadValues({}, gs.btn(C.card3, C.blue)), { fontSize: 9, padding: "4px 8px", border: "1px solid " + C.border, whiteSpace: "nowrap", flexShrink: 0 }) }, qc);
-  })), /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 10px", borderTop: "1px solid " + C.border, display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("input", { value: asstQ, onChange: function(e) {
+  })), /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 10px", borderTop: "1px solid " + C.border, display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: asstListen, disabled: asstBusy, title: "\u0E41\u0E15\u0E30\u0E41\u0E25\u0E49\u0E27\u0E1E\u0E39\u0E14", "aria-label": asstListening ? "\u0E2B\u0E22\u0E38\u0E14\u0E1F\u0E31\u0E07" : "\u0E40\u0E23\u0E34\u0E48\u0E21\u0E1E\u0E39\u0E14\u0E01\u0E31\u0E1A DANK SIRI", "aria-pressed": asstListening, style: __spreadProps(__spreadValues({}, gs.btn(asstListening ? C.red : C.card3, asstListening ? "#fff" : C.green)), { fontSize: 17, padding: 0, width: 44, height: 42, flexShrink: 0, border: "1px solid " + (asstListening ? C.red : C.border), opacity: asstBusy ? 0.5 : 1 }) }, asstListening ? "\u25A0" : "\u{1F399}"), /* @__PURE__ */ React.createElement("input", { value: asstQ, onChange: function(e) {
     setAsstQ(e.target.value);
   }, onKeyDown: function(e) {
     if (e.key === "Enter") asstSend();
-  }, placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E33\u0E16\u0E32\u0E21 \u0E40\u0E0A\u0E48\u0E19 \u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49...", style: __spreadProps(__spreadValues({}, gs.input), { flex: 1, fontSize: 11 }) }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
+  }, placeholder: asstListening ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E1F\u0E31\u0E07..." : "\u0E1E\u0E39\u0E14\u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C: \u0E40\u0E1B\u0E34\u0E14\u0E2A\u0E15\u0E4A\u0E2D\u0E01, \u0E27\u0E34\u0E18\u0E35\u0E1B\u0E34\u0E14\u0E01\u0E30...", style: __spreadProps(__spreadValues({}, gs.input), { flex: 1, fontSize: 11 }) }), /* @__PURE__ */ React.createElement("button", { onClick: function() {
     asstSend();
   }, style: __spreadProps(__spreadValues({}, gs.btn(C.green)), { fontSize: 13, padding: "0 14px" }) }, "\u27A4")))), showReport && /* @__PURE__ */ React.createElement("div", { style: OVERLAY, onClick: function() {
     setShowReport(false);
