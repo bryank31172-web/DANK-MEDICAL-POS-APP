@@ -61,7 +61,7 @@ ok('null is safe', asstNorm(null) === '' && asstNorm(undefined) === '');
 
 console.log('\nthe wiring is actually in place');
 ok('a named product is tried before the canned replies',
-  /var ans=asstProductAnswer\(q\)\|\|asstRecipeAnswer\(q\)\|\|asstAnswer\(q\)/.test(src));
+  /var ans=asstCommandFor\(q\)\|\|asstProductAnswer\(q\)\|\|asstRecipeAnswer\(q\)\|\|asstAnswer\(q\)/.test(src));
 ok('"วันนี้" alone no longer triggers the sales card',
   !/has\("ยอดขาย","รายได้","sales","revenue","ขายได้","วันนี้","today"\)/.test(src));
 ok('the AI context includes per-product stock and price',
