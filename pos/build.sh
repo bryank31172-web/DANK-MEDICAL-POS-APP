@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 # a global esbuild if there is one, otherwise fetch it on the fly, so the
 # build works on a machine that has never installed it
 if command -v esbuild >/dev/null 2>&1; then ESBUILD=(esbuild); else ESBUILD=(npx --yes esbuild); fi
-"${ESBUILD[@]}" app.fixed.jsx --jsx=transform --target=es2017 --charset=ascii --outfile=app.compiled.js
+"${ESBUILD[@]}" app.fixed.jsx --bundle --format=esm --jsx=transform --target=es2017 --charset=ascii --outfile=app.compiled.js
 # html2pdf is vendored into the committed app so the roster can create a real
 # A3 PDF Blob for Download and mobile Share without relying on another CDN at
 # the moment the manager needs the signed report.
