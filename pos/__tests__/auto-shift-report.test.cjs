@@ -15,7 +15,7 @@ check(src.includes('locPages.concat([payrollPage,validationPage,payoutPage])'),'
 check(src.includes('monthExpenses=(expenses||[]).filter'),'actual expenses are filtered to the selected roster month');
 check(src.includes('EXPENSE_TARGETS.byCategory.wages'),'the report reconciles against the Finance wages budget');
 check(src.includes('(transactions||[]).forEach')&&src.includes('(Array.isArray(txHistory)?txHistory:[])'),'local and StoreHub receipts feed attributed staff sales');
-check(src.includes('var commission=Math.round(sales*2/100)'),'commission is 2% of attributed sales');
+check(src.includes('var commission=kpApproval&&kpRow?kpRow.variablePay:0'),'roster payout requires approved monthly KPI commission and bonus');
 check(src.includes('t.staffServiceCharge||+t.serviceChargeStaffShare'),'bar service charge uses only an explicit staff-share field');
 check(src.includes('Waiting for an explicit staff-share field; no estimate used'),'missing service charge is disclosed rather than invented');
 check(src.includes('ดูรายงาน Report')&&src.includes('Live report connections'),'the PDF-style report and its data links are visible in Auto Shift');

@@ -10,4 +10,7 @@ for(const specifier of candidates){
   try{api=await import(specifier);break;}catch(e){lastError=e;}
 }
 if(!api)throw lastError||new Error('Playwright is not installed');
-export const chromium=api.chromium;
+// Allow a provisioned browser binary when managed-runtime downloads are unavailable.
+export const chromium=process.env.PLAYWRIGHT_EXECUTABLE_PATH ? {
+  launch: options => api.chromium.launch({...options, executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH,args:['--no-sandbox','--disable-dev-shm-usage',...(options?.args||[])]})
+} : api.chromium;
