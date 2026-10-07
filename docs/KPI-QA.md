@@ -40,3 +40,9 @@ and roster mappings before operational use. Shift/proof storage remains
 browser-local; branch packages provide manual consolidation, not automatic
 multi-device synchronization. Approvals record manager review and never send
 money or assert server-enforced payroll authority.
+
+## September provisional pass follow-up
+
+Owner instruction: unavailable September KPI values pass provisionally. Implemented as a September-only, manager-toggleable policy with component assumptions on cards/CSV and in the approval fingerprint. Known attainment, late/checklist failures and explicit None retain actual scoring; missing shift records receive provisional credit without falsifying shift counts. Sales/refund/mapping issues still block payout.
+
+Validation: 40 calculation tests; 28 browser checks covering toggle persistence, CSV assumptions, desktop/mobile, unchanged mandatory closing proof and October strict behavior; zero browser page errors. UX audit: no horizontal overflow, 35 small targets and 65 tiny-text elements (same as prior release). npm test passed; production artifact rebuilt. The previously documented broader browser-suite limitations remain.

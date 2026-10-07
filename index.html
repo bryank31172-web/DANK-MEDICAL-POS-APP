@@ -86,7 +86,8 @@ function kpiSchedules(book, locations, staff) {
   });
   return { schedules, errors };
 }
-function calculateKpi({ month, staff, local = [], storehub = [], schedules = [], shifts = [], evidence = [], targets = {}, coverage = false, mappingErrors = [], refundLinks = {}, now = Date.now() }) {
+function calculateKpi({ month, staff, local = [], storehub = [], schedules = [], shifts = [], evidence = [], targets = {}, coverage = false, mappingErrors = [], refundLinks = {}, missingPass = false, now = Date.now() }) {
+  const provisionalMode = month === "2026-09" && missingPass === true;
   const issues = [], byId = /* @__PURE__ */ new Map(), seen = /* @__PURE__ */ new Set(), billNets = /* @__PURE__ */ new Map(), refunds = [];
   const eligible = staff.filter((s) => s.approved && !["owner", "shareholder", "accountant", "kitchen", "rider"].includes(s.role));
   const rows = eligible.map((s) => {
@@ -146,7 +147,7 @@ function calculateKpi({ month, staff, local = [], storehub = [], schedules = [],
     usedEvidence.add(key);
     r[e.type]++;
   });
-  const usedShifts = /* @__PURE__ */ new Set();
+  const usedShifts = /* @__PURE__ */ new Set(), missingShiftRecords = /* @__PURE__ */ new Map();
   schedules.filter((s) => s.date.slice(0, 7) === month && Date.parse(s.end) <= now).forEach((sc) => {
     var _a, _b, _c, _d;
     const r = byId.get(String(sc.staffId));
@@ -155,7 +156,10 @@ function calculateKpi({ month, staff, local = [], storehub = [], schedules = [],
     const matching = shifts.filter((sh2) => String(sh2.staffId) === String(sc.staffId) && kpiDate(sh2.inAt) === sc.date && (!sc.branch || norm(sh2.branch) === norm(sc.branch)) && !usedShifts.has(String(sh2.id)));
     matching.sort((a, b) => Math.abs(Date.parse(a.inAt) - Date.parse(sc.start)) - Math.abs(Date.parse(b.inAt) - Date.parse(sc.start)));
     const sh = matching[0];
-    if (!sh) return;
+    if (!sh) {
+      missingShiftRecords.set(String(r.staffId), (missingShiftRecords.get(String(r.staffId)) || 0) + 1);
+      return;
+    }
     usedShifts.add(String(sh.id));
     if (sh.outAt && Date.parse(sh.arrivedAt || sh.inAt) <= Date.parse(sc.start) + 15 * 6e4 && Date.parse(sh.outAt) >= Date.parse(sc.end)) r.onTime++;
     const exact = (rs) => Array.isArray(rs) && rs.every((x) => x.measured !== "" && x.measured != null && Math.abs(num(x.measured) - num(x.expected)) < 1e-6);
@@ -168,12 +172,49 @@ function calculateKpi({ month, staff, local = [], storehub = [], schedules = [],
     });
     if (!r.scheduled) r.issues.push("No elapsed approved roster shifts");
     r.parts = { sales: points(r.sales, num(t.sales), 30), upselling: points(r.upselling, num(t.upselling), 15), crm: points(r.crm, num(t.crm), 5) + points(r.reviews, num(t.reviews), 5), compliments: points(r.compliments, num(t.compliments), 10), shift: points(r.completed, r.scheduled, 10), punctuality: points(r.onTime, r.scheduled, 25) };
+    r.assumptions = [];
+    if (provisionalMode) {
+      const assume = (key, weight, reason) => {
+        r.parts[key] = weight;
+        r.assumptions.push({ key, reason });
+      };
+      const ownShifts = shifts.filter((sh) => String(sh.staffId) === String(r.staffId) && kpiDate(sh.inAt).slice(0, 7) === month);
+      const explicitNone = (type) => ownShifts.some((sh) => {
+        var _a, _b, _c;
+        return ((_c = (_b = (_a = sh.report) == null ? void 0 : _a.kpiProofs) == null ? void 0 : _b[type]) == null ? void 0 : _c.choice) === "none";
+      });
+      const hasEvidence = (type) => evidence.some((e) => e.month === month && String(e.staffId) === String(r.staffId) && e.type === type && e.verified === true);
+      if (!(num(t.sales) > 0) || issues.length || mappingErrors.length) assume("sales", 30, "Missing sales target or unresolved sales data");
+      if (!(num(t.upselling) > 0) || issues.length || mappingErrors.length) assume("upselling", 15, "Missing bill target or unresolved sales data");
+      let crmPoints = 0;
+      ["crm", "reviews"].forEach((type) => {
+        if (explicitNone(type) && !hasEvidence(type)) return;
+        if (!(num(t[type]) > 0) || !hasEvidence(type)) {
+          crmPoints += 5;
+          r.assumptions.push({ key: type, reason: "Missing target or verified evidence" });
+        } else crmPoints += points(r[type], num(t[type]), 5);
+      });
+      r.parts.crm = crmPoints;
+      if (!(num(t.compliments) > 0) || !hasEvidence("compliments")) assume("compliments", 10, "Missing target or verified evidence");
+      if (!r.scheduled) {
+        assume("shift", 10, "Approved roster unavailable");
+        assume("punctuality", 25, "Approved roster unavailable");
+      } else {
+        const missing = missingShiftRecords.get(String(r.staffId)) || 0;
+        if (missing) {
+          assume("shift", points(r.completed + missing, r.scheduled, 10), missing + " shift records unavailable");
+          assume("punctuality", points(r.onTime + missing, r.scheduled, 25), missing + " shift records unavailable");
+        }
+      }
+      r.issues = r.issues.filter((issue) => !issue.startsWith("Target: ") && issue !== "No elapsed approved roster shifts");
+    }
+    r.provisional = provisionalMode && (r.assumptions.length > 0 || !coverage || issues.length > 0 || mappingErrors.length > 0 || r.issues.length > 0);
     r.score = Object.values(r.parts).reduce((a, b) => a + b, 0);
     r.ready = coverage && !issues.length && !mappingErrors.length && !r.issues.length;
-    r.grade = r.ready ? kpiGrade(r.score) : "Pending";
+    r.grade = r.ready || provisionalMode ? kpiGrade(r.score) : "Pending";
     r.rate = r.ready ? { A: 3, B: 2, C: 1, D: 0 }[r.grade] : 0;
     r.commission = Math.round(Math.max(0, r.sales) * r.rate) / 100;
-    r.warning = r.grade === "D";
+    r.warning = r.ready && r.grade === "D";
     r.bonus = 0;
   });
   rows.sort((a, b) => b.sales - a.sales || String(a.staffId).localeCompare(String(b.staffId), "en", { numeric: true }));
@@ -191,15 +232,16 @@ function calculateKpi({ month, staff, local = [], storehub = [], schedules = [],
     targets,
     schedules,
     refundLinks,
-    shifts: shifts.filter((sh) => kpiDate(sh.inAt).slice(0, 7) === month).map((sh) => ({ id: sh.id, staffId: sh.staffId, inAt: sh.inAt, arrivedAt: sh.arrivedAt, outAt: sh.outAt, openTasksComplete: sh.openTasksComplete, closeTasksComplete: sh.closeTasksComplete, openCheck: sh.openCheck, closeCheck: sh.closeCheck, report: sh.report ? { cash: sh.report.cash, sigOut: sh.report.sigOut, proof: !!sh.report.proofPhoto } : null })),
+    provisionalMode,
+    shifts: shifts.filter((sh) => kpiDate(sh.inAt).slice(0, 7) === month).map((sh) => ({ id: sh.id, staffId: sh.staffId, inAt: sh.inAt, arrivedAt: sh.arrivedAt, outAt: sh.outAt, openTasksComplete: sh.openTasksComplete, closeTasksComplete: sh.closeTasksComplete, openCheck: sh.openCheck, closeCheck: sh.closeCheck, report: sh.report ? { cash: sh.report.cash, sigOut: sh.report.sigOut, proof: !!sh.report.proofPhoto, kpiProofs: sh.report.kpiProofs } : null })),
     evidence: evidence.filter((e) => e.month === month),
     txs: txs.filter((t) => kpiTxDate(t).slice(0, 7) === month).map((t) => ({ id: t.shId || t.storehubId || t.storehubTransactionId || t.id || t._id, time: kpiTxDate(t), staffId: t.staffId, employeeId: t.employeeId, total: t.total, type: t.transactionType, status: t.status, isVoid: t.isVoid }))
   };
   return { month, rows, refunds, issues: [.../* @__PURE__ */ new Set([...issues, ...mappingErrors])], fingerprint: JSON.stringify(source), ready: rows.length > 0 && rows.every((r) => r.ready) };
 }
 function kpiCsv(report, approval) {
-  const lines = [["Month", "Staff", "Rank", "Sales THB", "Score", "Grade", "Commission %", "Commission THB", "Top 2 Bonus THB", "Variable Pay THB", "Status", "Approved By"]];
-  report.rows.forEach((r) => lines.push([report.month, r.name, r.rank, r.sales, r.score.toFixed(2), r.grade, r.rate, r.commission, r.bonus, r.variablePay, approval ? "Approved" : "Draft", (approval == null ? void 0 : approval.by) || ""]));
+  const lines = [["Month", "Staff", "Rank", "Sales THB", "Score", "Grade", "Commission %", "Commission THB", "Top 2 Bonus THB", "Variable Pay THB", "Status", "Approved By", "Provisional", "Assumed Pass"]];
+  report.rows.forEach((r) => lines.push([report.month, r.name, r.rank, r.sales, r.score.toFixed(2), r.grade, r.rate, r.commission, r.bonus, r.variablePay, approval ? "Approved" : "Draft", (approval == null ? void 0 : approval.by) || "", r.provisional ? "Yes" : "No", (r.assumptions || []).map((a) => a.key + ": " + a.reason).join(" | ")]));
   return "\uFEFF" + lines.map((row) => row.map((v) => {
     let s = String(v);
     if (typeof v === "string" && /^[=+@-]/.test(s)) s = "'" + s;
@@ -9126,7 +9168,7 @@ function GreenPOS() {
     var months = Array.from(new Set([_bkkMonth, kpiMonth].concat(Object.keys(shiftBooks), Object.keys(kpiData.months))));
     months.forEach(function(month) {
       var data = kpiData.months[month] || {}, schedule = kpiSchedules(shiftBooks[month], shiftLocs, staff);
-      reports[month] = calculateKpi({ month, staff, local: transactions, storehub: data.sales || txHistory, schedules: schedule.schedules, shifts, evidence: kpiData.evidence, targets: data.targets || {}, refundLinks: data.refundLinks || {}, coverage: !!(data.loadedAt && data.coverage), mappingErrors: schedule.errors });
+      reports[month] = calculateKpi({ month, staff, local: transactions, storehub: data.sales || txHistory, schedules: schedule.schedules, shifts, evidence: kpiData.evidence, targets: data.targets || {}, refundLinks: data.refundLinks || {}, coverage: !!(data.loadedAt && data.coverage), mappingErrors: schedule.errors, missingPass: month === "2026-09" && data.missingPass !== false });
     });
     return reports;
   }, [_bkkMonth, kpiMonth, shiftBooks, shiftLocs, staff, transactions, txHistory, shifts, kpiData]);
@@ -14040,7 +14082,10 @@ function GreenPOS() {
       var file = e.target.files && e.target.files[0];
       e.target.value = "";
       importKpiBranch(file);
-    } }))), /* @__PURE__ */ React.createElement("p", null, "Sales 30% \xB7 Upselling 15% \xB7 CRM + Reviews 10% \xB7 \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E0A\u0E21 10% \xB7 \u0E40\u0E1B\u0E34\u0E14\u2013\u0E1B\u0E34\u0E14\u0E01\u0E30 10% \xB7 \u0E15\u0E23\u0E07\u0E40\u0E27\u0E25\u0E32 25%"), /* @__PURE__ */ React.createElement("p", null, "A \u226590: 3% \xB7 B \u226580: 2% \xB7 C \u226570: 1% \xB7 D <70: 0% + Warning. Top 2 \u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32: \u0E3F1,500/\u0E04\u0E19. \u0E22\u0E2D\u0E14\u0E40\u0E2A\u0E21\u0E2D\u0E01\u0E31\u0E19\u0E40\u0E23\u0E35\u0E22\u0E07\u0E15\u0E32\u0E21 Staff ID."), /* @__PURE__ */ React.createElement("p", { style: { color: C.gold } }, "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E23\u0E2D\u0E15\u0E23\u0E27\u0E08 / Draft \u0E08\u0E19\u0E01\u0E27\u0E48\u0E32\u0E08\u0E30\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E2B\u0E25\u0E31\u0E07\u0E2A\u0E34\u0E49\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \xB7 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E30\u0E41\u0E25\u0E30\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19\u0E40\u0E01\u0E47\u0E1A\u0E1A\u0E19\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E19\u0E35\u0E49 \u0E15\u0E49\u0E2D\u0E07\u0E23\u0E27\u0E1A\u0E23\u0E27\u0E21\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 / Device-local review records; collect every branch first."), kpiSync.error && /* @__PURE__ */ React.createElement("p", { role: "alert", style: { color: C.red } }, kpiSync.error, " \u2014 \u0E25\u0E2D\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E43\u0E2B\u0E21\u0E48 / Retry refresh"), report.issues.length > 0 && /* @__PURE__ */ React.createElement("p", { role: "alert", style: { color: C.gold } }, "\u0E15\u0E23\u0E27\u0E08\u0E01\u0E32\u0E23\u0E08\u0E31\u0E1A\u0E04\u0E39\u0E48\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19 / Resolve mapping: ", report.issues.join(" \xB7 ")), canEdit && /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", "aria-label": "Confirm KPI data coverage", disabled: !monthData.loadedAt, checked: !!monthData.coverage, onChange: function(e) {
+    } }))), /* @__PURE__ */ React.createElement("p", null, "Sales 30% \xB7 Upselling 15% \xB7 CRM + Reviews 10% \xB7 \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E0A\u0E21 10% \xB7 \u0E40\u0E1B\u0E34\u0E14\u2013\u0E1B\u0E34\u0E14\u0E01\u0E30 10% \xB7 \u0E15\u0E23\u0E07\u0E40\u0E27\u0E25\u0E32 25%"), /* @__PURE__ */ React.createElement("p", null, "A \u226590: 3% \xB7 B \u226580: 2% \xB7 C \u226570: 1% \xB7 D <70: 0% + Warning. Top 2 \u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32: \u0E3F1,500/\u0E04\u0E19. \u0E22\u0E2D\u0E14\u0E40\u0E2A\u0E21\u0E2D\u0E01\u0E31\u0E19\u0E40\u0E23\u0E35\u0E22\u0E07\u0E15\u0E32\u0E21 Staff ID."), /* @__PURE__ */ React.createElement("p", { style: { color: C.gold } }, "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E23\u0E2D\u0E15\u0E23\u0E27\u0E08 / Draft \u0E08\u0E19\u0E01\u0E27\u0E48\u0E32\u0E08\u0E30\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E2B\u0E25\u0E31\u0E07\u0E2A\u0E34\u0E49\u0E19\u0E40\u0E14\u0E37\u0E2D\u0E19 \xB7 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E30\u0E41\u0E25\u0E30\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19\u0E40\u0E01\u0E47\u0E1A\u0E1A\u0E19\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E19\u0E35\u0E49 \u0E15\u0E49\u0E2D\u0E07\u0E23\u0E27\u0E1A\u0E23\u0E27\u0E21\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 / Device-local review records; collect every branch first."), kpiMonth === "2026-09" && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, gs.card), { marginBottom: 12, color: C.gold }) }, canEdit ? /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", "aria-label": "September missing KPI pass", checked: monthData.missingPass !== false, onChange: function(e) {
+      updateKpiMonth({ missingPass: e.target.checked });
+      addAudit("KPI_MISSING_PASS_POLICY", "2026-09 \xB7 " + e.target.checked + " \xB7 owner-authorized September exception");
+    }, style: { width: 24, height: 24 } }), "\u0E01\u0E31\u0E19\u0E22\u0E32\u0E22\u0E19: \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E2B\u0E32\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E43\u0E2B\u0E49\u0E1C\u0E48\u0E32\u0E19\u0E0A\u0E31\u0E48\u0E27\u0E04\u0E23\u0E32\u0E27 / Missing KPI data passes provisionally") : /* @__PURE__ */ React.createElement("b", null, "\u0E01\u0E31\u0E19\u0E22\u0E32\u0E22\u0E19: ", monthData.missingPass !== false ? "\u0E43\u0E0A\u0E49\u0E40\u0E01\u0E13\u0E11\u0E4C\u0E1C\u0E48\u0E32\u0E19\u0E0A\u0E31\u0E48\u0E27\u0E04\u0E23\u0E32\u0E27 / Provisional pass enabled" : "\u0E43\u0E0A\u0E49\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E23\u0E34\u0E07 / Strict scoring"), /* @__PURE__ */ React.createElement("p", null, "\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E31\u0E19\u0E22\u0E32\u0E22\u0E19 2026 \u0E15\u0E32\u0E21\u0E04\u0E33\u0E2A\u0E31\u0E48\u0E07\u0E40\u0E08\u0E49\u0E32\u0E02\u0E2D\u0E07 \xB7 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E21\u0E35\u0E43\u0E0A\u0E49\u0E15\u0E32\u0E21\u0E08\u0E23\u0E34\u0E07 \xB7 \u0E41\u0E2A\u0E14\u0E07\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D\u0E17\u0E35\u0E48\u0E16\u0E37\u0E2D\u0E27\u0E48\u0E32\u0E1C\u0E48\u0E32\u0E19 \xB7 \u0E22\u0E2D\u0E14\u0E40\u0E07\u0E34\u0E19\u0E04\u0E2D\u0E21\u0E43\u0E0A\u0E49\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E08\u0E23\u0E34\u0E07\u0E17\u0E35\u0E48\u0E15\u0E23\u0E27\u0E08\u0E04\u0E23\u0E1A\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 / September only; assumptions are shown and sales amounts are never invented.")), kpiSync.error && /* @__PURE__ */ React.createElement("p", { role: "alert", style: { color: C.red } }, kpiSync.error, " \u2014 \u0E25\u0E2D\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E43\u0E2B\u0E21\u0E48 / Retry refresh"), report.issues.length > 0 && /* @__PURE__ */ React.createElement("p", { role: "alert", style: { color: C.gold } }, "\u0E15\u0E23\u0E27\u0E08\u0E01\u0E32\u0E23\u0E08\u0E31\u0E1A\u0E04\u0E39\u0E48\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19 / Resolve mapping: ", report.issues.join(" \xB7 ")), canEdit && /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", "aria-label": "Confirm KPI data coverage", disabled: !monthData.loadedAt, checked: !!monthData.coverage, onChange: function(e) {
       updateKpiMonth({ coverage: e.target.checked });
       addAudit("KPI_COVERAGE_REVIEW", kpiMonth + " \xB7 " + e.target.checked);
     }, style: { width: 24, height: 24 } }), "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E15\u0E23\u0E27\u0E08\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22\u0E23\u0E27\u0E21 refunds \u0E41\u0E25\u0E30\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E30/\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32 / Verify complete month data"), canEdit && report.refunds && report.refunds.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("h3", { style: { fontSize: 15 } }, "\u0E08\u0E31\u0E1A\u0E04\u0E39\u0E48\u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19 / Refund receipt links"), /* @__PURE__ */ React.createElement("p", null, "\u0E43\u0E0A\u0E49 ID \u0E1A\u0E34\u0E25\u0E02\u0E32\u0E22\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2B\u0E31\u0E01\u0E22\u0E2D\u0E14\u0E41\u0E25\u0E30\u0E19\u0E31\u0E1A\u0E1A\u0E34\u0E25 Upselling \u0E2B\u0E25\u0E31\u0E07\u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19 / Original receipt ID is required."), report.refunds.map(function(refund) {
@@ -14050,9 +14095,11 @@ function GreenPOS() {
         addAudit("KPI_REFUND_LINK", kpiMonth + " \xB7 " + refund.id);
       } }));
     })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(2,1fr)", gap: 10 } }, shownRows.map(function(r) {
-      return /* @__PURE__ */ React.createElement("div", { key: r.staffId, style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, fontSize: 13 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("b", null, "#", r.rank, " ", r.name), /* @__PURE__ */ React.createElement("b", { style: { color: r.grade === "D" ? C.red : C.green } }, r.grade, " \xB7 ", r.score.toFixed(2), "/100")), /* @__PURE__ */ React.createElement("p", null, "\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22 \u0E3F", r.sales.toLocaleString(), " \xB7 ", r.bills, " bills \xB7 \u0E1A\u0E34\u0E25 \u2265\u0E3F1,000: ", r.upselling), Object.keys(KPI_WEIGHTS).map(function(k) {
+      return /* @__PURE__ */ React.createElement("div", { key: r.staffId, style: __spreadProps(__spreadValues({}, gs.card), { background: C.card2, fontSize: 13 }) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("b", null, "#", r.rank, " ", r.name), /* @__PURE__ */ React.createElement("b", { style: { color: r.grade === "D" ? C.red : C.green } }, r.grade, " \xB7 ", r.score.toFixed(2), "/100", r.provisional ? " \xB7 \u0E0A\u0E31\u0E48\u0E27\u0E04\u0E23\u0E32\u0E27 / Provisional" : "")), /* @__PURE__ */ React.createElement("p", null, "\u0E22\u0E2D\u0E14\u0E02\u0E32\u0E22 \u0E3F", r.sales.toLocaleString(), " \xB7 ", r.bills, " bills \xB7 \u0E1A\u0E34\u0E25 \u2265\u0E3F1,000: ", r.upselling), Object.keys(KPI_WEIGHTS).map(function(k) {
         return /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 8, padding: "3px 0" } }, /* @__PURE__ */ React.createElement("span", null, KPI_LABELS[k]), /* @__PURE__ */ React.createElement("b", null, r.parts[k].toFixed(2), "/", KPI_WEIGHTS[k]));
-      }), /* @__PURE__ */ React.createElement("p", null, "CRM ", r.crm, " \xB7 Reviews ", r.reviews, " \xB7 \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E0A\u0E21 ", r.compliments, /* @__PURE__ */ React.createElement("br", null), "\u0E01\u0E30\u0E04\u0E23\u0E1A ", r.completed, "/", r.scheduled, " \xB7 \u0E15\u0E23\u0E07\u0E40\u0E27\u0E25\u0E32 ", r.onTime, "/", r.scheduled), /* @__PURE__ */ React.createElement("p", null, "\u0E04\u0E2D\u0E21 ", r.rate, "%: \u0E3F", r.commission.toLocaleString(), " + Bonus \u0E3F", r.bonus.toLocaleString(), " = ", /* @__PURE__ */ React.createElement("b", null, "\u0E3F", r.variablePay.toLocaleString())), r.warning && /* @__PURE__ */ React.createElement("p", { style: { color: C.red } }, "\u26A0 \u0E15\u0E48\u0E33\u0E01\u0E27\u0E48\u0E32\u0E40\u0E01\u0E13\u0E11\u0E4C / Under-qualified \u2014 Warning"), r.issues.length > 0 && /* @__PURE__ */ React.createElement("p", { style: { color: C.gold } }, "Pending: ", r.issues.join(" \xB7 ")));
+      }), /* @__PURE__ */ React.createElement("p", null, "CRM ", r.crm, " \xB7 Reviews ", r.reviews, " \xB7 \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E0A\u0E21 ", r.compliments, /* @__PURE__ */ React.createElement("br", null), "\u0E01\u0E30\u0E04\u0E23\u0E1A ", r.completed, "/", r.scheduled, " \xB7 \u0E15\u0E23\u0E07\u0E40\u0E27\u0E25\u0E32 ", r.onTime, "/", r.scheduled), /* @__PURE__ */ React.createElement("p", null, "\u0E04\u0E2D\u0E21 ", r.rate, "%: \u0E3F", r.commission.toLocaleString(), " + Bonus \u0E3F", r.bonus.toLocaleString(), " = ", /* @__PURE__ */ React.createElement("b", null, "\u0E3F", r.variablePay.toLocaleString())), r.assumptions && r.assumptions.length > 0 && /* @__PURE__ */ React.createElement("p", { style: { color: C.gold } }, "\u0E1C\u0E48\u0E32\u0E19\u0E0A\u0E31\u0E48\u0E27\u0E04\u0E23\u0E32\u0E27 / Assumed pass: ", r.assumptions.map(function(a) {
+        return KPI_LABELS[a.key] || (a.key === "reviews" ? "Google Reviews" : a.key);
+      }).join(" \xB7 ")), !r.ready && r.provisional && /* @__PURE__ */ React.createElement("p", { style: { color: C.gold } }, "\u0E40\u0E01\u0E23\u0E14\u0E0A\u0E31\u0E48\u0E27\u0E04\u0E23\u0E32\u0E27 \xB7 \u0E22\u0E2D\u0E14\u0E04\u0E2D\u0E21\u0E22\u0E31\u0E07\u0E23\u0E2D\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E32\u0E22\u0E04\u0E23\u0E1A / Provisional grade; payout pending complete sales review."), r.warning && /* @__PURE__ */ React.createElement("p", { style: { color: C.red } }, "\u26A0 \u0E15\u0E48\u0E33\u0E01\u0E27\u0E48\u0E32\u0E40\u0E01\u0E13\u0E11\u0E4C / Under-qualified \u2014 Warning"), r.issues.length > 0 && /* @__PURE__ */ React.createElement("p", { style: { color: C.gold } }, "Pending: ", r.issues.join(" \xB7 ")));
     })), !shownRows.length && /* @__PURE__ */ React.createElement("p", null, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E17\u0E35\u0E48\u0E40\u0E02\u0E49\u0E32\u0E40\u0E01\u0E13\u0E11\u0E4C / No eligible staff."), /* @__PURE__ */ React.createElement("hr", { style: { borderColor: C.border } }), /* @__PURE__ */ React.createElement("label", null, "\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19 / Staff ", /* @__PURE__ */ React.createElement("select", { "aria-label": "KPI staff", style: inputStyle, value: kpiStaffId, onChange: function(e) {
       setKpiStaffId(e.target.value);
     } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u0E40\u0E25\u0E37\u0E2D\u0E01 / Select"), shownRows.map(function(r) {
