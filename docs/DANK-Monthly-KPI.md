@@ -84,3 +84,9 @@ The offline harness uses synthetic data only. `monthly-kpi.test.cjs` tests
 calculation boundaries, net refunds, deduplication, attendance, readiness,
 evidence and proof selection; `monthly-kpi.test.mjs` exercises the dashboard,
 manager approval, invalidation, exports, upload/None and close-shift persistence.
+
+## September 2026 owner-authorized exception
+
+Bryan instructed that KPI values not yet available pass provisionally for the September retrospective. September defaults to this mode; a manager can disable it with “September missing KPI pass”. Other months retain strict scoring. Missing targets, missing verified CRM/review/compliment evidence, missing shift records, and unavailable approved roster earn full points in their affected components. Known target attainment, recorded late arrivals and failed checklists and explicit CRM/review “None” still use actual results. Verified evidence replacing an assumption automatically recalculates the score.
+
+Cards and CSV show provisional status and assumed components. Unresolved transaction IDs, seller mappings, refunds or incomplete sales coverage still hold commission and bonuses; no sales amount is invented. Grade assumptions and the policy enter the approval fingerprint. This exception does not remove mandatory upload-or-None before shift closing.

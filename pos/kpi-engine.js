@@ -33,7 +33,9 @@ export function kpiSchedules(book, locations, staff) {
   });
   return {schedules,errors};
 }
-export function calculateKpi({month,staff,local=[],storehub=[],schedules=[],shifts=[],evidence=[],targets={},coverage=false,mappingErrors=[],refundLinks={},now=Date.now()}) {
+export function calculateKpi({month,staff,local=[],storehub=[],schedules=[],shifts=[],evidence=[],targets={},coverage=false,mappingErrors=[],refundLinks={},missingPass=false,now=Date.now()}) {
+  // Bryan authorized this exception for the September retrospective only.
+  const provisionalMode=month==='2026-09' && missingPass===true;
   const issues=[], byId=new Map(), seen=new Set(),billNets=new Map(),refunds=[];
   const eligible=staff.filter(s=>s.approved && !['owner','shareholder','accountant','kitchen','rider'].includes(s.role));
   const rows=eligible.map(s=>{
@@ -74,13 +76,13 @@ export function calculateKpi({month,staff,local=[],storehub=[],schedules=[],shif
     if(!r || !e.reference || !['crm','reviews','compliments'].includes(e.type) || usedEvidence.has(key))return;
     usedEvidence.add(key); r[e.type]++;
   });
-  const usedShifts=new Set();
+  const usedShifts=new Set(), missingShiftRecords=new Map();
   schedules.filter(s=>s.date.slice(0,7)===month && Date.parse(s.end)<=now).forEach(sc=>{
     const r=byId.get(String(sc.staffId));if(!r)return;
     r.scheduled++;
     const matching=shifts.filter(sh=>String(sh.staffId)===String(sc.staffId) && kpiDate(sh.inAt)===sc.date && (!sc.branch || norm(sh.branch)===norm(sc.branch)) && !usedShifts.has(String(sh.id)));
     matching.sort((a,b)=>Math.abs(Date.parse(a.inAt)-Date.parse(sc.start))-Math.abs(Date.parse(b.inAt)-Date.parse(sc.start)));
-    const sh=matching[0];if(!sh)return;
+    const sh=matching[0];if(!sh){missingShiftRecords.set(String(r.staffId),(missingShiftRecords.get(String(r.staffId))||0)+1);return;}
     usedShifts.add(String(sh.id));
     if(sh.outAt && Date.parse(sh.arrivedAt||sh.inAt)<=Date.parse(sc.start)+15*60000 && Date.parse(sh.outAt)>=Date.parse(sc.end))r.onTime++;
     const exact=rs=>Array.isArray(rs)&&rs.every(x=>x.measured!=='' && x.measured!=null && Math.abs(num(x.measured)-num(x.expected))<0.000001);
@@ -91,26 +93,51 @@ export function calculateKpi({month,staff,local=[],storehub=[],schedules=[],shif
     ['sales','upselling','crm','reviews','compliments'].forEach(k=>{if(!(num(t[k])>0))r.issues.push('Target: '+k);});
     if(!r.scheduled)r.issues.push('No elapsed approved roster shifts');
     r.parts={sales:points(r.sales,num(t.sales),30),upselling:points(r.upselling,num(t.upselling),15),crm:points(r.crm,num(t.crm),5)+points(r.reviews,num(t.reviews),5),compliments:points(r.compliments,num(t.compliments),10),shift:points(r.completed,r.scheduled,10),punctuality:points(r.onTime,r.scheduled,25)};
+    r.assumptions=[];
+    if(provisionalMode) {
+      const assume=(key,weight,reason)=>{r.parts[key]=weight;r.assumptions.push({key,reason});};
+      const ownShifts=shifts.filter(sh=>String(sh.staffId)===String(r.staffId) && kpiDate(sh.inAt).slice(0,7)===month);
+      const explicitNone=type=>ownShifts.some(sh=>sh.report?.kpiProofs?.[type]?.choice==='none');
+      const hasEvidence=type=>evidence.some(e=>e.month===month && String(e.staffId)===String(r.staffId) && e.type===type && e.verified===true);
+      if(!(num(t.sales)>0) || issues.length || mappingErrors.length)assume('sales',30,'Missing sales target or unresolved sales data');
+      if(!(num(t.upselling)>0) || issues.length || mappingErrors.length)assume('upselling',15,'Missing bill target or unresolved sales data');
+      let crmPoints=0;
+      ['crm','reviews'].forEach(type=>{
+        if(explicitNone(type) && !hasEvidence(type))return;
+        if(!(num(t[type])>0) || !hasEvidence(type)) {crmPoints+=5;r.assumptions.push({key:type,reason:'Missing target or verified evidence'});}
+        else crmPoints+=points(r[type],num(t[type]),5);
+      });
+      r.parts.crm=crmPoints;
+      if(!(num(t.compliments)>0) || !hasEvidence('compliments'))assume('compliments',10,'Missing target or verified evidence');
+      if(!r.scheduled) {assume('shift',10,'Approved roster unavailable');assume('punctuality',25,'Approved roster unavailable');}
+      else {
+        const missing=missingShiftRecords.get(String(r.staffId))||0;
+        if(missing) {assume('shift',points(r.completed+missing,r.scheduled,10),missing+' shift records unavailable');assume('punctuality',points(r.onTime+missing,r.scheduled,25),missing+' shift records unavailable');}
+      }
+      // Missing targets and roster are waived only by this explicit month policy.
+      r.issues=r.issues.filter(issue=>!issue.startsWith('Target: ') && issue!=='No elapsed approved roster shifts');
+    }
+    r.provisional=provisionalMode && (r.assumptions.length>0 || !coverage || issues.length>0 || mappingErrors.length>0 || r.issues.length>0);
     // Grade uses full precision, never rounded display values.
     r.score=Object.values(r.parts).reduce((a,b)=>a+b,0);
     r.ready=coverage && !issues.length && !mappingErrors.length && !r.issues.length;
-    r.grade=r.ready?kpiGrade(r.score):'Pending';
+    r.grade=(r.ready || provisionalMode)?kpiGrade(r.score):'Pending';
     r.rate=r.ready?({A:3,B:2,C:1,D:0}[r.grade]):0;
     r.commission=Math.round(Math.max(0,r.sales)*r.rate)/100;
-    r.warning=r.grade==='D';r.bonus=0;
+    r.warning=r.ready && r.grade==='D';r.bonus=0;
   });
   rows.sort((a,b)=>b.sales-a.sales || String(a.staffId).localeCompare(String(b.staffId),'en',{numeric:true}));
   // An exact sales tie is broken by stable staff ID; only two awards ever exist.
   rows.forEach((r,i)=>{r.rank=i+1;if(coverage && !issues.length && !mappingErrors.length && i<2 && r.sales>0)r.bonus=1500;r.variablePay=r.commission+r.bonus;});
-  const source={month,rows,coverage,issues,mappingErrors,targets,schedules,refundLinks,
-    shifts:shifts.filter(sh=>kpiDate(sh.inAt).slice(0,7)===month).map(sh=>({id:sh.id,staffId:sh.staffId,inAt:sh.inAt,arrivedAt:sh.arrivedAt,outAt:sh.outAt,openTasksComplete:sh.openTasksComplete,closeTasksComplete:sh.closeTasksComplete,openCheck:sh.openCheck,closeCheck:sh.closeCheck,report:sh.report?{cash:sh.report.cash,sigOut:sh.report.sigOut,proof:!!sh.report.proofPhoto}:null})),
+  const source={month,rows,coverage,issues,mappingErrors,targets,schedules,refundLinks,provisionalMode,
+    shifts:shifts.filter(sh=>kpiDate(sh.inAt).slice(0,7)===month).map(sh=>({id:sh.id,staffId:sh.staffId,inAt:sh.inAt,arrivedAt:sh.arrivedAt,outAt:sh.outAt,openTasksComplete:sh.openTasksComplete,closeTasksComplete:sh.closeTasksComplete,openCheck:sh.openCheck,closeCheck:sh.closeCheck,report:sh.report?{cash:sh.report.cash,sigOut:sh.report.sigOut,proof:!!sh.report.proofPhoto,kpiProofs:sh.report.kpiProofs}:null})),
     evidence:evidence.filter(e=>e.month===month),
     txs:txs.filter(t=>kpiTxDate(t).slice(0,7)===month).map(t=>({id:t.shId||t.storehubId||t.storehubTransactionId||t.id||t._id,time:kpiTxDate(t),staffId:t.staffId,employeeId:t.employeeId,total:t.total,type:t.transactionType,status:t.status,isVoid:t.isVoid}))};
   return {month,rows,refunds,issues:[...new Set([...issues,...mappingErrors])], fingerprint:JSON.stringify(source),ready:rows.length>0&&rows.every(r=>r.ready)};
 }
 export function kpiCsv(report,approval) {
-  const lines=[['Month','Staff','Rank','Sales THB','Score','Grade','Commission %','Commission THB','Top 2 Bonus THB','Variable Pay THB','Status','Approved By']];
-  report.rows.forEach(r=>lines.push([report.month,r.name,r.rank,r.sales,r.score.toFixed(2),r.grade,r.rate,r.commission,r.bonus,r.variablePay,approval?'Approved':'Draft',approval?.by||'']));
+  const lines=[['Month','Staff','Rank','Sales THB','Score','Grade','Commission %','Commission THB','Top 2 Bonus THB','Variable Pay THB','Status','Approved By','Provisional','Assumed Pass']];
+  report.rows.forEach(r=>lines.push([report.month,r.name,r.rank,r.sales,r.score.toFixed(2),r.grade,r.rate,r.commission,r.bonus,r.variablePay,approval?'Approved':'Draft',approval?.by||'',r.provisional?'Yes':'No',(r.assumptions||[]).map(a=>a.key+': '+a.reason).join(' | ')]));
   return '\uFEFF'+lines.map(row=>row.map(v=>{let s=String(v);if(typeof v==='string' && /^[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}).join(',')).join('\r\n');
 }
 export function kpiProofReady(proofs) {

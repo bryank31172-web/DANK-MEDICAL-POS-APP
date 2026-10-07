@@ -13,7 +13,7 @@ const targets=Object.fromEntries(staff.slice(1).map(s=>[s.id,{sales:1000,upselli
 const source=fs.readFileSync(new URL('../app.fixed.jsx',import.meta.url),'utf8');
 const core=vm.runInNewContext(source.slice(source.indexOf('const CORE_STAFF='),source.indexOf('const INIT_EXPENSES='))+'CORE_STAFF;');
 const seedStaff=staff.concat(core.map(s=>({...s,approved:false})));
-const data={months:{[month]:{targets,sales,loadedAt:time,coverage:true}},evidence,approvals:{}};
+const data={months:{[month]:{targets,sales,loadedAt:time,coverage:true,missingPass:false}},evidence,approvals:{}};
 const errs=[];let checks=0;
 const b=await chromium.launch();const p=await b.newPage({viewport:{width:1280,height:1000},acceptDownloads:true});p.on('pageerror',e=>errs.push(e.message));
 try {
@@ -68,5 +68,19 @@ check('proof is preserved as unverified KPI evidence',await p.evaluate(()=>{cons
 check('none is preserved in closed shift report',await p.evaluate(()=>JSON.parse(localStorage.getItem('dank_shifts')).find(s=>s.id==='openproof').report.kpiProofs.reviews.choice==='none'));
 await p.reload();await p.waitForTimeout(300);check('proof survives refresh',await p.evaluate(()=>JSON.parse(localStorage.getItem('dank_monthly_kpi_v1')).evidence.some(e=>e.shiftId==='openproof'&&e.attachment)));
 for(const d of '110114')await p.getByRole('button',{name:d,exact:true}).first().click();await p.waitForTimeout(300);await openKpi();await p.getByLabel('KPI staff',{exact:true}).selectOption('2');await p.getByText('ดูรูปหลักฐาน / View uploaded proof',{exact:true}).click();check('manager can view uploaded shift proof inside the app',await p.getByAltText('crm uploaded proof').isVisible());
+// Isolated September retrospective with unavailable KPI records.
+const q=await b.newPage({viewport:{width:1280,height:1000},acceptDownloads:true});q.on('pageerror',e=>errs.push(e.message));
+await q.route('**/stub.js',route=>route.fulfill({contentType:'application/javascript',body:'window.__SH_STUB={products:[],transactions:[],customers:[]};'}));
+await q.route('**/api/storehub/**',route=>route.fulfill({json:[]}));
+await q.addInitScript(seed=>{if(localStorage.getItem('provisional_seed'))return;localStorage.setItem('provisional_seed','1');for(const [k,v] of Object.entries(seed))localStorage.setItem(k,JSON.stringify(v));},{dank_staff:seedStaff,dank_shift_staff:[],dank_shift_staff_seed_version:4,dank_shift_roster:{},dank_shifts:[],dank_monthly_kpi_v1:{months:{[month]:{sales:[],loadedAt:time,coverage:false}},evidence:[],approvals:{}}});
+const loginQ=async()=>{for(const d of '110114')await q.getByRole('button',{name:d,exact:true}).first().click();await q.getByRole('button',{name:'ไว้ก่อน',exact:true}).click().catch(()=>{});await q.getByRole('button',{name:/👤\s*พนักงาน/}).click();await q.getByRole('button',{name:'📊 KPI',exact:true}).click();await q.getByLabel('KPI month').fill(month);};
+await q.goto('http://127.0.0.1:8799/pos/testrun/test2.html');await loginQ();
+check('September defaults to clearly labelled provisional A',(await q.getByRole('dialog').innerText()).includes('A · 100.00/100 · ชั่วคราว / Provisional'));
+check('unavailable data does not enable payroll approval',await q.getByRole('button',{name:/Approve commission/}).isDisabled());
+const provisionalDownload=q.waitForEvent('download');await q.getByRole('button',{name:/Export$/}).click();const provisionalCsv=fs.readFileSync(await (await provisionalDownload).path(),'utf8');check('CSV discloses provisional assumptions',provisionalCsv.includes('Provisional')&&provisionalCsv.includes('Missing sales target'));
+await q.getByLabel('September missing KPI pass').uncheck();check('manager can disable exception and restore Pending',(await q.getByRole('dialog').innerText()).includes('Pending · 0.00/100'));
+await q.reload();await loginQ();check('disabled month policy survives reload',!await q.getByLabel('September missing KPI pass').isChecked());await q.getByLabel('September missing KPI pass').check();
+await q.setViewportSize({width:390,height:844});await q.waitForTimeout(250);check('provisional mobile dashboard has no overflow',await q.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));await q.screenshot({path:new URL('./out/september-provisional-mobile.png',import.meta.url).pathname});
+await q.getByLabel('KPI month').fill('2026-10');check('exception is not offered for October',await q.getByLabel('September missing KPI pass').count()===0);await q.close();
 assert.deepEqual(errs,[]);console.log(`${checks} browser checks passed; zero page errors`);
 } catch(e) {console.log('Wide elements:',await p.evaluate(()=>[...document.querySelectorAll('body *')].map(e=>({tag:e.tagName,text:(e.innerText||'').slice(0,70),right:e.getBoundingClientRect().right,width:e.getBoundingClientRect().width})).filter(x=>x.right>window.innerWidth+1&&x.width>0).slice(-12)));console.log('UI excerpt:',(await p.locator('body').innerText()).slice(0,2200));throw e;} finally {await b.close();}

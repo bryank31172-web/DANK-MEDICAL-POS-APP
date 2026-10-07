@@ -5489,7 +5489,7 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
   useEffect(function(){setKpiTargetDraft(((kpiData.months[kpiMonth]||{}).targets||{})[kpiStaffId]||{});},[kpiMonth,kpiStaffId,kpiData]);
   const kpiReports=React.useMemo(function(){
     var reports={};var months=Array.from(new Set([_bkkMonth,kpiMonth].concat(Object.keys(shiftBooks),Object.keys(kpiData.months))));
-    months.forEach(function(month){var data=kpiData.months[month]||{},schedule=kpiSchedules(shiftBooks[month],shiftLocs,staff);reports[month]=calculateKpi({month:month,staff:staff,local:transactions,storehub:data.sales||txHistory,schedules:schedule.schedules,shifts:shifts,evidence:kpiData.evidence,targets:data.targets||{},refundLinks:data.refundLinks||{},coverage:!!(data.loadedAt&&data.coverage),mappingErrors:schedule.errors});});
+    months.forEach(function(month){var data=kpiData.months[month]||{},schedule=kpiSchedules(shiftBooks[month],shiftLocs,staff);reports[month]=calculateKpi({month:month,staff:staff,local:transactions,storehub:data.sales||txHistory,schedules:schedule.schedules,shifts:shifts,evidence:kpiData.evidence,targets:data.targets||{},refundLinks:data.refundLinks||{},coverage:!!(data.loadedAt&&data.coverage),mappingErrors:schedule.errors,missingPass:month==='2026-09'&&data.missingPass!==false});});
     return reports;
   },[_bkkMonth,kpiMonth,shiftBooks,shiftLocs,staff,transactions,txHistory,shifts,kpiData]);
   const kpiReportFor=function(month){return kpiReports[month]||{month:month,rows:[],issues:[],ready:false,fingerprint:''};};
@@ -10538,17 +10538,23 @@ const bizOf=function(p){if(p&&p.biz)return p.biz;return /\[\s*bar/i.test(String(
             <p>Sales 30% · Upselling 15% · CRM + Reviews 10% · ลูกค้าชม 10% · เปิด–ปิดกะ 10% · ตรงเวลา 25%</p>
             <p>A ≥90: 3% · B ≥80: 2% · C ≥70: 1% · D &lt;70: 0% + Warning. Top 2 ทุกสาขา: ฿1,500/คน. ยอดเสมอกันเรียงตาม Staff ID.</p>
             <p style={{color:C.gold}}>รายงานรอตรวจ / Draft จนกว่าจะอนุมัติหลังสิ้นเดือน · ข้อมูลกะและหลักฐานเก็บบนเครื่องนี้ ต้องรวบรวมครบทุกสาขาก่อนอนุมัติ / Device-local review records; collect every branch first.</p>
+            {kpiMonth==='2026-09'&&<div style={{...gs.card,marginBottom:12,color:C.gold}}>
+              {canEdit?<label style={{display:'flex',alignItems:'center',gap:8}}><input type="checkbox" aria-label="September missing KPI pass" checked={monthData.missingPass!==false} onChange={function(e){updateKpiMonth({missingPass:e.target.checked});addAudit('KPI_MISSING_PASS_POLICY','2026-09 · '+e.target.checked+' · owner-authorized September exception');}} style={{width:24,height:24}}/>กันยายน: ข้อมูลที่ยังหาไม่ได้ให้ผ่านชั่วคราว / Missing KPI data passes provisionally</label>:<b>กันยายน: {monthData.missingPass!==false?'ใช้เกณฑ์ผ่านชั่วคราว / Provisional pass enabled':'ใช้ข้อมูลจริง / Strict scoring'}</b>}
+              <p>เฉพาะกันยายน 2026 ตามคำสั่งเจ้าของ · ข้อมูลที่มีใช้ตามจริง · แสดงหัวข้อที่ถือว่าผ่าน · ยอดเงินคอมใช้ยอดขายจริงที่ตรวจครบเท่านั้น / September only; assumptions are shown and sales amounts are never invented.</p>
+            </div>}
             {kpiSync.error&&<p role="alert" style={{color:C.red}}>{kpiSync.error} — ลองโหลดใหม่ / Retry refresh</p>}
             {report.issues.length>0&&<p role="alert" style={{color:C.gold}}>ตรวจการจับคู่พนักงาน / Resolve mapping: {report.issues.join(' · ')}</p>}
             {canEdit&&<label style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><input type="checkbox" aria-label="Confirm KPI data coverage" disabled={!monthData.loadedAt} checked={!!monthData.coverage} onChange={function(e){updateKpiMonth({coverage:e.target.checked});addAudit('KPI_COVERAGE_REVIEW',kpiMonth+' · '+e.target.checked);}} style={{width:24,height:24}}/>ยืนยันตรวจยอดขายรวม refunds และข้อมูลกะ/หลักฐานครบทุกสาขา / Verify complete month data</label>}
             {canEdit&&report.refunds&&report.refunds.length>0&&<div style={{marginBottom:12}}><h3 style={{fontSize:15}}>จับคู่คืนเงิน / Refund receipt links</h3><p>ใช้ ID บิลขายต้นฉบับ เพื่อหักยอดและนับบิล Upselling หลังคืนเงิน / Original receipt ID is required.</p>{report.refunds.map(function(refund){return <label key={refund.id} style={{display:'block',marginTop:8}}>Refund {refund.id} · ฿{Math.abs(refund.amount).toLocaleString()}<input aria-label={'Refund original '+refund.id} style={inputStyle} value={(monthData.refundLinks||{})[refund.id]||refund.originalId} onChange={function(e){updateKpiMonth({refundLinks:Object.assign({},monthData.refundLinks,{[refund.id]:e.target.value}),coverage:false});}} onBlur={function(){addAudit('KPI_REFUND_LINK',kpiMonth+' · '+refund.id);}}/></label>;})}</div>}
             <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(2,1fr)",gap:10}}>
               {shownRows.map(function(r){return <div key={r.staffId} style={{...gs.card,background:C.card2,fontSize:13}}>
-                <div style={{display:"flex",justifyContent:"space-between",gap:8}}><b>#{r.rank} {r.name}</b><b style={{color:r.grade==='D'?C.red:C.green}}>{r.grade} · {r.score.toFixed(2)}/100</b></div>
+                <div style={{display:"flex",justifyContent:"space-between",gap:8}}><b>#{r.rank} {r.name}</b><b style={{color:r.grade==='D'?C.red:C.green}}>{r.grade} · {r.score.toFixed(2)}/100{r.provisional?' · ชั่วคราว / Provisional':''}</b></div>
                 <p>ยอดขาย ฿{r.sales.toLocaleString()} · {r.bills} bills · บิล ≥฿1,000: {r.upselling}</p>
                 {Object.keys(KPI_WEIGHTS).map(function(k){return <div key={k} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"3px 0"}}><span>{KPI_LABELS[k]}</span><b>{r.parts[k].toFixed(2)}/{KPI_WEIGHTS[k]}</b></div>;})}
                 <p>CRM {r.crm} · Reviews {r.reviews} · ลูกค้าชม {r.compliments}<br/>กะครบ {r.completed}/{r.scheduled} · ตรงเวลา {r.onTime}/{r.scheduled}</p>
                 <p>คอม {r.rate}%: ฿{r.commission.toLocaleString()} + Bonus ฿{r.bonus.toLocaleString()} = <b>฿{r.variablePay.toLocaleString()}</b></p>
+                {r.assumptions&&r.assumptions.length>0&&<p style={{color:C.gold}}>ผ่านชั่วคราว / Assumed pass: {r.assumptions.map(function(a){return KPI_LABELS[a.key]||(a.key==='reviews'?'Google Reviews':a.key);}).join(' · ')}</p>}
+                {!r.ready&&r.provisional&&<p style={{color:C.gold}}>เกรดชั่วคราว · ยอดคอมยังรอข้อมูลขายครบ / Provisional grade; payout pending complete sales review.</p>}
                 {r.warning&&<p style={{color:C.red}}>⚠ ต่ำกว่าเกณฑ์ / Under-qualified — Warning</p>}
                 {r.issues.length>0&&<p style={{color:C.gold}}>Pending: {r.issues.join(' · ')}</p>}
               </div>;})}
