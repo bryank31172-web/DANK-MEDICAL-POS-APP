@@ -7,7 +7,7 @@ const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 const staff=[{id:1,name:'Bryan (CEO)',pin:'110114',role:'owner',approved:true,branch:'Pattanakarn',payType:'monthly',wage:60000,clockIns:[]},...['Alice','Bob'].map((name,i)=>({id:i+2,shId:'e'+(i+2),name,pin:'',role:'budtender',approved:true,branch:i?'Sathorn':'Pattanakarn',payType:'monthly',wage:19000,clockIns:[]}))];
 const schedules={days:[{date:'2026-09-10'}],cells:{'ptk|2026-09-10|D':{id:2,name:'Alice'},'st|2026-09-10|D':{id:3,name:'Bob'}}};
 const shifts=staff.slice(1).map(s=>({id:'old'+s.id,staffId:s.id,staffName:s.name,inAt:time,outAt:end,branch:s.branch,openTasksComplete:true,closeTasksComplete:true,openCheck:[],closeCheck:[],report:{cash:'0',sigOut:s.name,proofPhoto:'data:image/png;base64,'+image.toString('base64')}}));
-const sales=staff.slice(1).map(s=>({id:'tx'+s.id,employeeId:s.shId,total:1000,transactionTime:time}));
+const sales=staff.slice(1).map(s=>({refId:'tx'+s.id,employeeId:s.shId,total:1000,transactionTime:time}));
 const evidence=staff.slice(1).flatMap(s=>['crm','reviews','compliments'].map(type=>({id:type+s.id,month,staffId:s.id,type,reference:type+s.id,verified:true})));
 const targets=Object.fromEntries(staff.slice(1).map(s=>[s.id,{sales:1000,upselling:1,crm:1,reviews:1,compliments:1}]));
 const source=fs.readFileSync(new URL('../app.fixed.jsx',import.meta.url),'utf8');

@@ -41,7 +41,9 @@ CRM customer, review URL or receipt and attribution against the uploaded image.
    compliment targets. No target is silently invented.
 3. Refresh sales. The request loads the selected month plus two prior months,
    covering receipts needed to link refunds. Voids/cancellations are excluded;
-   refund totals are deducted. Refunds without a valid original receipt link
+   refund totals are deducted. StoreHub `refId` is accepted as the receipt ID,
+   `isCancelled` receipts are excluded, and `saleInvoiceNumber` links returns
+   only when one sale matches in the same store and register. Refunds without a valid original receipt link
    leave the affected employee Pending; fill in the original receipt ID.
 4. Use an approved roster, not a draft. Overnight shifts belong to their start
    date. Arriving over 15 minutes late or leaving before the scheduled end fails

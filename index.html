@@ -61,6 +61,9 @@ function kpiGrade(score) {
 var num = (n) => Number.isFinite(+n) ? +n : 0;
 var norm = (n) => String(n || "").trim().toLowerCase();
 var points = (actual, target, weight) => target > 0 ? Math.min(1, Math.max(0, actual / target)) * weight : 0;
+var kpiTxId = (t) => String(t.shId || t.storehubId || t.storehubTransactionId || t.id || t._id || t.transactionId || t.refId || "");
+var isCancelled = (t) => t.isVoid === true || t.isCancelled === true || /void|cancel/i.test(String(t.transactionType || t.status || ""));
+var isRefund = (t) => /return|refund/i.test(String(t.transactionType || t.status || "")) || num(t.total) < 0;
 function kpiSchedules(book, locations, staff) {
   const schedules = [], errors = [];
   Object.entries((book == null ? void 0 : book.cells) || {}).forEach(([key, cell]) => {
@@ -98,14 +101,14 @@ function calculateKpi({ month, staff, local = [], storehub = [], schedules = [],
   const txs = [...storehub.map((t) => __spreadProps(__spreadValues({}, t), { _source: "sh" })), ...local.map((t) => __spreadProps(__spreadValues({}, t), { _source: "local" }))];
   txs.forEach((t) => {
     if (kpiTxDate(t).slice(0, 7) !== month) return;
-    const key = t.shId || t.storehubId || t.storehubTransactionId || t.id || t._id;
+    const key = kpiTxId(t);
     if (!key) {
       issues.push("Transaction without ID");
       return;
     }
     if (seen.has(String(key))) return;
     seen.add(String(key));
-    if (t.isVoid || /void|cancel/i.test(String(t.transactionType || t.status || ""))) return;
+    if (isCancelled(t)) return;
     const matches = staff.filter((s) => t._source === "sh" ? s.shId && String(s.shId) === String(t.employeeId) : String(s.id) === String(t.staffId));
     if (matches.length !== 1) {
       issues.push("Unmapped seller: " + String(t.employeeId || t.staffId || key));
@@ -113,17 +116,25 @@ function calculateKpi({ month, staff, local = [], storehub = [], schedules = [],
     }
     const r = byId.get(String(matches[0].id));
     if (!r) return;
-    const refund = /return|refund/i.test(String(t.transactionType || t.status || "")) || num(t.total) < 0;
+    const refund = isRefund(t);
     const amount = refund ? -Math.abs(num(t.total)) : num(t.total);
     r.sales += amount;
     if (!refund && amount > 0) billNets.set(String(key), { r, net: amount });
-    if (refund) refunds.push({ staffId: r.staffId, id: String(key), amount, originalId: String(refundLinks[String(key)] || t.originalTransactionId || t.refundedTransactionId || t.originalReceiptId || "") });
+    if (refund) refunds.push({ staffId: r.staffId, id: String(key), amount, originalId: String(refundLinks[String(key)] || t.originalTransactionId || t.refundedTransactionId || t.originalReceiptId || ""), saleInvoiceNumber: t.saleInvoiceNumber, storeId: t.storeId, registerId: t.registerId });
   });
   refunds.forEach((refund) => {
     var _a;
     const r = byId.get(String(refund.staffId));
-    const original = txs.find((t) => String(t.shId || t.storehubId || t.storehubTransactionId || t.id || t._id) === refund.originalId);
-    if (!original || /return|refund|void|cancel/i.test(String(original.transactionType || original.status || "")) || original.isVoid) {
+    let original = refund.originalId ? txs.find((t) => kpiTxId(t) === refund.originalId) : null;
+    if (!refund.originalId && refund.saleInvoiceNumber && refund.storeId && refund.registerId) {
+      const candidates = txs.filter((t) => t._source === "sh" && String(t.invoiceNumber) === String(refund.saleInvoiceNumber) && String(t.storeId) === String(refund.storeId) && String(t.registerId) === String(refund.registerId) && !isRefund(t) && !isCancelled(t));
+      const unique = new Map(candidates.map((t) => [kpiTxId(t), t]));
+      if (unique.size === 1) {
+        original = [...unique.values()][0];
+        refund.originalId = kpiTxId(original);
+      }
+    }
+    if (!original || isRefund(original) || isCancelled(original)) {
       r.issues.push("Refund original receipt: " + refund.id);
       return;
     }
@@ -235,7 +246,7 @@ function calculateKpi({ month, staff, local = [], storehub = [], schedules = [],
     provisionalMode,
     shifts: shifts.filter((sh) => kpiDate(sh.inAt).slice(0, 7) === month).map((sh) => ({ id: sh.id, staffId: sh.staffId, inAt: sh.inAt, arrivedAt: sh.arrivedAt, outAt: sh.outAt, openTasksComplete: sh.openTasksComplete, closeTasksComplete: sh.closeTasksComplete, openCheck: sh.openCheck, closeCheck: sh.closeCheck, report: sh.report ? { cash: sh.report.cash, sigOut: sh.report.sigOut, proof: !!sh.report.proofPhoto, kpiProofs: sh.report.kpiProofs } : null })),
     evidence: evidence.filter((e) => e.month === month),
-    txs: txs.filter((t) => kpiTxDate(t).slice(0, 7) === month).map((t) => ({ id: t.shId || t.storehubId || t.storehubTransactionId || t.id || t._id, time: kpiTxDate(t), staffId: t.staffId, employeeId: t.employeeId, total: t.total, type: t.transactionType, status: t.status, isVoid: t.isVoid }))
+    txs: txs.filter((t) => kpiTxDate(t).slice(0, 7) === month).map((t) => ({ id: kpiTxId(t), time: kpiTxDate(t), staffId: t.staffId, employeeId: t.employeeId, total: t.total, type: t.transactionType, status: t.status, isVoid: t.isVoid, isCancelled: t.isCancelled, invoiceNumber: t.invoiceNumber, saleInvoiceNumber: t.saleInvoiceNumber, storeId: t.storeId, registerId: t.registerId, originalTransactionId: t.originalTransactionId, refundedTransactionId: t.refundedTransactionId, originalReceiptId: t.originalReceiptId }))
   };
   return { month, rows, refunds, issues: [.../* @__PURE__ */ new Set([...issues, ...mappingErrors])], fingerprint: JSON.stringify(source), ready: rows.length > 0 && rows.every((r) => r.ready) };
 }
