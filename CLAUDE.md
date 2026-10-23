@@ -116,12 +116,6 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
    the owner's word on which are still in daily use before removing.
 11. Decide the customer site's menu source: the curated 53-item `products.json` (clean names +
    photos) vs the raw 395-item POS feed it serves today (`( Bar ) Tequila shot`).
-12. **20 September shifts still have nobody, and the report names each one.** The latest owner
-   decisions remove resigned Pond, restore Palm at ฿16,000/month, reduce Honey, increase Steve
-   and Pok, keep Alex and Jack bar-only, and cap full-time counter staff at 25–27 shifts. The
-   remaining gaps are `ptk/B2` (9), `ptk/C2` (4), `ptk/C1` (1) and `bar/FSDAY` (6). Do not widen
-   a person's shop/slot clearance just to make the red number disappear; the manager must
-   confirm who is trained and available for those slots.
 
 ## Done and verified — do not re-litigate
 - **Customers who owe the shop is a finished feature, not a missing one**: on-account sales
@@ -197,12 +191,13 @@ Owner: Bryan · Dank Cannabis Clinic Bangkok (Pattanakarn, Sathorn, Petchaboon, 
   CEO row and in `result.visits`; hours land in `visitHours`, never in shift hours or the shop
   labour total. Modelling them as cover hid the fact that the Phatthanakarn night shift was
   three shifts short of staff cleared to stand it.
-- **Alex leads DANK 224 Bar:** 26 shifts / 216 normal hours, Friday off, covering every Mon–Thu
-  PM plus Sat/Sun night. Jack is bar-only Friday-night cover (4 shifts / 36h). Pond is removed;
-  Palm returns at ฿16,000/month; Honey drops to 16–18 shifts while Steve and Pok target 27;
-  Rena and Ploy each carry one weekly marketing/content duty inside their normal roster. Existing
-  devices receive this staffing decision once through `dank_shift_staff_seed_version`, after
-  which later manager edits remain untouched.
+- **September 2026 is fixed to the owner-approved Base Coverage V8 roster:** 342 duties across
+  Phatthanakarn, Sathorn Rama 3 and 224 Bar, with every required cell filled. The six same-day
+  conflicts in the photographed draft were resolved with minimum-change swaps: one person may
+  hold only one shift per calendar day across the whole group. The published roster preserves
+  the approved per-person duty and roster-hour totals, Ploy's integrated 10 September content
+  duty, and a maximum run of six working days. September deliberately outranks an older generated
+  September copy in localStorage; other months still use the normal availability generator.
 - An empty required shift carries `blockers[]` — the trained staff who were rejected and why
   ("Mon: at their maximum", "Honey: already working today"). Listing everyone at the shop instead
   buried that under four lines of "not authorised on C2" for people who were never candidates.
